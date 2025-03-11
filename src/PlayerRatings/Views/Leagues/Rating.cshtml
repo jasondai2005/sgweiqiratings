@@ -1,0 +1,158 @@
+﻿@using PlayerRatings.Localization
+@model PlayerRatings.ViewModels.League.RatingViewModel
+
+@{
+    ViewData["Title"] = LocString[nameof(LocalizationKey.Rating)];
+
+    var number = 1;
+}
+
+<h3>@ViewData["Title"]</h3>
+
+<div class="table-responsive">
+    <table class="table table-striped">
+        <tr>
+            <th>
+                №
+            </th>
+            <th>
+                @LocString[nameof(LocalizationKey.DisplayName)]
+            </th>
+            <th>
+                @LocString[nameof(LocalizationKey.Ranking)]
+            </th>
+            @foreach (var item in Model.Stats)
+            {
+                <th>
+                    @LocString[item.NameLocalizationKey]
+                </th>
+            }
+            @if (Model.Stats.Count() > 2)
+            {
+                <th>
+                    @LocString[nameof(LocalizationKey.OriRanking)]
+                </th>
+            }
+        </tr>
+
+        @foreach (var item in Model.Users)
+        {
+            <tr>
+                <td>
+                    @item.GetPosition( ref number)
+                </td>
+                <td>
+                    @item.DisplayName
+                </td>
+                <td>
+                    @item.RankingBeforeCutoffDate.ToUpper()
+                </td>
+                @foreach (var res in Model.Stats)
+                {
+                    <td>
+                        @res.GetResult(item)
+                    </td>
+                }
+                @if (Model.Stats.Count() > 2)
+                {
+                    <td>
+                        @item.InitRanking
+                    </td>
+                }
+            </tr>
+        }
+
+    </table>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped">
+        @foreach (var item in Model.PromotedPlayers)
+        {
+            <tr>
+                <td>
+                    @item.ShorterName @item.Promotion
+                </td>
+            </tr>
+        }
+
+    </table>
+</div>
+
+<h3>@LocString[nameof(LocalizationKey.LastMatches)]</h3>
+<div class="table-responsive">
+    <table class="table table-striped table-responsive">
+        <tr>
+            <th>
+                @LocString[nameof(LocalizationKey.Match)]
+            </th>
+            <th>
+                @LocString[nameof(LocalizationKey.FirstPlayer)]
+            </th>
+            <th>
+                @LocString[nameof(LocalizationKey.SecondPlayer)]
+            </th>
+            <th>
+                @LocString[nameof(LocalizationKey.ShiftRating)]
+            </th>
+            <th>
+                @LocString[nameof(LocalizationKey.Date)]
+            </th>
+        </tr>
+
+        @foreach (var item in Model.LastMatches)
+        {
+            <tr>
+                <td>
+                    @item.MatchName
+                </td>
+                <td>
+                    @item.FirstPlayer.DisplayName (@item.OldFirstPlayerRating)
+                </td>
+                <td>
+                    @item.SecondPlayer.DisplayName (@item.OldSecondPlayerRating)
+                </td>
+                <td>
+                    @item.ShiftRating
+                </td>
+                <td>
+                    @item.StrDate
+                </td>
+            </tr>
+        }
+    </table>
+</div>
+
+@* <h3>@LocString[nameof(LocalizationKey.Forecast)]</h3>
+<div class="table-responsive">
+    <table class="table table-striped table-responsive">
+        <tr>
+            <th>
+            </th>
+            @foreach (var item in Model.Users)
+            {
+                <th>
+                    @item.DisplayName
+                </th>
+            }
+        </tr>
+
+        @foreach (var userVer in Model.Users)
+        {
+            <tr>
+                <td>
+                    @userVer.DisplayName
+                </td>
+                @foreach (var userHor in Model.Users)
+                {
+                    <td>
+                        @if (userHor != userVer)
+                    {
+                            @Model.Forecast[userVer.Id][userHor.Id]
+                        }
+                    </td>
+                }
+            </tr>
+        }
+    </table>
+</div> *@
