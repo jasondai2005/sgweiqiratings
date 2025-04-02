@@ -71,6 +71,13 @@ namespace PlayerRatings.Models
         public bool IsProPlayer => RankingBeforeCutoffDate.Contains('P');
         public bool IsNewKyuPlayer => MatchCount <= 12 && !InternalInitRanking.Contains('D') && !IsProPlayer && !IsVirtualPlayer;
         public bool IsNewPlayer => (IsNewKyuPlayer || IsNewForeignPlayer);
+        public string SWARanking
+        {
+            get
+            {
+                return LatestSWARanking.Key;
+            }
+        }
 
         public string LatestRanking => GetRankingBeforeDate(DateTimeOffset.Now.AddDays(1));
 
@@ -78,7 +85,7 @@ namespace PlayerRatings.Models
         {
             get
             {
-                var date = RankingHistory.First().Value;
+                var date = LatestSWARanking.Value;
                 return date == DateTimeOffset.MinValue ? string.Empty : date.ToString(DATE_FORMAT);
             }
         }
@@ -165,6 +172,31 @@ namespace PlayerRatings.Models
                 }
 
                 return _rankingHistory;
+            }
+        }
+
+        public KeyValuePair<string, DateTimeOffset> LatestSWARanking
+        {
+            get
+            {
+                var swaRankingHistory = RankingHistory?.Where(x => x.Key != BIRTH_YEAR && !x.Key.StartsWith('[') && !x.Key.StartsWith('(') && !x.Key.Contains('?') && !x.Key.Contains('P')).ToDictionary(x=>x.Key, x=>x.Value);
+                string latestRanking = string.Empty;
+                DateTimeOffset rankingDate = DateTimeOffset.MinValue;
+                foreach (var ranking in swaRankingHistory.Keys)
+                {
+                    if (string.IsNullOrEmpty(latestRanking))
+                    {
+                        latestRanking = ranking.Contains(" ") == true ? ranking.Substring(0, ranking.IndexOf(' ')) : ranking;
+                    }
+                    else if (!ranking.StartsWith(latestRanking))
+                    {
+                        break;
+                    }
+
+                    rankingDate = swaRankingHistory[ranking];
+                }
+
+                return new KeyValuePair<string, DateTimeOffset>(latestRanking, rankingDate);
             }
         }
 

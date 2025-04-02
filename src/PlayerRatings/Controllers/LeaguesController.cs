@@ -60,7 +60,7 @@ namespace PlayerRatings.Controllers
             return View(new LeagueDetailsViewModel
             {
                 League = league,
-                Players = players
+                Players = players.Where(x=>!string.IsNullOrEmpty(x.User.SWARanking))
             });
         }
 
