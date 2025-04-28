@@ -214,8 +214,12 @@ namespace PlayerRatings.Models
             ranking = ranking.ToUpper();
             if (ranking.Contains(' '))
             {
-                if (ranking.Contains('(')) ranking = ranking.Substring(ranking.IndexOf('('));
-                if (ranking.Contains('[')) ranking = ranking.Substring(0, ranking.IndexOf(' '));
+                bool useSwaRanking = ranking.Contains('[') ||
+                    (ranking.Contains('(') && !ranking.Contains("5D"));
+                if (useSwaRanking)
+                    ranking = ranking.Substring(0, ranking.IndexOf(' '));
+                else
+                    ranking = ranking.Substring(ranking.IndexOf('('));
             }
 
             bool isForeign = ranking.Contains('[');
