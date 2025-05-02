@@ -1,6 +1,6 @@
-# Player Ratings
+# Singapore Weiqi Ratings - Branched out from Player Ratings
 
-Elo based rating system for two players games: table football, tennis, go and etc. Includes management for leagues, players, matches. Additional statistics: win rate, goals against/for, loose/win streaks.
+Elo based rating system for two players games. Specificly adjusted for Singapore Weiqi (Go) competitions.
 
 Based on https://github.com/jacob-l/playerratings
 The project is availabe at <a href="http://elo.su">http://elo.su</a>. Feel free to join.
