@@ -9,7 +9,7 @@ namespace PlayerRatings.Models
         private const string BIRTH_YEAR = "BY";
         internal const string DATE_FORMAT = "dd/MM/yyyy";
         private const int ONE_P_RATING = 2240;
-        private const int ONE_D_RATING = 1800;
+        private const int ONE_D_RATING = 1800; // 2000;
         private const int DAN_RANKING_DIFF = 40;
         private const int KYU_RANKING_DIFF_HIGH = 10;
         private const int KYU_RANKING_DIFF_LOW = 2;
@@ -244,9 +244,9 @@ namespace PlayerRatings.Models
                 switch (rankingNum)
                 {
                     case 8:
-                        return ONE_P_RATING;
+                        return ONE_D_RATING == 2000 ? GetDanRating(rankingNum) : ONE_P_RATING;
                     case 7:
-                        return ONE_P_RATING - 120;
+                        return ONE_D_RATING == 2000 ? GetDanRating(rankingNum) : ONE_P_RATING - 120;
                     case 6:
                     case 5:
                         return GetDanRating(rankingNum);
