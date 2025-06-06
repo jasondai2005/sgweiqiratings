@@ -7,6 +7,7 @@ namespace PlayerRatings.Engine.Rating
         private const double Denominator = 400;
 
         public const int K = 16;
+        public const int LowerK = 10;
 
         internal readonly double OldRatingPlayerA;
         internal readonly double OldRatingPlayerB;

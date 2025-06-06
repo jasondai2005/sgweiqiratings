@@ -74,8 +74,8 @@ namespace PlayerRatings.Engine.Stats
                 }
             }
 
-            var rating1 = new Elo(firstPlayerRating, secondPlayerRating, firstUserScore, 1 - firstUserScore, Elo.K * factor1);
-            var rating2 = new Elo(firstPlayerRating, secondPlayerRating, firstUserScore, 1 - firstUserScore, Elo.K * factor2);
+            var rating1 = new Elo(firstPlayerRating, secondPlayerRating, firstUserScore, 1 - firstUserScore, (firstPlayerRating >= 2200 ? Elo.LowerK : Elo.K) * factor1);
+            var rating2 = new Elo(firstPlayerRating, secondPlayerRating, firstUserScore, 1 - firstUserScore, (firstPlayerRating >= 2200 ? Elo.LowerK : Elo.K) * factor2);
 
             match.OldFirstPlayerRating = rating1.OldRatingPlayerA.ToString("F1");
             match.OldSecondPlayerRating = rating1.OldRatingPlayerB.ToString("F1");
