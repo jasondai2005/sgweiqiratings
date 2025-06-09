@@ -109,7 +109,7 @@ namespace PlayerRatings.Models
                 }
 
                 if (prevRanking != curRanking)
-                    return (prevRanking + "→" + curRanking).ToUpper();
+                    return ((prevRanking.Contains('?') ? string.Empty : prevRanking) + "→" + curRanking).ToUpper();
 
                 return string.Empty;
             }
