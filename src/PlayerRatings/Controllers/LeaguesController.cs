@@ -418,8 +418,8 @@ namespace PlayerRatings.Controllers
 
             if (rankingRating1 == rankingRating2) // the same rating
             {
-                var latestRanking1 = user1.LatestRanking;
-                var latestRanking2 = user2.LatestRanking;
+                var latestRanking1 = ApplicationUser.GetEffectiveRanking(user1.LatestRanking);
+                var latestRanking2 = ApplicationUser.GetEffectiveRanking(user2.LatestRanking);
                 if (rankingRating1 <= 1710) // will not differenciate kyus certified by SWA or other
                 {
                     latestRanking1 = latestRanking1.Trim('(', ')');
@@ -428,14 +428,6 @@ namespace PlayerRatings.Controllers
                 if (rankingRating1 == 0)
                 {
                     latestRanking1 = latestRanking2 = string.Empty;
-                }
-                if (latestRanking1.Contains(' '))
-                {
-                    if (latestRanking1.Contains('[')) latestRanking1 = latestRanking1.Substring(0, latestRanking1.IndexOf(' '));
-                }
-                if (latestRanking2.Contains(' '))
-                {
-                    if (latestRanking2.Contains('[')) latestRanking2 = latestRanking2.Substring(0, latestRanking2.IndexOf(' '));
                 }
 
                 if (latestRanking1 == latestRanking2)

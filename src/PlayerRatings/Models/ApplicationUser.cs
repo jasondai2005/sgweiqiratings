@@ -37,7 +37,7 @@ namespace PlayerRatings.Models
             get
             {
                 var rankingChangeDeadline = League.CutoffDate.AddMonths(-6);
-                return League.CutoffDate.AddYears(-1) < LastMatch || RankingBeforeCutoffDate != GetRankingBeforeDate(rankingChangeDeadline);
+                return IsVirtualPlayer || League.CutoffDate.AddYears(-1) < LastMatch || RankingBeforeCutoffDate != GetRankingBeforeDate(rankingChangeDeadline);
             }
         }
 
@@ -211,21 +211,12 @@ namespace PlayerRatings.Models
             if (string.IsNullOrEmpty(ranking))
                 return protectd ? GetKyuRating(11, true) : GetKyuRating(5, false);
 
-            ranking = ranking.ToUpper();
-            if (ranking.Contains(' '))
-            {
-                bool useSwaRanking = ranking.Contains('[') ||
-                    (ranking.Contains('(') && !ranking.Contains("5D"));
-                if (useSwaRanking)
-                    ranking = ranking.Substring(0, ranking.IndexOf(' '));
-                else
-                    ranking = ranking.Substring(ranking.IndexOf('('));
-            }
+            ranking = GetEffectiveRanking(ranking);
 
             bool isForeign = ranking.Contains('[');
             if (protectd && (isForeign || ranking.Contains('?')))
                 return GetKyuRating(11, true);
-            
+
             bool isPro = ranking.Contains('P');
             bool isDan = ranking.Contains('D');
             bool isKyu = ranking.Contains('K');
@@ -290,9 +281,25 @@ namespace PlayerRatings.Models
                     case "♕": // international champion
                         return 2640;
                     default:
-                            return GetKyuRating(11, protectd);
+                        return GetKyuRating(11, protectd);
                 }
             }
+        }
+
+        public static string GetEffectiveRanking(string ranking)
+        {
+            ranking = ranking.ToUpper();
+            if (ranking.Contains(' '))
+            {
+                bool useSwaRanking = ranking.Contains('[') ||
+                    (ranking.Contains('(') && !ranking.Contains("5D"));
+                if (useSwaRanking)
+                    ranking = ranking.Substring(0, ranking.IndexOf(' '));
+                else
+                    ranking = ranking.Substring(ranking.IndexOf('('));
+            }
+
+            return ranking;
         }
 
         private int GetProRating(int pro)
