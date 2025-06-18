@@ -37,8 +37,9 @@ namespace PlayerRatings.Controllers
         public IActionResult Index()
         {
             var users = _context.Users.ToList().Where(x => !x.IsVirtualPlayer);
-            var userIds = _context.Match.Select(x => x.FirstPlayerId).Distinct().Union(_context.Match.Select(x => x.SecondPlayerId).Distinct());
-            var model = new IndexViewModel(_context.League.Count(), users.Where(x => userIds.Contains(x.Id)).Count(), _context.Match.Count());
+            var matches = _context.Match.ToList();
+            var userIds = matches.Select(x => x.FirstPlayerId).Distinct().Union(matches.Select(x => x.SecondPlayerId).Distinct()).ToList();
+            var model = new IndexViewModel(_context.League.Count(), users.Where(x => userIds.Contains(x.Id)).Count(), matches.Count());
 
             return View(model);
         }
