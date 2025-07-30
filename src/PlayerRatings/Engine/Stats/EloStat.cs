@@ -20,8 +20,9 @@ namespace PlayerRatings.Engine.Stats
                 firstUserScore = 0.5;
             }
 
-            int firstPlayerRankingRating = match.FirstPlayer.GetRatingBeforeDate(match.Date.Date);
-            int secondPlayerRankingRating = match.SecondPlayer.GetRatingBeforeDate(match.Date.Date);
+            bool isIntlLeague = match.League.Name.Contains("Intl.");
+            int firstPlayerRankingRating = match.FirstPlayer.GetRatingBeforeDate(match.Date.Date, isIntlLeague);
+            int secondPlayerRankingRating = match.SecondPlayer.GetRatingBeforeDate(match.Date.Date, isIntlLeague);
             double firstPlayerRating = _dict.ContainsKey(match.FirstPlayer.Id) ? _dict[match.FirstPlayer.Id] : firstPlayerRankingRating;
             double secondPlayerRating = _dict.ContainsKey(match.SecondPlayer.Id) ? _dict[match.SecondPlayer.Id] : secondPlayerRankingRating;
 
@@ -31,7 +32,7 @@ namespace PlayerRatings.Engine.Stats
             {
                 // use different K factor for new foreign players to make them get to their proper rating positions faster
                 // - K factor is the max possible adjustment per match
-                if (match.FirstPlayer.IsNewForeignPlayer)
+                if (match.FirstPlayer.NeedDynamicFactor(isIntlLeague))
                 {
                     // if winning a stronger player, use a K factor related to the current elo rating difference
                     // larger diff will result in a larger K factor, and elo rating will increase much faster
@@ -42,7 +43,7 @@ namespace PlayerRatings.Engine.Stats
                         // normallize it a bit via using the averate value of the current rating and ranking rating to avoid very rediculas variance
                         secondPlayerRating > secondPlayerRankingRating ? (secondPlayerRating + secondPlayerRankingRating) / 2 : secondPlayerRating);
 
-                    if (match.SecondPlayer.IsNewForeignPlayer)
+                    if (match.SecondPlayer.NeedDynamicFactor(isIntlLeague))
                     {
                         // normalize the factors if both are new players since we know none of their real rankings
                         factor2 = factor1 = Math.Min(8, factor1);
@@ -53,7 +54,7 @@ namespace PlayerRatings.Engine.Stats
                         factor2 = match.SecondPlayer.IsVirtualPlayer ? 1 : 0.5; // half of the normal K
                     }
                 }
-                else if (match.SecondPlayer.IsNewForeignPlayer)
+                else if (match.SecondPlayer.NeedDynamicFactor(isIntlLeague))
                 {
                     // exceptional matches
                     if (match.SecondPlayerScore > 0)

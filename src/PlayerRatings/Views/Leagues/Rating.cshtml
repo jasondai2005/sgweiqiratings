@@ -5,6 +5,7 @@
     ViewData["Title"] = LocString[nameof(LocalizationKey.Rating)];
 
     var number = 1;
+    var leagueName = Model.LastMatches.First().League.Name;
 }
 
 <h3>@ViewData["Title"]</h3>
@@ -39,7 +40,7 @@
         {
             <tr>
                 <td>
-                    @item.GetPosition( ref number)
+                    @item.GetPosition(ref number, leagueName)
                 </td>
                 <td>
                     @item.DisplayName

@@ -37,7 +37,9 @@ namespace PlayerRatings.Models
             get
             {
                 var rankingChangeDeadline = League.CutoffDate.AddMonths(-6);
-                return IsVirtualPlayer || League.CutoffDate.AddYears(-1) < LastMatch || RankingBeforeCutoffDate != GetRankingBeforeDate(rankingChangeDeadline);
+                return IsVirtualPlayer || League.CutoffDate.AddYears(-1) < LastMatch ||
+                    (RankingBeforeCutoffDate?.Contains('K', StringComparison.InvariantCultureIgnoreCase) == true &&
+                    RankingBeforeCutoffDate != GetRankingBeforeDate(rankingChangeDeadline));
             }
         }
 
@@ -71,6 +73,11 @@ namespace PlayerRatings.Models
         public bool IsProPlayer => RankingBeforeCutoffDate.Contains('P');
         public bool IsNewKyuPlayer => MatchCount <= 12 && !InternalInitRanking.Contains('D') && !IsProPlayer && !IsVirtualPlayer;
         public bool IsNewPlayer => (IsNewKyuPlayer || IsNewForeignPlayer);
+
+        public bool NeedDynamicFactor(bool intl)
+        {
+            return intl ? MatchCount <= 12 : IsNewForeignPlayer;
+        }
 
         public string LatestRanking => GetRankingBeforeDate(DateTimeOffset.Now.AddDays(1));
 
@@ -200,13 +207,13 @@ namespace PlayerRatings.Models
             return ranking.Key;
         }
 
-        public int GetRatingBeforeDate(DateTimeOffset date, bool protectd = false)
+        public int GetRatingBeforeDate(DateTimeOffset date, bool intl = false, bool protectd = false)
         {
             var ranking = GetRankingBeforeDate(date);
-            return GetRatingByRanking(ranking, protectd);
+            return GetRatingByRanking(ranking, intl, protectd);
         }
 
-        public int GetRatingByRanking(string ranking, bool protectd = false)
+        public int GetRatingByRanking(string ranking, bool intl = false, bool protectd = false)
         {
             if (string.IsNullOrEmpty(ranking))
                 return protectd ? GetKyuRating(11, true) : GetKyuRating(5, false);
@@ -235,18 +242,18 @@ namespace PlayerRatings.Models
                 switch (rankingNum)
                 {
                     case 8:
-                        return ONE_D_RATING == 2000 ? GetDanRating(rankingNum) : ONE_P_RATING;
+                        return ONE_D_RATING == 2000 || intl ? GetDanRating(rankingNum) : ONE_P_RATING;
                     case 7:
-                        return ONE_D_RATING == 2000 ? GetDanRating(rankingNum) : ONE_P_RATING - 120;
+                        return ONE_D_RATING == 2000 || intl ? GetDanRating(rankingNum) : ONE_P_RATING - 120;
                     case 6:
                     case 5:
                         return GetDanRating(rankingNum);
                     case 4:
                     case 3:
                     case 2:
-                        return isSWA ? GetDanRating(rankingNum) : GetDanRating(rankingNum - 1);
+                        return isSWA || intl ? GetDanRating(rankingNum) : GetDanRating(rankingNum - 1);
                     case 1:
-                        return isSWA ? ONE_D_RATING : ONE_D_RATING - 30;
+                        return isSWA || intl ? ONE_D_RATING : ONE_D_RATING - 30;
                     default:
                         throw new Exception("Unknown ranking.");
                 }
@@ -259,9 +266,9 @@ namespace PlayerRatings.Models
                     case 2:
                     case 3:
                     case 4:
-                        return isSWA ? GetKyuRating(rankingNum, protectd) : GetKyuRating(rankingNum + 1, protectd);
+                        return isSWA || intl ? GetKyuRating(rankingNum, protectd) : GetKyuRating(rankingNum + 1, protectd);
                     case 5:
-                        return isSWA ? GetKyuRating(5, protectd) : GetKyuRating(5, protectd) - 5;
+                        return isSWA || intl ? GetKyuRating(5, protectd) : GetKyuRating(5, protectd) - 5;
                     case 6:
                     case 7:
                     case 8:
@@ -322,7 +329,7 @@ namespace PlayerRatings.Models
                 (GetKyuRating(6, false) - (kyu - 6) * KYU_RANKING_DIFF_LOW);
         }
 
-        public string GetPosition(ref int postion)
+        public string GetPosition(ref int postion, string leagueName = "")
         {
             if (IsVirtualPlayer)
                 return "Intl.";
@@ -332,7 +339,7 @@ namespace PlayerRatings.Models
             if (IsProPlayer)
                 return "Pro";
 
-            if (IsNewPlayer)
+            if (!leagueName.Contains("Intl.") && IsNewPlayer)
                 return postion.ToString();
 
             return postion++.ToString();
