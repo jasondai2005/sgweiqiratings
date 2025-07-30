@@ -274,9 +274,9 @@ namespace PlayerRatings.Models
                     case 8:
                     case 9:
                     case 10:
-                        return GetKyuRating(rankingNum, protectd);
+                        return GetKyuRating(rankingNum, protectd || intl);
                     default:
-                        return GetKyuRating(11, protectd);
+                        return GetKyuRating(11, protectd || intl);
                 }
             }
             else
@@ -319,9 +319,9 @@ namespace PlayerRatings.Models
             return ONE_D_RATING + (dan - 1) * DAN_RANKING_DIFF;
         }
 
-        private int GetKyuRating(int kyu, bool _protected)
+        private int GetKyuRating(int kyu, bool useDefaultRankingDiff)
         {
-            if (_protected)
+            if (useDefaultRankingDiff)
                 return ONE_D_RATING - kyu * DAN_RANKING_DIFF;
 
             return kyu <= 6 ?
