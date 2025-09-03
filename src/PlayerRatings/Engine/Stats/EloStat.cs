@@ -73,6 +73,13 @@ namespace PlayerRatings.Engine.Stats
                     // reduce these new players' impact to existing players
                     factor1 = match.FirstPlayer.IsVirtualPlayer ? 1 : 0.5;
                 }
+
+                if (match.FirstPlayer.DisplayName == "[China 5D]" && match.Date.Year >= 2025 && match.Date.Month >= 7)
+                {
+                    // china 5d players' strenghs varies too much.
+                    // reduce their impacts from Jul 2025
+                    factor2 *= 0.5;
+                }
             }
 
             var rating1 = new Elo(firstPlayerRating, secondPlayerRating, firstUserScore, 1 - firstUserScore, (firstPlayerRating >= 2200 ? Elo.LowerK : Elo.K) * factor1);

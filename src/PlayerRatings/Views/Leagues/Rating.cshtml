@@ -20,6 +20,9 @@
                 @LocString[nameof(LocalizationKey.DisplayName)]
             </th>
             <th>
+                @LocString[nameof(LocalizationKey.BirthYear)]
+            </th>
+            <th>
                 @LocString[nameof(LocalizationKey.Ranking)]
             </th>
             @foreach (var item in Model.Stats)
@@ -44,6 +47,9 @@
                 </td>
                 <td>
                     @item.DisplayName
+                </td>
+                <td>
+                    @item.BirthYearU18
                 </td>
                 <td>
                     @item.RankingBeforeCutoffDate.ToUpper()

@@ -336,7 +336,7 @@ namespace PlayerRatings.Controllers
             player.LastMatch = match.Date;
             // from 2025, low factor match won't be counted so low kyu players could show up later with more reasonable ratings
             // 2024 list has already been published so we leave it as it is
-            if (match.Date.Year < 2025 || match.Factor == null || match.Factor >= 1)
+            if ((match.Factor > 0.1 && match.Date.Year < 2025) || match.Factor == null || match.Factor >= 1)
                 player.MatchCount++;
 
             activeUsers.Add(player);

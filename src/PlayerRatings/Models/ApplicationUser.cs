@@ -27,6 +27,16 @@ namespace PlayerRatings.Models
             }
         }
 
+        public string BirthYearU18
+        {
+            get
+            {
+                RankingHistory.TryGetValue(BIRTH_YEAR, out var birthYear);
+
+                return birthYear.Year + 18 < DateTime.Now.Year ? string.Empty : birthYear.Year.ToString();
+            }
+        }
+
         internal DateTimeOffset LastMatch { get; set; } = DateTimeOffset.MinValue;
         internal DateTimeOffset FirstMatch { get; set; } = DateTimeOffset.MinValue;
 
