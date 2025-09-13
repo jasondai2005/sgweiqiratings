@@ -15,7 +15,7 @@
 <h2>@ViewData["Title"]</h2>
 
 <div>
-    <h2>@LocString[nameof(LocalizationKey.League)] - @Html.DisplayFor(model => model.League.Name)</h2>
+    <h2>@Html.DisplayFor(model => model.League.Name)</h2>
 
     <table class="table">
         <tr>
@@ -52,10 +52,10 @@
                     @player.User.BirthYear
                 </td>
                 <td>
-                    @player.User.LatestRanking
+                    @(Model.SwaRankedPlayersOnly ? player.User.LatestSwaRanking : player.User.LatestRanking)
                 </td>
                 <td>
-                    @player.User.LatestRankedDate
+                    @(Model.SwaRankedPlayersOnly ? player.User.LatestSwaRankedDate : player.User.LatestRankedDate)
                 </td>
                 <td title=@player.User.FormatedRankingHistory>
                     @player.User.LatestRankingHistory(2)

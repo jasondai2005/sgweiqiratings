@@ -56,11 +56,14 @@ namespace PlayerRatings.Controllers
                 lp.LeagueId == league.Id &&
                 !lp.User.DisplayName.Contains("[") &&
                 lp.User.DisplayName != "Admin").ToList();
+            if (Elo.SupportProtectedRatings)
+                players = players.Where(x => x.User.LatestSwaRanking.Any()).ToList();
             players.Sort(CompareByRankingAndName);
             return View(new LeagueDetailsViewModel
             {
                 League = league,
-                Players = players
+                Players = players,
+                SwaRankedPlayersOnly = Elo.SupportProtectedRatings
             });
         }
 
@@ -411,15 +414,17 @@ namespace PlayerRatings.Controllers
             var user2 = y.User;
             int rankingRating1 = 0;
             int rankingRating2 = 0;
-            if (!string.IsNullOrEmpty(user1.LatestRanking) && (!user1.LatestRanking.Contains('?') || user1.LatestRanking.Contains('D')))
-                rankingRating1 = user1.GetRatingBeforeDate(DateTimeOffset.Now);
-            if (!string.IsNullOrEmpty(user2.LatestRanking) && (!user2.LatestRanking.Contains('?') || user2.LatestRanking.Contains('D')))
-                rankingRating2 = user2.GetRatingBeforeDate(DateTimeOffset.Now);
+            var user1Ranking = Elo.SupportProtectedRatings ? user1.LatestSwaRanking : user1.LatestRanking;
+            var user2Ranking = Elo.SupportProtectedRatings ? user2.LatestSwaRanking : user2.LatestRanking;
+            if (!string.IsNullOrEmpty(user1Ranking) && (!user1Ranking.Contains('?') || user1Ranking.Contains('D')))
+                rankingRating1 = user1.GetRatingByRanking(user1Ranking);
+            if (!string.IsNullOrEmpty(user2Ranking) && (!user2Ranking.Contains('?') || user2Ranking.Contains('D')))
+                rankingRating2 = user2.GetRatingByRanking(user2Ranking);
 
             if (rankingRating1 == rankingRating2) // the same rating
             {
-                var latestRanking1 = ApplicationUser.GetEffectiveRanking(user1.LatestRanking);
-                var latestRanking2 = ApplicationUser.GetEffectiveRanking(user2.LatestRanking);
+                var latestRanking1 = ApplicationUser.GetEffectiveRanking(user1Ranking);
+                var latestRanking2 = ApplicationUser.GetEffectiveRanking(user2Ranking);
                 if (rankingRating1 <= 1710) // will not differenciate kyus certified by SWA or other
                 {
                     latestRanking1 = latestRanking1.Trim('(', ')');

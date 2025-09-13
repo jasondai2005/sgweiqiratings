@@ -100,6 +100,26 @@ namespace PlayerRatings.Models
             }
         }
 
+        private string m_swaRanking, m_swaRankedDate;
+        public string LatestSwaRanking
+        {
+            get
+            {
+                if (m_swaRanking == null)
+                    GetSwaRanking(out m_swaRanking, out m_swaRankedDate);
+                return m_swaRanking;
+            }
+        }
+        public string LatestSwaRankedDate
+        {
+            get
+            {
+                if (m_swaRankedDate == null)
+                    GetSwaRanking(out m_swaRanking, out m_swaRankedDate);
+                return m_swaRankedDate;
+            }
+        }
+
         public string RankingBeforeCutoffDate
         {
             get
@@ -215,6 +235,28 @@ namespace PlayerRatings.Models
                 ranking = rankingHistory.Last();
             }
             return ranking.Key;
+        }
+
+        public void GetSwaRanking(out string ranking, out string rankedDate)
+        {
+            ranking = rankedDate = string.Empty;
+            foreach (var pair in RankingHistory.Where(x => x.Key != BIRTH_YEAR))
+            {
+                ranking = GetSwaRanking(pair.Key);
+                if (!string.IsNullOrEmpty(ranking))
+                {
+                    rankedDate = pair.Value == DateTimeOffset.MinValue ? string.Empty : pair.Value.ToString(DATE_FORMAT);
+                    return;
+                }
+            }
+        }
+
+        private string GetSwaRanking(string ranking)
+        {
+            if (string.IsNullOrEmpty(ranking) || ranking.Contains("K?") || ranking.Contains('P'))
+                return string.Empty;
+
+            return ranking.Contains('[') || ranking.Contains('(') ? ranking.Remove(Math.Max(0, ranking.IndexOfAny(new char[] { '[', '(' }) - 1)) : ranking;
         }
 
         public int GetRatingBeforeDate(DateTimeOffset date, bool intl = false, bool protectd = false)
