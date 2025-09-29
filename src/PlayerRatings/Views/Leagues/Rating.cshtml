@@ -5,7 +5,7 @@
     ViewData["Title"] = LocString[nameof(LocalizationKey.Rating)];
 
     var number = 1;
-    var leagueName = Model.LastMatches.First().League.Name;
+    var leagueName = Model.LastMatches.FirstOrDefault()?.League?.Name ?? string.Empty;
 }
 
 <h3>@ViewData["Title"]</h3>
