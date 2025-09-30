@@ -11,6 +11,9 @@ namespace PlayerRatings.Engine.Stats
 
         public void AddMatch(Match match)
         {
+            if (match.Factor.HasValue && match.Factor.Value == 0)
+                return;
+
             _wins[match.FirstPlayer.Id] = _wins.ContainsKey(match.FirstPlayer.Id) ? _wins[match.FirstPlayer.Id] : 0;
             _wins[match.SecondPlayer.Id] = _wins.ContainsKey(match.SecondPlayer.Id) ? _wins[match.SecondPlayer.Id] : 0;
             _total[match.FirstPlayer.Id] = _total.ContainsKey(match.FirstPlayer.Id) ? _total[match.FirstPlayer.Id] : 0;
