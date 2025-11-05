@@ -15,6 +15,11 @@ namespace PlayerRatings.Models
         private const int KYU_RANKING_DIFF_LOW = 2;
         private Dictionary<string, DateTimeOffset> _rankingHistory = new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
 
+        public static List<string> InvisiblePlayers = new List<string>()
+        {
+            "mok.jj@sw.org"
+        };
+
         public string DisplayName { get; set; }
 
         public string BirthYear
@@ -82,7 +87,7 @@ namespace PlayerRatings.Models
         public bool IsNewForeignPlayer => MatchCount <= 12 && IsForeignRankedPlayer;
         public bool IsProPlayer => RankingBeforeCutoffDate.Contains('P');
         public bool IsNewKyuPlayer => MatchCount <= 12 && !InternalInitRanking.Contains('D') && !IsProPlayer && !IsVirtualPlayer;
-        public bool IsNewPlayer => (IsNewKyuPlayer || IsNewForeignPlayer);
+        public bool IsHiddenPlayer => (InvisiblePlayers.Contains(Email, StringComparer.OrdinalIgnoreCase) || IsNewKyuPlayer || IsNewForeignPlayer);
 
         public bool NeedDynamicFactor(bool intl)
         {
@@ -209,7 +214,7 @@ namespace PlayerRatings.Models
         {
             get
             {
-                var rankingHistory = RankingHistory.Where(x => x.Key != BIRTH_YEAR && x.Key != LatestRanking && !string.IsNullOrEmpty(x.Key));
+                var rankingHistory = RankingHistory.Where(x => x.Key != BIRTH_YEAR && x.Key != LatestRanking && !string.IsNullOrEmpty(x.Key) && !x.Key.Contains("K?"));
                 if (rankingHistory.Count() > 2)
                     return string.Join(Environment.NewLine, rankingHistory.Select(x => string.Join(":", x.Key, x.Value == DateTimeOffset.MinValue ? "?" : x.Value.ToString(DATE_FORMAT)).Replace(" ", string.Empty)));
                 else
@@ -219,7 +224,7 @@ namespace PlayerRatings.Models
 
         public string LatestRankingHistory(int noOfRecords)
         {
-            var rankingHistory = RankingHistory.Where(x => x.Key != BIRTH_YEAR && x.Key != LatestRanking && !string.IsNullOrEmpty(x.Key)).Take(noOfRecords);
+            var rankingHistory = RankingHistory.Where(x => x.Key != BIRTH_YEAR && x.Key != LatestRanking && !string.IsNullOrEmpty(x.Key) && !x.Key.Contains("K?")).Take(noOfRecords);
             return string.Join(". ", rankingHistory.Select(x => x.Value == DateTimeOffset.MinValue ? x.Key : string.Join(":", x.Key, x.Value.ToString(DATE_FORMAT))));
         }
 
@@ -391,7 +396,7 @@ namespace PlayerRatings.Models
             if (IsProPlayer)
                 return "Pro";
 
-            if (!leagueName.Contains("Intl.") && IsNewPlayer)
+            if (!leagueName.Contains("Intl.") && IsHiddenPlayer)
                 return postion.ToString();
 
             return postion++.ToString();

@@ -320,10 +320,10 @@ namespace PlayerRatings.Controllers
 
             var lastMatches = matches.Where(m=> m.Date > date.AddMonths(-1));
             // Players in monitoring period shouldn't impact existing players' positions
-            var users = activeUsers.Where(x => league.Name.Contains("Intl.") || !x.IsNewPlayer).ToList();
+            var users = activeUsers.Where(x => league.Name.Contains("Intl.") || !x.IsHiddenPlayer).ToList();
             users.Sort(CompareByRatingAndName);
 
-            var promotedPlayers = activeUsers.Where(x => (date.Year > 2023 || x.IsNewPlayer) && x.Promotion.Contains('→')).ToList();
+            var promotedPlayers = activeUsers.Where(x => (date.Year > 2023 || x.IsHiddenPlayer) && x.Promotion.Contains('→')).ToList();
             promotedPlayers.Sort(CompareByRankingRatingAndName);
 
             return View(new RatingViewModel(stats, users, promotedPlayers, lastMatches, forecast));
