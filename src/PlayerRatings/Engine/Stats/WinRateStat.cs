@@ -39,7 +39,14 @@ namespace PlayerRatings.Engine.Stats
 
         public string GetResult(ApplicationUser user)
         {
-            return string.Format("{0} ({1}/{2})", ((double)_wins[user.Id] / _total[user.Id]).ToString("P01"), _wins[user.Id], _total[user.Id]);
+            try
+            {
+                return string.Format("{0} ({1}/{2})", ((double)_wins[user.Id] / _total[user.Id]).ToString("P01"), _wins[user.Id], _total[user.Id]);
+            }
+            catch
+            {
+                return String.Empty;
+            }
         }
 
         public string NameLocalizationKey { get; } = nameof(LocalizationKey.WinRate);
