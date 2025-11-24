@@ -14,6 +14,7 @@ namespace PlayerRatings.Models
         private const int KYU_RANKING_DIFF_HIGH = 10;
         private const int KYU_RANKING_DIFF_LOW = 2;
         private Dictionary<string, DateTimeOffset> _rankingHistory = new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
+        private Dictionary<string, DateTimeOffset> _swaRankingHistory = new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
 
         public static List<string> InvisiblePlayers = new List<string>()
         {
@@ -210,6 +211,26 @@ namespace PlayerRatings.Models
             }
         }
 
+        public Dictionary<string, DateTimeOffset> SwaRankingHistory
+        {
+            get
+            {
+                if (!_swaRankingHistory.Any())
+                {
+                    foreach (var ranking in RankingHistory.Keys)
+                    {
+                        if (ranking == BIRTH_YEAR)
+                            continue;
+                        var swaRanking = GetSwaRanking(ranking);
+                        if (!_swaRankingHistory.ContainsKey(swaRanking) || _swaRankingHistory[swaRanking] > _rankingHistory[ranking])
+                            _swaRankingHistory[swaRanking] = _rankingHistory[ranking];
+                    }
+                }
+
+                return _swaRankingHistory;
+            }
+        }
+
         public string FormatedRankingHistory
         {
             get
@@ -222,9 +243,15 @@ namespace PlayerRatings.Models
             }
         }
 
-        public string LatestRankingHistory(int noOfRecords)
+        public string LatestRankingHistory(int noOfRecords, bool swaOnly)
         {
-            var rankingHistory = RankingHistory.Where(x => x.Key != BIRTH_YEAR && x.Key != LatestRanking && !string.IsNullOrEmpty(x.Key) && !x.Key.Contains("K?")).Take(noOfRecords);
+            var source = swaOnly ? SwaRankingHistory : RankingHistory;
+            var latestRanking = source.First().Key;
+            var rankingHistory = source.Where(x => x.Key != BIRTH_YEAR && x.Key != latestRanking && !string.IsNullOrEmpty(x.Key) && !x.Key.Contains("K?"));
+            if (swaOnly)
+                rankingHistory = rankingHistory.Where(x => !x.Key.Contains("K"));
+            else
+                rankingHistory = rankingHistory.Take(noOfRecords);
             return string.Join(". ", rankingHistory.Select(x => x.Value == DateTimeOffset.MinValue ? x.Key : string.Join(":", x.Key, x.Value.ToString(DATE_FORMAT))));
         }
 
@@ -245,14 +272,11 @@ namespace PlayerRatings.Models
         public void GetSwaRanking(out string ranking, out string rankedDate)
         {
             ranking = rankedDate = string.Empty;
-            foreach (var pair in RankingHistory.Where(x => x.Key != BIRTH_YEAR))
+            if (SwaRankingHistory.Any())
             {
-                ranking = GetSwaRanking(pair.Key);
-                if (!string.IsNullOrEmpty(ranking))
-                {
-                    rankedDate = pair.Value == DateTimeOffset.MinValue ? string.Empty : pair.Value.ToString(DATE_FORMAT);
-                    return;
-                }
+                ranking = SwaRankingHistory.First().Key;
+                var dateVal = SwaRankingHistory.First().Value;
+                rankedDate = dateVal == DateTimeOffset.MinValue ? string.Empty : dateVal.ToString(DATE_FORMAT);
             }
         }
 

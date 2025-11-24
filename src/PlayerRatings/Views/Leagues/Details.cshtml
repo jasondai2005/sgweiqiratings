@@ -57,8 +57,8 @@
                 <td>
                     @(Model.SwaRankedPlayersOnly ? player.User.LatestSwaRankedDate : player.User.LatestRankedDate)
                 </td>
-                <td title=@player.User.FormatedRankingHistory>
-                    @player.User.LatestRankingHistory(2)
+                <td title=@(Model.SwaRankedPlayersOnly ? string.Empty : player.User.FormatedRankingHistory)>
+                    @player.User.LatestRankingHistory(2, Model.SwaRankedPlayersOnly)
                 </td>
             </tr>
         }
