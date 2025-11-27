@@ -7,6 +7,7 @@ namespace PlayerRatings.Engine.Stats
     public class EloStat : IStat
     {
         protected readonly Dictionary<string, double> _dict = new Dictionary<string, double>();
+        protected double _china6dRating = 0.0;
 
         public void AddMatch(Match match)
         {
@@ -78,12 +79,24 @@ namespace PlayerRatings.Engine.Stats
                 {
                     // china 5d players' strenghs varies too much.
                     // reduce their impacts from Jul 2025
-                    factor2 *= 0.5;
+                    if (match.Date.Year >= 2025 && match.Date.Month >= 11 && match.Date.Day >= 24)
+                    {
+                        factor2 *= Math.Min(1, (firstPlayerRating - 1000) * (firstPlayerRating - 1000) / (_china6dRating - 1000) / (secondPlayerRating - 1000));
+                    }
+                    else
+                    {
+                        factor2 *= 0.5;
+                    }
                 }
             }
 
             var rating1 = new Elo(firstPlayerRating, secondPlayerRating, firstUserScore, 1 - firstUserScore, (firstPlayerRating >= 2200 ? Elo.LowerK : Elo.K) * factor1);
             var rating2 = new Elo(firstPlayerRating, secondPlayerRating, firstUserScore, 1 - firstUserScore, (secondPlayerRating >= 2200 ? Elo.LowerK : Elo.K) * factor2);
+
+            if (match.FirstPlayer.DisplayName == "[China 6D]")
+                _china6dRating = rating1.NewRatingAPlayer;
+            else if (match.SecondPlayer.DisplayName == "[China 6D]")
+                _china6dRating = rating1.NewRatingBPlayer;
 
             match.OldFirstPlayerRating = rating1.OldRatingPlayerA.ToString("F1");
             match.OldSecondPlayerRating = rating1.OldRatingPlayerB.ToString("F1");

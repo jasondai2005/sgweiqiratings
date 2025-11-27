@@ -29,14 +29,14 @@ UPDATE Match
 SET Factor = 0.5
 WHERE MatchName = 'TGA Kyu Cert. 级位赛 C'</sql><sql name="SQL 3">select m.* , m.date
 from Match m inner join AspNetUsers u on (m.FirstPlayerId = u.id or m.SecondPlayerId = u.id) and u.DisplayName like '%simiao%'
-order by date</sql><sql name="SQL 5*">select u.DisplayName as Player, m.MatchName,
+order by date</sql><sql name="SQL 5">select u.DisplayName as Player, m.MatchName,
 	(case
 		when cast(m.Date as bigint)/10000000000 &gt; 130808974 then 2025
 		when cast(m.Date as bigint)/100000000000000 &gt; 13074 then 2024
 		else 2023
 		end) as Year,
 	fp.DisplayName as Winner, sp.DisplayName as Loser
-from Match m inner join AspNetUsers u on (m.FirstPlayerId = u.id or m.SecondPlayerId = u.id) and (u.DisplayName like '%jia ho%')
+from Match m inner join AspNetUsers u on (m.FirstPlayerId = u.id or m.SecondPlayerId = u.id) and (u.DisplayName like '%yang qi%')
 	INNER JOIN AspNetUsers fp ON m.FirstPlayerId = fp.Id
 	INNER JOIN AspNetUsers sp ON m.SecondPlayerId = sp.Id
 order by u.DisplayName, m.Date</sql><sql name="SQL 6">select DISTINCT u.DisplayName as Player
