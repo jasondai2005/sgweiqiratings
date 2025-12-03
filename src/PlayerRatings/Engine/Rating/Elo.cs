@@ -7,12 +7,22 @@ namespace PlayerRatings.Engine.Rating
         private const double Denominator = 400;
 
         public const int K = 16;
-        public const int LowerK = 10;
+        public const int ProK = 10;
+        public const int HighKyuK = 24;
+        public const int MiddleKyuK = 32;
+
+        public static int GetK(double rating)
+        {
+            if (rating >= 2200)
+                return ProK;
+            
+            return K;
+        }
 
         internal readonly double OldRatingPlayerA;
         internal readonly double OldRatingPlayerB;
 
-        public static bool SupportProtectedRatings = false;
+        public static bool SwaRankedPlayersOnly = false;
 
         public Elo(double playerARating, double playerBRating, double playerAScore, double playerBScore, double k)
         {
@@ -22,8 +32,8 @@ namespace PlayerRatings.Engine.Rating
             var expectedScoreA = 1 / (1 + Math.Pow(10, (playerBRating - playerARating) / Denominator));
             var expectedScoreB = 1 / (1 + Math.Pow(10, (playerARating - playerBRating) / Denominator));
 
-            NewRatingAPlayer = playerARating + k * (playerAScore - expectedScoreA);
-            NewRatingBPlayer = playerBRating + k * (playerBScore - expectedScoreB);
+            NewRatingAPlayer = Math.Max(playerARating + k * (playerAScore - expectedScoreA), 600);
+            NewRatingBPlayer = Math.Max(playerBRating + k * (playerBScore - expectedScoreB), 600);
         }
 
         public Elo(double playerARating, double playerBRating, double playerAScore, double playerBScore)

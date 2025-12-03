@@ -84,15 +84,16 @@ namespace PlayerRatings.Models
         }
 
         public bool IsVirtualPlayer => DisplayName.Contains('[');
-        public bool IsForeignRankedPlayer => InternalInitRanking.Contains('[') && !InternalInitRanking.Contains(' ');
-        public bool IsNewForeignPlayer => MatchCount <= 12 && IsForeignRankedPlayer;
+        public bool IsUnknownPlayer => false;// string.IsNullOrEmpty(InternalInitRanking);
+        public bool IsUnknownRankedPlayer => IsUnknownPlayer || (InternalInitRanking.Contains('[') && !InternalInitRanking.Contains(' '));
+        public bool IsNewUnknownRankdedPlayer => MatchCount <= 12 && IsUnknownRankedPlayer;
         public bool IsProPlayer => RankingBeforeCutoffDate.Contains('P');
         public bool IsNewKyuPlayer => MatchCount <= 12 && !InternalInitRanking.Contains('D') && !IsProPlayer && !IsVirtualPlayer;
-        public bool IsHiddenPlayer => (InvisiblePlayers.Contains(Email, StringComparer.OrdinalIgnoreCase) || IsNewKyuPlayer || IsNewForeignPlayer);
+        public bool IsHiddenPlayer => (InvisiblePlayers.Contains(Email, StringComparer.OrdinalIgnoreCase) || IsNewKyuPlayer || IsNewUnknownRankdedPlayer);
 
         public bool NeedDynamicFactor(bool intl)
         {
-            return intl ? MatchCount <= 12 : IsNewForeignPlayer;
+            return intl ? MatchCount <= 12 : IsNewUnknownRankdedPlayer;
         }
 
         public string LatestRanking => GetRankingBeforeDate(DateTimeOffset.Now.AddDays(1));
@@ -288,31 +289,25 @@ namespace PlayerRatings.Models
             return ranking.Contains('[') || ranking.Contains('(') ? ranking.Remove(Math.Max(0, ranking.IndexOfAny(new char[] { '[', '(' }) - 1)) : ranking;
         }
 
-        public int GetRatingBeforeDate(DateTimeOffset date, bool intl = false, bool protectd = false)
+        public int GetRatingBeforeDate(DateTimeOffset date, bool intl = false)
         {
             var ranking = GetRankingBeforeDate(date);
-            return GetRatingByRanking(ranking, intl, protectd);
+            return GetRatingByRanking(ranking, intl);
         }
 
-        public int GetRatingByRanking(string ranking, bool intl = false, bool protectd = false)
+        public int GetRatingByRanking(string ranking, bool intl = false)
         {
             if (string.IsNullOrEmpty(ranking))
-                return protectd ? GetKyuRating(11, true) : GetKyuRating(5, false);
+                return GetKyuRating(5);
 
             ranking = GetEffectiveRanking(ranking);
 
             bool isForeign = ranking.Contains('[');
-            if (protectd && (isForeign || ranking.Contains('?')))
-                return GetKyuRating(11, true);
-
             bool isPro = ranking.Contains('P');
             bool isDan = ranking.Contains('D');
             bool isKyu = ranking.Contains('K');
             bool isSWA = !isForeign && !ranking.Contains('(');
             int.TryParse(Regex.Match(ranking, @"\d+").Value, out int rankingNum);
-
-            if (protectd && (isPro || (isDan && rankingNum >= 5)))
-                return GetDanRating(5);
 
             if (isPro)
             {
@@ -347,17 +342,17 @@ namespace PlayerRatings.Models
                     case 2:
                     case 3:
                     case 4:
-                        return isSWA || intl ? GetKyuRating(rankingNum, protectd) : GetKyuRating(rankingNum + 1, protectd);
+                        return isSWA || intl ? GetKyuRating(rankingNum) : GetKyuRating(rankingNum + 1);
                     case 5:
-                        return isSWA || intl ? GetKyuRating(5, protectd) : GetKyuRating(5, protectd) - 5;
+                        return isSWA || intl ? GetKyuRating(5) : GetKyuRating(5) - 5;
                     case 6:
                     case 7:
                     case 8:
                     case 9:
                     case 10:
-                        return GetKyuRating(rankingNum, protectd || intl);
+                        return GetKyuRating(rankingNum);
                     default:
-                        return GetKyuRating(11, protectd || intl);
+                        return GetKyuRating(11);
                 }
             }
             else
@@ -369,7 +364,7 @@ namespace PlayerRatings.Models
                     case "♕": // international champion
                         return 2640;
                     default:
-                        return GetKyuRating(11, protectd);
+                        return GetKyuRating(11);
                 }
             }
         }
@@ -400,14 +395,12 @@ namespace PlayerRatings.Models
             return ONE_D_RATING + (dan - 1) * DAN_RANKING_DIFF;
         }
 
-        private int GetKyuRating(int kyu, bool useDefaultRankingDiff)
+        private int GetKyuRating(int kyu)
         {
-            if (useDefaultRankingDiff)
-                return ONE_D_RATING - kyu * DAN_RANKING_DIFF;
-
+            //return ONE_D_RATING - kyu * DAN_RANKING_DIFF;
             return kyu <= 6 ?
                 (ONE_D_RATING - DAN_RANKING_DIFF) - (kyu - 1) * KYU_RANKING_DIFF_HIGH :
-                (GetKyuRating(6, false) - (kyu - 6) * KYU_RANKING_DIFF_LOW);
+                (GetKyuRating(6) - (kyu - 6) * KYU_RANKING_DIFF_LOW);
         }
 
         public string GetPosition(ref int postion, string leagueName = "")

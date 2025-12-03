@@ -16,7 +16,23 @@
 
 <div>
     <h2>@Html.DisplayFor(model => model.League.Name)</h2>
-
+    
+@if (Model.SwaRankedPlayersOnly)
+{
+    <form asp-action="SetProtectedRatingsOption" asp-route-supportProtectedRatings="false" asp-route-id = "@Model.League.Id" method="post" role="form">
+        <button type="submit" class="btn btn-link" name="language" title="@LocString[nameof(LocalizationKey.ShowAllRankings)]">
+            @LocString[nameof(LocalizationKey.ShowAllRankings)]
+        </button>
+    </form>
+}
+else
+{
+    <form asp-action="SetProtectedRatingsOption" asp-route-supportProtectedRatings="true" asp-route-id = "@Model.League.Id" method="post" role="form">
+        <button type="submit" class="btn btn-link" name="language" value="true" title="@LocString[nameof(LocalizationKey.ShowSinRankingsOnly)]">
+            @LocString[nameof(LocalizationKey.ShowSinRankingsOnly)]
+        </button>
+    </form>
+}
     <table class="table">
         <tr>
             <th>

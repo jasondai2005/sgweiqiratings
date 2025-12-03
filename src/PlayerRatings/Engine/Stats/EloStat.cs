@@ -52,7 +52,7 @@ namespace PlayerRatings.Engine.Stats
                     else
                     {
                         // reduce these new players' impacts to existing players
-                        factor2 = match.SecondPlayer.IsVirtualPlayer ? 1 : 0.5; // half of the normal K
+                        factor2 = match.SecondPlayer.IsVirtualPlayer || match.FirstPlayer.IsUnknownPlayer ? 1 : 0.5; // half of the normal K
                     }
                 }
                 else if (match.SecondPlayer.NeedDynamicFactor(isIntlLeague))
@@ -72,7 +72,7 @@ namespace PlayerRatings.Engine.Stats
                     }
 
                     // reduce these new players' impact to existing players
-                    factor1 = match.FirstPlayer.IsVirtualPlayer ? 1 : 0.5;
+                    factor1 = match.FirstPlayer.IsVirtualPlayer || match.SecondPlayer.IsUnknownPlayer ? 1 : 0.5;
                 }
 
                 if (match.FirstPlayer.DisplayName == "[China 5D]" && match.Date.Year >= 2025 && match.Date.Month >= 7)
@@ -90,8 +90,8 @@ namespace PlayerRatings.Engine.Stats
                 }
             }
 
-            var rating1 = new Elo(firstPlayerRating, secondPlayerRating, firstUserScore, 1 - firstUserScore, (firstPlayerRating >= 2200 ? Elo.LowerK : Elo.K) * factor1);
-            var rating2 = new Elo(firstPlayerRating, secondPlayerRating, firstUserScore, 1 - firstUserScore, (secondPlayerRating >= 2200 ? Elo.LowerK : Elo.K) * factor2);
+            var rating1 = new Elo(firstPlayerRating, secondPlayerRating, firstUserScore, 1 - firstUserScore, Elo.GetK(firstPlayerRating) * factor1);
+            var rating2 = new Elo(firstPlayerRating, secondPlayerRating, firstUserScore, 1 - firstUserScore, Elo.GetK(secondPlayerRating) * factor2);
 
             if (match.FirstPlayer.DisplayName == "[China 6D]")
                 _china6dRating = rating1.NewRatingAPlayer;
@@ -101,13 +101,8 @@ namespace PlayerRatings.Engine.Stats
             match.OldFirstPlayerRating = rating1.OldRatingPlayerA.ToString("F1");
             match.OldSecondPlayerRating = rating1.OldRatingPlayerB.ToString("F1");
 
-            // protected ratings only apply to players with a local ranking
-            _dict[match.FirstPlayer.Id] = Elo.SupportProtectedRatings && !match.FirstPlayer.IsVirtualPlayer ?
-                Math.Max(rating1.NewRatingAPlayer, match.FirstPlayer.GetRatingBeforeDate(match.Date.Date, true)) :
-                rating1.NewRatingAPlayer;
-            _dict[match.SecondPlayer.Id] = Elo.SupportProtectedRatings && !match.SecondPlayer.IsVirtualPlayer ?
-                Math.Max(rating2.NewRatingBPlayer, match.SecondPlayer.GetRatingBeforeDate(match.Date.Date, true)) :
-                rating2.NewRatingBPlayer;
+            _dict[match.FirstPlayer.Id] = rating1.NewRatingAPlayer;
+            _dict[match.SecondPlayer.Id] = rating2.NewRatingBPlayer;
 
             match.ShiftRating = rating1.ShiftRatingAPlayer.ToString("F1");
             var player2ShiftRating = secondPlayerRating - _dict[match.SecondPlayer.Id];

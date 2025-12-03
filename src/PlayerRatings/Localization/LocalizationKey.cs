@@ -230,8 +230,8 @@ namespace PlayerRatings.Localization
             new LocalizationKey("Players", "Игроки", "选手");
 
         public static readonly LocalizationKey Rating = new LocalizationKey("Rating", "Рейтинг", "等级分");
-        public static readonly LocalizationKey SupportProtectedRatings = new LocalizationKey("Click to support protected ratings", "", "点击启用等级分保护");
-        public static readonly LocalizationKey NotSupportProtectedRatings = new LocalizationKey("Click to not support protected ratings", "", "点击取消等级分保护");
+        public static readonly LocalizationKey ShowSinRankingsOnly = new LocalizationKey("Only show Singapore rankings", "", "仅显示新加坡段、级位");
+        public static readonly LocalizationKey ShowAllRankings = new LocalizationKey("Show all rankings", "", "显示所有段、级位");
         public static readonly LocalizationKey ProtectedRatingsSupported = new LocalizationKey("Protected ratings option is on", "", "等级分保护已开启");
         public static readonly LocalizationKey ProtectedRatingsNotSupported = new LocalizationKey("Protected ratings option is off", "", "等级分保护未开启");
         public static readonly LocalizationKey HistoryRating = new LocalizationKey("History Rating", "History Rating", "历史等级分");

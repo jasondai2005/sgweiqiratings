@@ -14,8 +14,8 @@ namespace PlayerRatings.ViewModels.League
 
         public bool SupportProtectedRatings
         {
-            get { return Engine.Rating.Elo.SupportProtectedRatings; }
-            set { Engine.Rating.Elo.SupportProtectedRatings = value; }
+            get { return Engine.Rating.Elo.SwaRankedPlayersOnly; }
+            set { Engine.Rating.Elo.SwaRankedPlayersOnly = value; }
         }
     }
 }

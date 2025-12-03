@@ -50,22 +50,3 @@
     </tr>
 }
 </table>
-
-@if (Model.First().SupportProtectedRatings)
-{
-    <form asp-action="SetProtectedRatingsOption" asp-route-supportProtectedRatings="false" method="post" role="form">
-        <b>@LocString[nameof(LocalizationKey.ProtectedRatingsSupported)]</b>
-        <button type="submit" class="btn btn-link" name="language" title="@LocString[nameof(LocalizationKey.NotSupportProtectedRatings)]">
-            @LocString[nameof(LocalizationKey.NotSupportProtectedRatings)]
-        </button>
-    </form>
-}
-else
-{
-    <form asp-action="SetProtectedRatingsOption" asp-route-supportProtectedRatings="true" method="post" role="form">
-        <b>@LocString[nameof(LocalizationKey.ProtectedRatingsNotSupported)]</b>
-        <button type="submit" class="btn btn-link" name="language" value="true" title="@LocString[nameof(LocalizationKey.SupportProtectedRatings)]">
-            @LocString[nameof(LocalizationKey.SupportProtectedRatings)]
-        </button>
-    </form>
-}

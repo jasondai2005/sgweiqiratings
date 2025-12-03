@@ -56,14 +56,14 @@ namespace PlayerRatings.Controllers
                 lp.LeagueId == league.Id &&
                 !lp.User.DisplayName.Contains("[") &&
                 lp.User.DisplayName != "Admin").ToList();
-            if (Elo.SupportProtectedRatings)
+            if (Elo.SwaRankedPlayersOnly)
                 players = players.Where(x => x.User.LatestSwaRanking.Any()).ToList();
             players.Sort(CompareByRankingAndName);
             return View(new LeagueDetailsViewModel
             {
                 League = league,
                 Players = players,
-                SwaRankedPlayersOnly = Elo.SupportProtectedRatings
+                SwaRankedPlayersOnly = Elo.SwaRankedPlayersOnly
             });
         }
 
@@ -229,10 +229,10 @@ namespace PlayerRatings.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult SetProtectedRatingsOption(bool supportProtectedRatings)
+        public IActionResult SetProtectedRatingsOption(bool supportProtectedRatings, Guid id)
         {
-            Elo.SupportProtectedRatings = supportProtectedRatings;
-            return RedirectToAction(nameof(Index));
+            Elo.SwaRankedPlayersOnly = supportProtectedRatings;
+            return RedirectToAction(nameof(Details), new { id });
         }
 
         // GET: Leagues/Rating/5
@@ -290,16 +290,6 @@ namespace PlayerRatings.Controllers
                 foreach (var stat in stats)
                 {
                     stat.AddMatch(match);
-                }
-            }
-
-            if (Elo.SupportProtectedRatings)
-            {
-                foreach (var appUser in activeUsers)
-                {
-                    var protectRating = appUser.GetRatingBeforeDate(date, true);
-                    if (elo[appUser] < protectRating && !appUser.IsVirtualPlayer && !appUser.IsForeignRankedPlayer)
-                        elo[appUser] = protectRating;
                 }
             }
 
@@ -414,8 +404,8 @@ namespace PlayerRatings.Controllers
             var user2 = y.User;
             int rankingRating1 = 0;
             int rankingRating2 = 0;
-            var user1Ranking = Elo.SupportProtectedRatings ? user1.LatestSwaRanking : user1.LatestRanking;
-            var user2Ranking = Elo.SupportProtectedRatings ? user2.LatestSwaRanking : user2.LatestRanking;
+            var user1Ranking = Elo.SwaRankedPlayersOnly ? user1.LatestSwaRanking : user1.LatestRanking;
+            var user2Ranking = Elo.SwaRankedPlayersOnly ? user2.LatestSwaRanking : user2.LatestRanking;
             if (!string.IsNullOrEmpty(user1Ranking) && (!user1Ranking.Contains('?') || user1Ranking.Contains('D')))
                 rankingRating1 = user1.GetRatingByRanking(user1Ranking);
             if (!string.IsNullOrEmpty(user2Ranking) && (!user2Ranking.Contains('?') || user2Ranking.Contains('D')))

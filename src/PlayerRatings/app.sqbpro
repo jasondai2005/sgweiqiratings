@@ -26,8 +26,10 @@ update Match
 set MatchName = replace (MatchName, 'ShouTan Cup Open 手谈杯公开组', 'ShouTan Cup 手谈杯')
 
 UPDATE Match
-SET Factor = 0.5
-WHERE MatchName = 'TGA Kyu Cert. 级位赛 C'</sql><sql name="SQL 3">select m.* , m.date
+SET Factor = 0
+WHERE MatchName = 'SEA Friendly Match 东南亚友谊赛'
+
+</sql><sql name="SQL 3">select m.* , m.date
 from Match m inner join AspNetUsers u on (m.FirstPlayerId = u.id or m.SecondPlayerId = u.id) and u.DisplayName like '%simiao%'
 order by date</sql><sql name="SQL 5*">select u.DisplayName as Player, m.MatchName,
 	(case
@@ -36,7 +38,7 @@ order by date</sql><sql name="SQL 5*">select u.DisplayName as Player, m.MatchNam
 		else 2023
 		end) as Year,
 	fp.DisplayName as Winner, sp.DisplayName as Loser
-from Match m inner join AspNetUsers u on (m.FirstPlayerId = u.id or m.SecondPlayerId = u.id) and (u.DisplayName like '%JUNHONG%')
+from Match m inner join AspNetUsers u on (m.FirstPlayerId = u.id or m.SecondPlayerId = u.id) and (u.DisplayName like '%gai yi%')
 	INNER JOIN AspNetUsers fp ON m.FirstPlayerId = fp.Id
 	INNER JOIN AspNetUsers sp ON m.SecondPlayerId = sp.Id
 order by u.DisplayName, m.Date</sql><sql name="SQL 6">select DISTINCT u.DisplayName as Player
