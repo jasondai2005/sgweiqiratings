@@ -310,7 +310,7 @@ namespace PlayerRatings.Controllers
 
             var lastMatches = matches.Where(m=> m.Date > date.AddMonths(-1));
             // Players in monitoring period shouldn't impact existing players' positions
-            var users = activeUsers.Where(x => league.Name.Contains("Intl.") || !x.IsHiddenPlayer).ToList();
+            var users = activeUsers.Where(x => league.Name.Contains("Intl.") || (!x.IsHiddenPlayer && elo[x] >= 1640)).ToList();
             users.Sort(CompareByRatingAndName);
 
             var promotedPlayers = activeUsers.Where(x => (date.Year > 2023 || x.IsHiddenPlayer) && x.Promotion.Contains('→')).ToList();
