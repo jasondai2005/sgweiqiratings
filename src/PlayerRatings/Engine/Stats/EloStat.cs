@@ -28,6 +28,7 @@ namespace PlayerRatings.Engine.Stats
             double secondPlayerRating = _dict.ContainsKey(match.SecondPlayer.Id) ? _dict[match.SecondPlayer.Id] : secondPlayerRankingRating;
 
             double factor1 = match.Factor.GetValueOrDefault(1);
+            if (factor1 > 0) factor1 = 1;
             double factor2 = factor1;
             if (factor1 == 1) // factor is not specified
             {
@@ -90,8 +91,8 @@ namespace PlayerRatings.Engine.Stats
                 }
             }
 
-            var rating1 = new Elo(firstPlayerRating, secondPlayerRating, firstUserScore, 1 - firstUserScore, Elo.GetK(firstPlayerRating) * factor1);
-            var rating2 = new Elo(firstPlayerRating, secondPlayerRating, firstUserScore, 1 - firstUserScore, Elo.GetK(secondPlayerRating) * factor2);
+            var rating1 = new Elo(firstPlayerRating, secondPlayerRating, firstUserScore, 1 - firstUserScore, factor1 > 1 ? 40 : Elo.GetK(firstPlayerRating));
+            var rating2 = new Elo(firstPlayerRating, secondPlayerRating, firstUserScore, 1 - firstUserScore, factor2 > 1 ? 40 : Elo.GetK(secondPlayerRating));
 
             if (match.FirstPlayer.DisplayName == "[China 6D]")
                 _china6dRating = rating1.NewRatingAPlayer;
@@ -116,7 +117,7 @@ namespace PlayerRatings.Engine.Stats
         private static double CalculateDynamicFactor(double firstPlayerRating, double secondPlayerRating)
         {
             // 40 is the ranking diff between two sequencial dans
-            return Math.Max(1, Math.Pow(2, ((secondPlayerRating - firstPlayerRating) / 40)));
+            return 40;// Math.Max(1, Math.Pow(2, ((secondPlayerRating - firstPlayerRating) / 100)));
         }
 
         public virtual string GetResult(ApplicationUser user)

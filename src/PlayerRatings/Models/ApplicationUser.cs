@@ -8,9 +8,9 @@ namespace PlayerRatings.Models
     {
         private const string BIRTH_YEAR = "BY";
         internal const string DATE_FORMAT = "dd/MM/yyyy";
-        private const int ONE_P_RATING = 2240;
-        private const int ONE_D_RATING = 1800; // 2000;
-        private const int DAN_RANKING_DIFF = 40;
+        private const int ONE_P_RATING = 2740;
+        private const int ONE_D_RATING = 2100; // 2000;
+        private const int DAN_RANKING_DIFF = 100;
         private const int KYU_RANKING_DIFF_HIGH = 10;
         private const int KYU_RANKING_DIFF_LOW = 2;
         private Dictionary<string, DateTimeOffset> _rankingHistory = new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
@@ -45,6 +45,7 @@ namespace PlayerRatings.Models
 
         internal DateTimeOffset LastMatch { get; set; } = DateTimeOffset.MinValue;
         internal DateTimeOffset FirstMatch { get; set; } = DateTimeOffset.MinValue;
+        internal List<DateTimeOffset> LastMatches = new List<DateTimeOffset>();
 
         internal int MatchCount { get; set; } = 0;
 
@@ -53,7 +54,7 @@ namespace PlayerRatings.Models
             get
             {
                 var rankingChangeDeadline = League.CutoffDate.AddMonths(-6);
-                return IsVirtualPlayer || League.CutoffDate.AddYears(-1) < LastMatch ||
+                return IsVirtualPlayer || League.CutoffDate.AddYears(-2) < LastMatch ||
                     (RankingBeforeCutoffDate?.Contains('K', StringComparison.InvariantCultureIgnoreCase) == true &&
                     RankingBeforeCutoffDate != GetRankingBeforeDate(rankingChangeDeadline));
             }
@@ -93,7 +94,10 @@ namespace PlayerRatings.Models
 
         public bool NeedDynamicFactor(bool intl)
         {
-            return intl ? MatchCount <= 12 : IsNewUnknownRankdedPlayer;
+            bool result = intl ? MatchCount <= 12 : IsNewUnknownRankdedPlayer;
+            if (!result)
+                result = LatestRanking.Contains('D') && LastMatches.Any(x => x < DateTimeOffset.Now.AddYears(2));
+            return result;
         }
 
         public string LatestRanking => GetRankingBeforeDate(DateTimeOffset.Now.AddDays(1));
@@ -318,12 +322,9 @@ namespace PlayerRatings.Models
                 switch (rankingNum)
                 {
                     case 8:
-                        return ONE_D_RATING == 2000 || intl ? GetDanRating(rankingNum) : ONE_P_RATING;
                     case 7:
-                        return ONE_D_RATING == 2000 || intl ? GetDanRating(rankingNum) : ONE_P_RATING - 120;
                     case 6:
                     case 5:
-                        return GetDanRating(rankingNum);
                     case 4:
                     case 3:
                     case 2:
@@ -342,9 +343,7 @@ namespace PlayerRatings.Models
                     case 2:
                     case 3:
                     case 4:
-                        return isSWA || intl ? GetKyuRating(rankingNum) : GetKyuRating(rankingNum + 1);
                     case 5:
-                        return isSWA || intl ? GetKyuRating(5) : GetKyuRating(5) - 5;
                     case 6:
                     case 7:
                     case 8:
@@ -352,7 +351,7 @@ namespace PlayerRatings.Models
                     case 10:
                         return GetKyuRating(rankingNum);
                     default:
-                        return GetKyuRating(11);
+                        return 1950;
                 }
             }
             else
@@ -387,7 +386,7 @@ namespace PlayerRatings.Models
 
         private int GetProRating(int pro)
         {
-            return ONE_P_RATING + (pro - 1) * DAN_RANKING_DIFF;
+            return ONE_P_RATING + (pro - 1) * 40;
         }
 
         private int GetDanRating(int dan)
@@ -397,10 +396,13 @@ namespace PlayerRatings.Models
 
         private int GetKyuRating(int kyu)
         {
-            //return ONE_D_RATING - kyu * DAN_RANKING_DIFF;
-            return kyu <= 6 ?
-                (ONE_D_RATING - DAN_RANKING_DIFF) - (kyu - 1) * KYU_RANKING_DIFF_HIGH :
-                (GetKyuRating(6) - (kyu - 6) * KYU_RANKING_DIFF_LOW);
+            if (kyu <= 4)
+                return ONE_D_RATING - kyu * 25;
+            if (kyu <= 9)
+                return 1975 - (kyu - 4) * 30;
+            if (kyu <= 19)
+                return 1830 - (kyu - 9) * 40;
+            return 1400;
         }
 
         public string GetPosition(ref int postion, string leagueName = "")

@@ -7,16 +7,19 @@ namespace PlayerRatings.Engine.Rating
         private const double Denominator = 400;
 
         public const int K = 16;
-        public const int ProK = 10;
-        public const int HighKyuK = 24;
-        public const int MiddleKyuK = 32;
+        public const int ProK = 8;
+        public const int HighKyuK = 20;
+        public const int MiddleKyuK = 24;
 
         public static int GetK(double rating)
         {
-            if (rating >= 2200)
+            if (rating >= 2740)
                 return ProK;
-            
-            return K;
+            if (rating >= 2400)
+                return K;
+            if (rating >= 1950)
+                return HighKyuK;
+            return MiddleKyuK;
         }
 
         internal readonly double OldRatingPlayerA;
