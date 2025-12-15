@@ -96,7 +96,7 @@ namespace PlayerRatings.Models
         {
             bool result = intl ? MatchCount <= 12 : IsNewUnknownRankdedPlayer;
             if (!result)
-                result = LatestRanking.Contains('D') && LastMatches.Any(x => x < DateTimeOffset.Now.AddYears(2));
+                result = RankingBeforeCutoffDate.Contains('D') && LastMatches.Any(x => x < League.CutoffDate.AddYears(-2));
             return result;
         }
 

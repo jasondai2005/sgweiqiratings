@@ -28,7 +28,6 @@ namespace PlayerRatings.Engine.Stats
             double secondPlayerRating = _dict.ContainsKey(match.SecondPlayer.Id) ? _dict[match.SecondPlayer.Id] : secondPlayerRankingRating;
 
             double factor1 = match.Factor.GetValueOrDefault(1);
-            if (factor1 > 0) factor1 = 1;
             double factor2 = factor1;
             if (factor1 == 1) // factor is not specified
             {
