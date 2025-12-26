@@ -326,22 +326,8 @@ namespace PlayerRatings.Controllers
                 player.FirstMatch = match.Date;
             }
 
-            // Check if player was inactive before this match (gap > 2 years = returning from inactive)
-            // Reset MatchCountSinceActive when returning from inactive
-            if (player.LastMatch != DateTimeOffset.MinValue && 
-                player.LastMatch.AddYears(2) < match.Date)
-            {
-                player.MatchCountSinceActive = 0;
-            }
-
             player.LastMatch = match.Date;
-            // from 2025, low factor match won't be counted so low kyu players could show up later with more reasonable ratings
-            // 2024 list has already been published so we leave it as it is
-            if ((match.Factor > 0.1 && match.Date.Year < 2025) || match.Factor == null || match.Factor >= 1)
-            {
                 player.MatchCount++;
-                player.MatchCountSinceActive++;
-            }
 
             activeUsers.Add(player);
         }

@@ -8,7 +8,7 @@ namespace PlayerRatings.Models
     {
         private const string BIRTH_YEAR = "BY";
         internal const string DATE_FORMAT = "dd/MM/yyyy";
-        // EGD Rating Scale: 1 dan = 2100, difference between grades = 100
+        // Rating Scale: 1 dan = 2100, difference between grades = 100
         // Professional: 1p = 7d = 2700, difference between pro grades = 30
         // Minimum rating = -900
         private const int ONE_D_RATING = 2100;
@@ -50,8 +50,28 @@ namespace PlayerRatings.Models
         internal DateTimeOffset FirstMatch { get; set; } = DateTimeOffset.MinValue;
 
         internal int MatchCount { get; set; } = 0;
-        // Tracks matches since returning from inactive status (for dan players' dynamic factor)
-        internal int MatchCountSinceActive { get; set; } = 0;
+
+        /// <summary>
+        /// Estimated initial rating calculated from performance in first 12 games.
+        /// This is used to provide a more accurate initial rating for foreign/unknown players
+        /// after they have played enough games to determine their true strength.
+        /// </summary>
+        internal double? EstimatedInitialRating { get; set; } = null;
+
+        /// <summary>
+        /// Gets the best available initial rating for this player.
+        /// Returns the performance-based estimated rating if available (after 12 games),
+        /// otherwise returns the ranking-based rating.
+        /// </summary>
+        public double GetInitialRating(bool intl = false)
+        {
+            // If we have a performance-based estimate (calculated after 12 games), use it
+            if (EstimatedInitialRating.HasValue)
+                return EstimatedInitialRating.Value;
+            
+            // Otherwise fall back to ranking-based rating
+            return GetRatingBeforeDate(FirstMatch.Date, intl);
+        }
 
         public bool Active
         {
@@ -99,15 +119,7 @@ namespace PlayerRatings.Models
 
         public bool NeedDynamicFactor(bool intl)
         {
-            if (intl)
-                return MatchCount <= 12;
-
-            // For dan players: first 6 matches ever or since returning from inactive
-            bool isDanPlayer = InternalInitRanking.Contains('D');
-            if (isDanPlayer && MatchCountSinceActive <= 6)
-                return true;
-
-            return IsNewUnknownRankdedPlayer;
+            return intl ? MatchCount <= 12 : IsNewUnknownRankdedPlayer;
         }
 
         public string LatestRanking => GetRankingBeforeDate(DateTimeOffset.Now.AddDays(1));

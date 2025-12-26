@@ -10,7 +10,7 @@ namespace PlayerRatings.Engine.Rating
         public static bool SwaRankedPlayersOnly = false;
 
         /// <summary>
-        /// Calculates the β (beta) mapping function for EGD ratings.
+        /// Calculates the β (beta) mapping function for ratings.
         /// β(r) = -7 * ln(3300 - r)
         /// </summary>
         private static double Beta(double rating)
@@ -47,11 +47,11 @@ namespace PlayerRatings.Engine.Rating
         }
 
         /// <summary>
-        /// Creates an Elo rating calculation using the EGD rating system.
+        /// Creates an Elo rating calculation using the rating system.
         /// Rating update formula: r' = r + con * (Sa - Se) + bonus
         /// </summary>
-        /// <param name="playerARating">EGD rating of player A (r1)</param>
-        /// <param name="playerBRating">EGD rating of player B (r2)</param>
+        /// <param name="playerARating">rating of player A (r1)</param>
+        /// <param name="playerBRating">rating of player B (r2)</param>
         /// <param name="playerAScore">Actual game result for player A (1.0 = win, 0.5 = jigo, 0.0 = loss)</param>
         /// <param name="playerBScore">Actual game result for player B (1.0 = win, 0.5 = jigo, 0.0 = loss)</param>
         /// <param name="conFactor">The con factor (volatility) to use, typically from GetK() possibly multiplied by an adjustment factor</param>
@@ -65,11 +65,11 @@ namespace PlayerRatings.Engine.Rating
             var expectedScoreB = ExpectedScore(playerBRating, playerARating);
 
             // Calculate bonuses to counter rating deflation
-            var bonusA = Bonus(playerARating);
-            var bonusB = Bonus(playerBRating);
+            var bonusA = conFactor > 0 ? Bonus(playerARating) : 0;
+            var bonusB = conFactor > 0 ? Bonus(playerBRating) : 0;
 
             // Update ratings: r' = r + con * (Sa - Se) + bonus
-            // Minimum rating is -900 per EGD rules
+            // Minimum rating is -900 per rules
             NewRatingAPlayer = Math.Max(playerARating + conFactor * (playerAScore - expectedScoreA) + bonusA, -900);
             NewRatingBPlayer = Math.Max(playerBRating + conFactor * (playerBScore - expectedScoreB) + bonusB, -900);
         }

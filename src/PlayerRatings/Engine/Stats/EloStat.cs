@@ -9,6 +9,14 @@ namespace PlayerRatings.Engine.Stats
         protected readonly Dictionary<string, double> _dict = new Dictionary<string, double>();
         protected double _china6dRating = 0.0;
 
+        // Track game results for new foreign/unknown players to calculate performance rating
+        // Key: player Id, Value: list of (opponent rating, score) tuples
+        private readonly Dictionary<string, List<(double opponentRating, double score)>> _performanceTracker 
+            = new Dictionary<string, List<(double opponentRating, double score)>>();
+
+        // Number of games required before calculating estimated initial rating
+        private const int GAMES_FOR_ESTIMATION = 12;
+
         public void AddMatch(Match match)
         {
             double firstUserScore = 1.0;
@@ -28,57 +36,47 @@ namespace PlayerRatings.Engine.Stats
             double secondPlayerRating = _dict.ContainsKey(match.SecondPlayer.Id) ? _dict[match.SecondPlayer.Id] : secondPlayerRankingRating;
 
             double factor1 = match.Factor.GetValueOrDefault(1);
+            if (factor1 > 0) factor1 = 1;
             double factor2 = factor1;
             if (factor1 == 1) // factor is not specified
             {
-                // use different K factor for new foreign players to make them get to their proper rating positions faster
-                // - K factor is the max possible adjustment per match
-                if (match.FirstPlayer.NeedDynamicFactor(isIntlLeague))
-                {
-                    // if winning a stronger player, use a K factor related to the current elo rating difference
-                    // larger diff will result in a larger K factor, and elo rating will increase much faster
-                    // - generally, each diff of one dan ranking will double the K value once
-                    // winning a weaker player will use normal K factor
-                    factor1 = CalculateDynamicFactor(firstPlayerRating,
-                        // in case the opsite player's rating is off his/her ranking or true skill level too much
-                        // normallize it a bit via using the averate value of the current rating and ranking rating to avoid very rediculas variance
-                        secondPlayerRating > secondPlayerRankingRating ? (secondPlayerRating + secondPlayerRankingRating) / 2 : secondPlayerRating);
+                bool player1NeedsDynamic = match.FirstPlayer.NeedDynamicFactor(isIntlLeague);
+                bool player2NeedsDynamic = match.SecondPlayer.NeedDynamicFactor(isIntlLeague);
 
-                    if (match.SecondPlayer.NeedDynamicFactor(isIntlLeague))
+                // Apply uncertainty-based K factor for new/foreign players
+                // This is symmetric - applies to both wins and losses
+                if (player1NeedsDynamic)
+                {
+                    factor1 = CalculateUncertaintyFactor(match.FirstPlayer.MatchCount);
+                    
+                    // Reduce impact on established players when playing against uncertain players
+                    if (!player2NeedsDynamic && !match.SecondPlayer.IsVirtualPlayer)
                     {
-                        // normalize the factors if both are new players since we know none of their real rankings
-                        factor2 = factor1 = Math.Min(8, factor1);
-                    }
-                    else
-                    {
-                        // reduce these new players' impacts to existing players
-                        factor2 = match.SecondPlayer.IsVirtualPlayer || match.FirstPlayer.IsUnknownPlayer ? 1 : 0.5; // half of the normal K
+                        factor2 = 0.5; // Half K for established player
                     }
                 }
-                else if (match.SecondPlayer.NeedDynamicFactor(isIntlLeague))
-                {
-                    // exceptional matches
-                    if (match.SecondPlayerScore > 0)
-                    {
-                        factor2 = 1;
-                    }
-                    else
-                    {
-                        // the same here. losing to a much weaker player could be a disaster
-                        factor2 = CalculateDynamicFactor(
-                            // normallize opsite rating
-                            firstPlayerRating < firstPlayerRankingRating ? (firstPlayerRating + firstPlayerRankingRating) / 2 : firstPlayerRating,
-                            secondPlayerRating);
-                    }
 
-                    // reduce these new players' impact to existing players
-                    factor1 = match.FirstPlayer.IsVirtualPlayer || match.SecondPlayer.IsUnknownPlayer ? 1 : 0.5;
+                if (player2NeedsDynamic)
+                {
+                    factor2 = CalculateUncertaintyFactor(match.SecondPlayer.MatchCount);
+                    
+                    // Reduce impact on established players when playing against uncertain players
+                    if (!player1NeedsDynamic && !match.FirstPlayer.IsVirtualPlayer)
+                    {
+                        factor1 = 0.5; // Half K for established player
+                    }
                 }
 
+                // When both are new players, cap the factors to avoid excessive volatility
+                if (player1NeedsDynamic && player2NeedsDynamic)
+                {
+                    factor1 = Math.Min(factor1, 2.0);
+                    factor2 = Math.Min(factor2, 2.0);
+                }
+
+                // Special handling for China 5D virtual player pool (high variance)
                 if (match.FirstPlayer.DisplayName == "[China 5D]" && match.Date.Year >= 2025 && match.Date.Month >= 7)
                 {
-                    // china 5d players' strenghs varies too much.
-                    // reduce their impacts from Jul 2025
                     if (match.Date.Year >= 2025 && match.Date.Month >= 11 && match.Date.Day >= 24)
                     {
                         factor2 *= Math.Min(1, (firstPlayerRating - 1000) * (firstPlayerRating - 1000) / (_china6dRating - 1000) / (secondPlayerRating - 1000));
@@ -98,24 +96,190 @@ namespace PlayerRatings.Engine.Stats
             else if (match.SecondPlayer.DisplayName == "[China 6D]")
                 _china6dRating = rating1.NewRatingBPlayer;
 
-            match.OldFirstPlayerRating = rating1.OldRatingPlayerA.ToString("F1");
-            match.OldSecondPlayerRating = rating1.OldRatingPlayerB.ToString("F1");
+            match.OldFirstPlayerRating = firstPlayerRating.ToString("F1");
+            match.OldSecondPlayerRating = secondPlayerRating.ToString("F1");
 
             _dict[match.FirstPlayer.Id] = rating1.NewRatingAPlayer;
-            _dict[match.SecondPlayer.Id] = rating1.NewRatingBPlayer;
+            _dict[match.SecondPlayer.Id] = rating2.NewRatingBPlayer;
 
             match.ShiftRating = rating1.ShiftRatingAPlayer.ToString("F1");
-            var player2ShiftRating = secondPlayerRating - _dict[match.SecondPlayer.Id];
-            if (Math.Abs(player2ShiftRating - rating1.ShiftRatingAPlayer) >= 0.01)
+            var player2ShiftRating = (secondPlayerRating - _dict[match.SecondPlayer.Id]).ToString("F1");
+            if (match.ShiftRating != player2ShiftRating)
             {
                 // rating shifts will be different for the two players, display both
-                match.ShiftRating += "-" + player2ShiftRating.ToString("F1");
+                match.ShiftRating += "-" + player2ShiftRating;
+            }
+
+            // Track games for performance-based initial rating calculation
+            TrackGameForPerformanceRating(match.FirstPlayer, secondPlayerRating, firstUserScore, isIntlLeague);
+            TrackGameForPerformanceRating(match.SecondPlayer, firstPlayerRating, 1 - firstUserScore, isIntlLeague);
+        }
+
+        /// <summary>
+        /// Tracks a game result for a new foreign/unknown player and calculates their
+        /// estimated initial rating after they've played enough games.
+        /// After calculation, applies a correction to the player's current rating.
+        /// </summary>
+        private void TrackGameForPerformanceRating(ApplicationUser player, double opponentRating, double score, bool isIntlLeague)
+        {
+            // Only track for players who need performance estimation
+            // (foreign/unknown players in their first 12 games)
+            if (!player.NeedDynamicFactor(isIntlLeague))
+                return;
+
+            // Skip virtual players (aggregated player pools like [China 5D])
+            if (player.IsVirtualPlayer)
+                return;
+
+            // Initialize tracking list if needed
+            if (!_performanceTracker.ContainsKey(player.Id))
+            {
+                _performanceTracker[player.Id] = new List<(double opponentRating, double score)>();
+            }
+
+            // Add this game result
+            _performanceTracker[player.Id].Add((opponentRating, score));
+
+            // After GAMES_FOR_ESTIMATION games, calculate estimated initial rating and apply correction
+            if (_performanceTracker[player.Id].Count == GAMES_FOR_ESTIMATION)
+            {
+                var estimatedInitialRating = CalculatePerformanceRating(_performanceTracker[player.Id]);
+                player.EstimatedInitialRating = estimatedInitialRating;
+
+                // Apply rating correction based on the difference between
+                // original ranking-based rating and performance-based estimate
+                if (_dict.ContainsKey(player.Id))
+                {
+                    double originalInitialRating = player.GetRatingBeforeDate(player.FirstMatch.Date, isIntlLeague);
+                    double ratingCorrection = estimatedInitialRating - originalInitialRating;
+                    
+                    // Apply partial correction (30%) to avoid over-adjusting
+                    // The dynamic K-factor should have already moved them partway to their true rating
+                    double currentRating = _dict[player.Id];
+                    double correctedRating = currentRating + ratingCorrection * 0.3;
+                    
+                    _dict[player.Id] = correctedRating;
+                }
+
+                // Clean up tracker as we no longer need to track this player
+                _performanceTracker.Remove(player.Id);
             }
         }
 
+        /// <summary>
+        /// Calculates performance rating based on game results with conservative extrapolation.
+        /// Key principles:
+        /// 1. Wins against stronger opponents are weighted more heavily
+        /// 2. Ceiling based on strongest opponent beaten (can't extrapolate too far)
+        /// 3. Diminishing returns for extreme win rates
+        /// </summary>
+        private static double CalculatePerformanceRating(List<(double opponentRating, double score)> games)
+        {
+            if (games.Count == 0)
+                return 1600; // Default to 5 kyu
+
+            // Find the strongest opponent beaten and weakest opponent lost to
+            double strongestWin = double.MinValue;
+            double weakestLoss = double.MaxValue;
+            double weightedOpponentSum = 0;
+            double weightSum = 0;
+            double totalScore = 0;
+
+            foreach (var game in games)
+            {
+                totalScore += game.score;
+
+                // Weight games by opponent strength - stronger opponents give more information
+                // Use square root to dampen the effect (avoid over-weighting)
+                double weight = Math.Sqrt(Math.Max(1000, game.opponentRating) / 1000.0);
+                weightedOpponentSum += game.opponentRating * weight;
+                weightSum += weight;
+
+                // Track strongest win and weakest loss
+                if (game.score >= 0.5 && game.opponentRating > strongestWin)
+                {
+                    strongestWin = game.opponentRating;
+                }
+                if (game.score <= 0.5 && game.opponentRating < weakestLoss)
+                {
+                    weakestLoss = game.opponentRating;
+                }
+            }
+
+            double weightedAvgOpponent = weightedOpponentSum / weightSum;
+            double winRate = totalScore / games.Count;
+
+            // Calculate base rating difference with diminishing returns
+            // Use a more conservative formula that compresses extreme results
+            double ratingDiff;
+            if (winRate >= 0.99)
+            {
+                // 100% win rate: estimate ~1.5-2 dan above average opponent (not 4 dan!)
+                ratingDiff = 200;
+            }
+            else if (winRate <= 0.01)
+            {
+                // 0% win rate: estimate ~1.5-2 dan below average opponent
+                ratingDiff = -200;
+            }
+            else
+            {
+                // Use compressed logit function for more conservative estimates
+                // Standard: 173.7 * ln(p/(1-p)) gives ~400 for 90% win rate
+                // Compressed: use factor of 100 to give ~230 for 90% win rate
+                double logitDiff = 100 * Math.Log(winRate / (1 - winRate));
+                
+                // Apply additional compression for extreme values
+                // This ensures diminishing returns as win rate approaches 0% or 100%
+                ratingDiff = Math.Sign(logitDiff) * Math.Min(Math.Abs(logitDiff), 200 + Math.Sqrt(Math.Abs(logitDiff)));
+            }
+
+            double estimatedRating = weightedAvgOpponent + ratingDiff;
+
+            // Apply ceiling based on strongest opponent beaten
+            // Can't be rated more than ~1.5 dan above your best win (150 points)
+            // This prevents "beat all 5D = must be 9D" logic
+            if (strongestWin > double.MinValue && estimatedRating > strongestWin + 150)
+            {
+                estimatedRating = strongestWin + 150;
+            }
+
+            // Apply floor based on weakest opponent lost to
+            // Can't be rated more than ~1.5 dan below your worst loss
+            if (weakestLoss < double.MaxValue && estimatedRating < weakestLoss - 150)
+            {
+                estimatedRating = weakestLoss - 150;
+            }
+
+            return estimatedRating;
+        }
+
+        /// <summary>
+        /// Calculates a K-factor multiplier based on games played (uncertainty-based).
+        /// New players get higher K to converge faster, decreasing to 1.0 at GAMES_FOR_ESTIMATION.
+        /// Formula: multiplier = 1 + max(0, (GAMES_FOR_ESTIMATION - gamesPlayed) / 6)
+        /// </summary>
+        /// <param name="gamesPlayed">Number of games the player has played</param>
+        /// <returns>K-factor multiplier (1.0 to 3.0)</returns>
+        private static double CalculateUncertaintyFactor(int gamesPlayed)
+        {
+            // Linear decrease from 3.0 at 0 games to 1.0 at 12 games
+            // 0 games: 1 + 12/6 = 3.0
+            // 6 games: 1 + 6/6 = 2.0
+            // 12 games: 1 + 0/6 = 1.0
+            return 1 + Math.Max(0, (GAMES_FOR_ESTIMATION - gamesPlayed) / 6.0);
+        }
+
+        /// <summary>
+        /// Legacy method for calculating dynamic factor based on rating difference.
+        /// Only boosts K when opponent is stronger (asymmetric).
+        /// Consider using CalculateUncertaintyFactor instead for symmetric behavior.
+        /// </summary>
+        [Obsolete("Use CalculateUncertaintyFactor for symmetric games-based K adjustment")]
         private static double CalculateDynamicFactor(double firstPlayerRating, double secondPlayerRating)
         {
-            return Math.Max(1, Math.Pow(2, ((secondPlayerRating - firstPlayerRating) / 200)));
+            var ret = Math.Max(1, Math.Pow(2, ((secondPlayerRating - firstPlayerRating) / 200)));
+            return ret;
         }
 
         public virtual string GetResult(ApplicationUser user)
@@ -136,7 +300,7 @@ namespace PlayerRatings.Engine.Stats
     {
         public override string GetResult(ApplicationUser user)
         {
-            return _dict.ContainsKey(user.Id) ? (_dict[user.Id] - user.GetRatingBeforeDate(user.FirstMatch.Date)).ToString("F1") : "";
+            return _dict.ContainsKey(user.Id) ? (_dict[user.Id] - user.GetRatingBeforeDate(League.CutoffDate)).ToString("F1") : "";
         }
 
         public override string NameLocalizationKey => nameof(LocalizationKey.Delta);
