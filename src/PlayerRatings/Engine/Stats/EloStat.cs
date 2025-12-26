@@ -14,8 +14,19 @@ namespace PlayerRatings.Engine.Stats
         private readonly Dictionary<string, List<(double opponentRating, double score)>> _performanceTracker 
             = new Dictionary<string, List<(double opponentRating, double score)>>();
 
+        // Track recent games for all players to detect improvement (sliding window)
+        // Key: player Id, Value: circular buffer of recent (opponent rating, score, player's rating at time) tuples
+        private readonly Dictionary<string, Queue<(double opponentRating, double score, double playerRating)>> _recentGamesTracker
+            = new Dictionary<string, Queue<(double opponentRating, double score, double playerRating)>>();
+
         // Number of games required before calculating estimated initial rating
         private const int GAMES_FOR_ESTIMATION = 12;
+
+        // Number of recent games to track for improvement detection
+        private const int RECENT_GAMES_WINDOW = 8;
+
+        // Minimum performance gap (in rating points) to trigger catch-up boost
+        private const double CATCHUP_THRESHOLD = 100;
 
         public void AddMatch(Match match)
         {
@@ -89,7 +100,7 @@ namespace PlayerRatings.Engine.Stats
             }
 
             var rating1 = new Elo(firstPlayerRating, secondPlayerRating, firstUserScore, 1 - firstUserScore, Elo.GetK(firstPlayerRating) * factor1);
-            var rating2 = new Elo(firstPlayerRating, secondPlayerRating, firstUserScore, 1 - firstUserScore, Elo.GetK(secondPlayerRating) * factor2);
+            var rating2 = new Elo(firstPlayerRating, secondPlayerRating, firstUserScore, 1 - firstUserScore, Elo.GetK(firstPlayerRating) * factor2);
 
             if (match.FirstPlayer.DisplayName == "[China 6D]")
                 _china6dRating = rating1.NewRatingAPlayer;
@@ -113,6 +124,115 @@ namespace PlayerRatings.Engine.Stats
             // Track games for performance-based initial rating calculation
             TrackGameForPerformanceRating(match.FirstPlayer, secondPlayerRating, firstUserScore, isIntlLeague);
             TrackGameForPerformanceRating(match.SecondPlayer, firstPlayerRating, 1 - firstUserScore, isIntlLeague);
+
+            // Track recent games and apply catch-up boost for improving players
+            ApplyImprovementCatchup(match.FirstPlayer, secondPlayerRating, firstUserScore, firstPlayerRating);
+            ApplyImprovementCatchup(match.SecondPlayer, firstPlayerRating, 1 - firstUserScore, secondPlayerRating);
+        }
+
+        /// <summary>
+        /// Tracks recent games and applies a catch-up boost for players who are
+        /// consistently outperforming their rating (e.g., kyu players who improved).
+        /// </summary>
+        private void ApplyImprovementCatchup(ApplicationUser player, double opponentRating, double score, double playerRatingAtTime)
+        {
+            // Skip virtual players
+            if (player.IsVirtualPlayer)
+                return;
+
+            // Initialize tracking queue if needed
+            if (!_recentGamesTracker.ContainsKey(player.Id))
+            {
+                _recentGamesTracker[player.Id] = new Queue<(double, double, double)>();
+            }
+
+            var recentGames = _recentGamesTracker[player.Id];
+
+            // Add this game to recent history
+            recentGames.Enqueue((opponentRating, score, playerRatingAtTime));
+
+            // Keep only the most recent games
+            while (recentGames.Count > RECENT_GAMES_WINDOW)
+            {
+                recentGames.Dequeue();
+            }
+
+            // Need at least half the window to make a judgment
+            if (recentGames.Count < RECENT_GAMES_WINDOW / 2)
+                return;
+
+            // Calculate recent performance rating
+            var gamesList = recentGames.ToList();
+            double recentPerformance = CalculateRecentPerformanceRating(gamesList);
+            
+            // Get current rating
+            if (!_dict.ContainsKey(player.Id))
+                return;
+                
+            double currentRating = _dict[player.Id];
+
+            // Check if player is significantly outperforming their rating
+            double performanceGap = recentPerformance - currentRating;
+            
+            if (performanceGap > CATCHUP_THRESHOLD)
+            {
+                // Apply catch-up boost: move 20% of the gap
+                // This helps improving players catch up faster
+                double catchupBoost = performanceGap * 0.2;
+                
+                // Cap the boost at 50 points per game to avoid wild swings
+                catchupBoost = Math.Min(catchupBoost, 50);
+                
+                _dict[player.Id] = currentRating + catchupBoost;
+            }
+        }
+
+        /// <summary>
+        /// Calculates performance rating from recent games with recency weighting.
+        /// More recent games are weighted more heavily to detect improvement.
+        /// </summary>
+        private static double CalculateRecentPerformanceRating(List<(double opponentRating, double score, double playerRating)> games)
+        {
+            if (games.Count == 0)
+                return 1600;
+
+            double weightedOpponentSum = 0;
+            double weightedScoreSum = 0;
+            double weightSum = 0;
+
+            for (int i = 0; i < games.Count; i++)
+            {
+                var game = games[i];
+                
+                // Recency weight: more recent games count more
+                // Last game has weight ~2x the first game
+                double recencyWeight = 1.0 + (double)i / games.Count;
+                
+                weightedOpponentSum += game.opponentRating * recencyWeight;
+                weightedScoreSum += game.score * recencyWeight;
+                weightSum += recencyWeight;
+            }
+
+            double avgOpponent = weightedOpponentSum / weightSum;
+            double winRate = weightedScoreSum / weightSum;
+
+            // Convert to rating using conservative formula
+            double ratingDiff;
+            if (winRate >= 0.95)
+            {
+                ratingDiff = 150;
+            }
+            else if (winRate <= 0.05)
+            {
+                ratingDiff = -150;
+            }
+            else
+            {
+                ratingDiff = 80 * Math.Log(winRate / (1 - winRate));
+                ratingDiff = Math.Max(-150, Math.Min(150, ratingDiff));
+            }
+
+            return avgOpponent + ratingDiff;
         }
 
         /// <summary>
@@ -169,9 +289,10 @@ namespace PlayerRatings.Engine.Stats
         /// <summary>
         /// Calculates performance rating based on game results with conservative extrapolation.
         /// Key principles:
-        /// 1. Wins against stronger opponents are weighted more heavily
-        /// 2. Ceiling based on strongest opponent beaten (can't extrapolate too far)
-        /// 3. Diminishing returns for extreme win rates
+        /// 1. Recent games are weighted more heavily (to catch improvement)
+        /// 2. Wins against stronger opponents are weighted more heavily
+        /// 3. Ceiling based on strongest opponent beaten (can't extrapolate too far)
+        /// 4. Diminishing returns for extreme win rates
         /// </summary>
         private static double CalculatePerformanceRating(List<(double opponentRating, double score)> games)
         {
@@ -182,32 +303,42 @@ namespace PlayerRatings.Engine.Stats
             double strongestWin = double.MinValue;
             double weakestLoss = double.MaxValue;
             double weightedOpponentSum = 0;
+            double weightedScoreSum = 0;
             double weightSum = 0;
-            double totalScore = 0;
 
-            foreach (var game in games)
+            for (int i = 0; i < games.Count; i++)
             {
-                totalScore += game.score;
+                var game = games[i];
 
-                // Weight games by opponent strength - stronger opponents give more information
-                // Use square root to dampen the effect (avoid over-weighting)
-                double weight = Math.Sqrt(Math.Max(1000, game.opponentRating) / 1000.0);
+                // Recency weight: more recent games count more (helps detect improvement)
+                // Game 0 (oldest) has weight 1.0, game 11 (newest) has weight ~2.0
+                double recencyWeight = 1.0 + (double)i / games.Count;
+
+                // Opponent strength weight - stronger opponents give more information
+                double strengthWeight = Math.Sqrt(Math.Max(1000, game.opponentRating) / 1000.0);
+                
+                // Combined weight
+                double weight = recencyWeight * strengthWeight;
+                
                 weightedOpponentSum += game.opponentRating * weight;
+                weightedScoreSum += game.score * weight;
                 weightSum += weight;
 
-                // Track strongest win and weakest loss
+                // Track strongest win and weakest loss (from recent half of games only)
+                bool isRecentGame = i >= games.Count / 2;
                 if (game.score >= 0.5 && game.opponentRating > strongestWin)
                 {
                     strongestWin = game.opponentRating;
                 }
-                if (game.score <= 0.5 && game.opponentRating < weakestLoss)
+                if (game.score <= 0.5 && game.opponentRating < weakestLoss && isRecentGame)
                 {
+                    // Only consider recent losses for floor (old losses might be from before improvement)
                     weakestLoss = game.opponentRating;
                 }
             }
 
             double weightedAvgOpponent = weightedOpponentSum / weightSum;
-            double winRate = totalScore / games.Count;
+            double winRate = weightedScoreSum / weightSum;
 
             // Calculate base rating difference with diminishing returns
             // Use a more conservative formula that compresses extreme results
