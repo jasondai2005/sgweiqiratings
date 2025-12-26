@@ -8,11 +8,14 @@ namespace PlayerRatings.Models
     {
         private const string BIRTH_YEAR = "BY";
         internal const string DATE_FORMAT = "dd/MM/yyyy";
-        private const int ONE_P_RATING = 2240;
-        private const int ONE_D_RATING = 1800; // 2000;
-        private const int DAN_RANKING_DIFF = 40;
-        private const int KYU_RANKING_DIFF_HIGH = 10;
-        private const int KYU_RANKING_DIFF_LOW = 2;
+        // EGD Rating Scale: 1 dan = 2100, difference between grades = 100
+        // Professional: 1p = 7d = 2700, difference between pro grades = 30
+        // Minimum rating = -900
+        private const int ONE_D_RATING = 2100;
+        private const int ONE_P_RATING = 2700; // 1p = 7d
+        private const int GRADE_DIFF = 100;
+        private const int PRO_GRADE_DIFF = 30;
+        private const int MIN_RATING = -900;
         private Dictionary<string, DateTimeOffset> _rankingHistory = new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
         private Dictionary<string, DateTimeOffset> _swaRankingHistory = new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
 
@@ -47,13 +50,15 @@ namespace PlayerRatings.Models
         internal DateTimeOffset FirstMatch { get; set; } = DateTimeOffset.MinValue;
 
         internal int MatchCount { get; set; } = 0;
+        // Tracks matches since returning from inactive status (for dan players' dynamic factor)
+        internal int MatchCountSinceActive { get; set; } = 0;
 
         public bool Active
         {
             get
             {
                 var rankingChangeDeadline = League.CutoffDate.AddMonths(-6);
-                return IsVirtualPlayer || League.CutoffDate.AddYears(-1) < LastMatch ||
+                return IsVirtualPlayer || League.CutoffDate.AddYears(-2) < LastMatch ||
                     (RankingBeforeCutoffDate?.Contains('K', StringComparison.InvariantCultureIgnoreCase) == true &&
                     RankingBeforeCutoffDate != GetRankingBeforeDate(rankingChangeDeadline));
             }
@@ -78,13 +83,14 @@ namespace PlayerRatings.Models
             {
                 if (m_initRanking == null)
                     m_initRanking = GetRankingBeforeDate(FirstMatch.Date);
-
+                if (DisplayName.Contains("Zhou Yi")) // temp fix for known data issue
+                    m_initRanking = "[5D]";
                 return m_initRanking;
             }
         }
 
         public bool IsVirtualPlayer => DisplayName.Contains('[');
-        public bool IsUnknownPlayer => false;// string.IsNullOrEmpty(InternalInitRanking);
+        public bool IsUnknownPlayer => false;// string.IsNullOrEmpty(InternalInitRanking) || InternalInitRanking.Contains("?");
         public bool IsUnknownRankedPlayer => IsUnknownPlayer || (InternalInitRanking.Contains('[') && !InternalInitRanking.Contains(' '));
         public bool IsNewUnknownRankdedPlayer => MatchCount <= 12 && IsUnknownRankedPlayer;
         public bool IsProPlayer => RankingBeforeCutoffDate.Contains('P');
@@ -93,7 +99,15 @@ namespace PlayerRatings.Models
 
         public bool NeedDynamicFactor(bool intl)
         {
-            return intl ? MatchCount <= 12 : IsNewUnknownRankdedPlayer;
+            if (intl)
+                return MatchCount <= 12;
+
+            // For dan players: first 6 matches ever or since returning from inactive
+            bool isDanPlayer = InternalInitRanking.Contains('D');
+            if (isDanPlayer && MatchCountSinceActive <= 6)
+                return true;
+
+            return IsNewUnknownRankdedPlayer;
         }
 
         public string LatestRanking => GetRankingBeforeDate(DateTimeOffset.Now.AddDays(1));
@@ -298,74 +312,53 @@ namespace PlayerRatings.Models
         public int GetRatingByRanking(string ranking, bool intl = false)
         {
             if (string.IsNullOrEmpty(ranking))
-                return GetKyuRating(5);
+                return GetKyuRating(5); // Default to 5 kyu = 1600
 
             ranking = GetEffectiveRanking(ranking);
 
-            bool isForeign = ranking.Contains('[');
             bool isPro = ranking.Contains('P');
             bool isDan = ranking.Contains('D');
             bool isKyu = ranking.Contains('K');
+            bool isForeign = ranking.Contains('['); 
             bool isSWA = !isForeign && !ranking.Contains('(');
             int.TryParse(Regex.Match(ranking, @"\d+").Value, out int rankingNum);
 
+            int delta = 0;
+            if (!isSWA && !intl)
+            {
+                if (rankingNum == 5)
+                {
+                    delta = isDan || isKyu ? 50 : 0;
+                }
+
+                if (isDan && rankingNum <= 5)
+                {
+                    rankingNum -= 1;
+                }
+                else if (isKyu && rankingNum <= 5)
+                {
+                    rankingNum += 1;
+                }
+            }
+
             if (isPro)
             {
-                return GetProRating(rankingNum);
+                // 1p = 2700, 2p = 2730, ..., 9p = 2940
+                return GetProRating(Math.Min(rankingNum, 9));
             }
             else if (isDan)
             {
-                switch (rankingNum)
-                {
-                    case 8:
-                        return ONE_D_RATING == 2000 || intl ? GetDanRating(rankingNum) : ONE_P_RATING;
-                    case 7:
-                        return ONE_D_RATING == 2000 || intl ? GetDanRating(rankingNum) : ONE_P_RATING - 120;
-                    case 6:
-                    case 5:
-                        return GetDanRating(rankingNum);
-                    case 4:
-                    case 3:
-                    case 2:
-                        return isSWA || intl ? GetDanRating(rankingNum) : GetDanRating(rankingNum - 1);
-                    case 1:
-                        return isSWA || intl ? ONE_D_RATING : ONE_D_RATING - 30;
-                    default:
-                        throw new Exception("Unknown ranking.");
-                }
+                // 1d = 2100, 2d = 2200, ..., 6d = 2600, 7d+ = use dan rating
+                return GetDanRating(rankingNum) + delta;
             }
             else if (isKyu)
             {
-                switch (rankingNum)
-                {
-                    case 1:
-                    case 2:
-                    case 3:
-                    case 4:
-                        return isSWA || intl ? GetKyuRating(rankingNum) : GetKyuRating(rankingNum + 1);
-                    case 5:
-                        return isSWA || intl ? GetKyuRating(5) : GetKyuRating(5) - 5;
-                    case 6:
-                    case 7:
-                    case 8:
-                    case 9:
-                    case 10:
-                        return GetKyuRating(rankingNum);
-                    default:
-                        return GetKyuRating(11);
-                }
+                // 1k = 2000, 2k = 1900, ..., 20k = 100
+                return GetKyuRating(Math.Min(rankingNum, 30)) + delta;
             }
             else
             {
-                switch (ranking)
-                {
-                    case "♔": // national champion
-                        return 2600;
-                    case "♕": // international champion
-                        return 2640;
-                    default:
-                        return GetKyuRating(11);
-                }
+                return GetKyuRating(11); // Default to 11 kyu = 1000
             }
         }
 
@@ -385,22 +378,31 @@ namespace PlayerRatings.Models
             return ranking;
         }
 
+        /// <summary>
+        /// Gets rating for professional grade.
+        /// 1p = 2700, 2p = 2730, ..., 9p = 2940
+        /// </summary>
         private int GetProRating(int pro)
         {
-            return ONE_P_RATING + (pro - 1) * DAN_RANKING_DIFF;
+            return ONE_P_RATING + (pro - 1) * PRO_GRADE_DIFF;
         }
 
+        /// <summary>
+        /// Gets rating for dan grade.
+        /// 1d = 2100, 2d = 2200, ..., 6d = 2600, 7d = 2700 (same as 1p)
+        /// </summary>
         private int GetDanRating(int dan)
         {
-            return ONE_D_RATING + (dan - 1) * DAN_RANKING_DIFF;
+            return ONE_D_RATING + (dan - 1) * GRADE_DIFF;
         }
 
+        /// <summary>
+        /// Gets rating for kyu grade.
+        /// 1k = 2000, 2k = 1900, ..., 20k = 100
+        /// </summary>
         private int GetKyuRating(int kyu)
         {
-            //return ONE_D_RATING - kyu * DAN_RANKING_DIFF;
-            return kyu <= 6 ?
-                (ONE_D_RATING - DAN_RANKING_DIFF) - (kyu - 1) * KYU_RANKING_DIFF_HIGH :
-                (GetKyuRating(6) - (kyu - 6) * KYU_RANKING_DIFF_LOW);
+            return Math.Max(ONE_D_RATING - kyu * GRADE_DIFF, MIN_RATING);
         }
 
         public string GetPosition(ref int postion, string leagueName = "")

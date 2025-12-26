@@ -102,7 +102,7 @@ namespace PlayerRatings.Engine.Stats
             match.OldSecondPlayerRating = rating1.OldRatingPlayerB.ToString("F1");
 
             _dict[match.FirstPlayer.Id] = rating1.NewRatingAPlayer;
-            _dict[match.SecondPlayer.Id] = rating2.NewRatingBPlayer;
+            _dict[match.SecondPlayer.Id] = rating1.NewRatingBPlayer;
 
             match.ShiftRating = rating1.ShiftRatingAPlayer.ToString("F1");
             var player2ShiftRating = secondPlayerRating - _dict[match.SecondPlayer.Id];
@@ -115,8 +115,7 @@ namespace PlayerRatings.Engine.Stats
 
         private static double CalculateDynamicFactor(double firstPlayerRating, double secondPlayerRating)
         {
-            // 40 is the ranking diff between two sequencial dans
-            return Math.Max(1, Math.Pow(2, ((secondPlayerRating - firstPlayerRating) / 40)));
+            return Math.Max(1, Math.Pow(2, ((secondPlayerRating - firstPlayerRating) / 200)));
         }
 
         public virtual string GetResult(ApplicationUser user)
