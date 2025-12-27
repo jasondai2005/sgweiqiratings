@@ -38,15 +38,6 @@ namespace PlayerRatings.Engine.Rating
         }
 
         /// <summary>
-        /// Calculates the bonus to counter rating deflation.
-        /// bonus = ln(1 + exp((2300 - rating) / 80)) / 5
-        /// </summary>
-        private static double Bonus(double rating)
-        {
-            return Math.Log(1 + Math.Exp((2300 - rating) / 80)) / 5;
-        }
-
-        /// <summary>
         /// Creates an Elo rating calculation using the rating system.
         /// Rating update formula: r' = r + con * (Sa - Se) + bonus
         /// </summary>
@@ -64,14 +55,10 @@ namespace PlayerRatings.Engine.Rating
             var expectedScoreA = ExpectedScore(playerARating, playerBRating);
             var expectedScoreB = ExpectedScore(playerBRating, playerARating);
 
-            // Calculate bonuses to counter rating deflation
-            var bonusA = conFactor > 0 ? Bonus(playerARating) : 0;
-            var bonusB = conFactor > 0 ? Bonus(playerBRating) : 0;
-
             // Update ratings: r' = r + con * (Sa - Se) + bonus
             // Minimum rating is -900 per rules
-            NewRatingAPlayer = Math.Max(playerARating + conFactor * (playerAScore - expectedScoreA) + bonusA, -900);
-            NewRatingBPlayer = Math.Max(playerBRating + conFactor * (playerBScore - expectedScoreB) + bonusB, -900);
+            NewRatingAPlayer = Math.Max(playerARating + conFactor * (playerAScore - expectedScoreA), -900);
+            NewRatingBPlayer = Math.Max(playerBRating + conFactor * (playerBScore - expectedScoreB), -900);
         }
 
         public Elo(double playerARating, double playerBRating, double playerAScore, double playerBScore)
