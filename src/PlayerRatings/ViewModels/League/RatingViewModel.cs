@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using PlayerRatings.Engine.Stats;
 using PlayerRatings.Models;
 
@@ -7,13 +8,16 @@ namespace PlayerRatings.ViewModels.League
     public class RatingViewModel
     {
         public RatingViewModel(IEnumerable<IStat> stats, IEnumerable<ApplicationUser> users, IEnumerable<ApplicationUser> promotedPlayers,
-            IEnumerable<Models.Match> lastMatches, Dictionary<string, Dictionary<string, string>> forecast)
+            IEnumerable<Models.Match> lastMatches, Dictionary<string, Dictionary<string, string>> forecast,
+            Guid leagueId, string byDate = null)
         {
             Stats = stats;
             Users = users;
             PromotedPlayers = promotedPlayers;
             Forecast = forecast;
             LastMatches = lastMatches;
+            LeagueId = leagueId;
+            ByDate = byDate;
         }
 
         public IEnumerable<IStat> Stats { get; private set; }
@@ -25,5 +29,9 @@ namespace PlayerRatings.ViewModels.League
         public Dictionary<string, Dictionary<string, string>> Forecast { get; private set; }
 
         public IEnumerable<Models.Match> LastMatches { get; private set; }
+
+        public Guid LeagueId { get; private set; }
+
+        public string ByDate { get; private set; }
     }
 }

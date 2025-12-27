@@ -8,7 +8,6 @@ using PlayerRatings.Models;
 using PlayerRatings.Repositories;
 using PlayerRatings.Util;
 using PlayerRatings.ViewModels.League;
-using PlayerRatings.ViewModels.Match;
 
 namespace PlayerRatings.Controllers
 {
@@ -316,7 +315,7 @@ namespace PlayerRatings.Controllers
             var promotedPlayers = activeUsers.Where(x => (date.Year > 2023 || x.IsHiddenPlayer) && x.Promotion.Contains('→')).ToList();
             promotedPlayers.Sort(CompareByRankingRatingAndName);
 
-            return View(new RatingViewModel(stats, users, promotedPlayers, lastMatches, forecast));
+            return View(new RatingViewModel(stats, users, promotedPlayers, lastMatches, forecast, id.Value, byDate));
         }
 
         private static void AddUser(HashSet<ApplicationUser> activeUsers, Match match, ApplicationUser player)
@@ -438,22 +437,5 @@ namespace PlayerRatings.Controllers
                 return rankingRating1.CompareTo(rankingRating2) * -1; // higher rating first
         }
 
-        public async Task<IActionResult> HistoryRating(Guid id)
-        {
-            var currentUser = await User.GetApplicationUser(_userManager);
-
-            var league = _leaguesRepository.GetUserAuthorizedLeague(currentUser, id);
-
-            if (league == null)
-            {
-                return NotFound();
-            }
-
-            return View(new HistoryRatingViewModel
-            {
-                LeagueId = id,
-                ByDate = null
-            });
-        }
     }
 }

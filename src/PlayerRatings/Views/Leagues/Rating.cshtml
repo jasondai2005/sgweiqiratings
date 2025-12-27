@@ -6,9 +6,38 @@
 
     var number = 1;
     var leagueName = Model.LastMatches.FirstOrDefault()?.League?.Name ?? string.Empty;
+
+    // Calculate current date, previous month and next month for navigation
+    var currentDate = string.IsNullOrEmpty(Model.ByDate) 
+        ? DateTime.Now 
+        : DateTime.ParseExact(Model.ByDate, "dd/MM/yyyy", null);
+    var prevMonth = new DateTime(currentDate.Year, currentDate.Month, 1).AddMonths(-1);
+    var nextMonth = new DateTime(currentDate.Year, currentDate.Month, 1).AddMonths(1);
+    var prevMonthStr = prevMonth.ToString("dd/MM/yyyy");
+    var nextMonthStr = nextMonth.ToString("dd/MM/yyyy");
+    var currentDateStr = currentDate.ToString("dd/MM/yyyy");
 }
 
 <h3>@ViewData["Title"]</h3>
+
+<form asp-action="Rating" method="get" class="mb-3" style="display: inline-flex; flex-wrap: nowrap; gap: 4px;">
+    <input type="hidden" name="id" value="@Model.LeagueId" />
+    <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = prevMonthStr })" class="btn btn-outline-primary">◀ @prevMonth.ToString("MMM")</a>
+    <input type="text" name="byDate" value="@currentDateStr" class="form-control text-center" style="width: 110px;" placeholder="dd/MM/yyyy" />
+    <button type="submit" class="btn btn-primary">Go</button>
+    @if (nextMonth <= DateTime.Now)
+    {
+        <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = nextMonthStr })" class="btn btn-outline-primary">@nextMonth.ToString("MMM") ▶</a>
+    }
+    else
+    {
+        <span class="btn btn-outline-secondary disabled">@nextMonth.ToString("MMM") ▶</span>
+    }
+    @if (!string.IsNullOrEmpty(Model.ByDate))
+    {
+        <a href="@Url.Action("Rating", new { id = Model.LeagueId })" class="btn btn-success">Today</a>
+    }
+</form>
 
 <div class="table-responsive">
     <table class="table table-striped">
