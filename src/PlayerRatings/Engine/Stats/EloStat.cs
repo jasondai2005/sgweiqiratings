@@ -133,11 +133,18 @@ namespace PlayerRatings.Engine.Stats
         /// <summary>
         /// Tracks recent games and applies a catch-up boost for players who are
         /// consistently outperforming their rating (e.g., kyu players who improved).
+        /// Only applies AFTER the initial performance-based rating correction (12 games).
         /// </summary>
         private void ApplyImprovementCatchup(ApplicationUser player, double opponentRating, double score, double playerRatingAtTime)
         {
             // Skip virtual players
             if (player.IsVirtualPlayer)
+                return;
+
+            // Skip if player is still in initial estimation period (first 12 games)
+            // They already have high K-factor and will get a correction at game 12
+            // Applying catch-up boost now would cause over-adjustment
+            if (_performanceTracker.ContainsKey(player.Id))
                 return;
 
             // Initialize tracking queue if needed
@@ -273,10 +280,10 @@ namespace PlayerRatings.Engine.Stats
                     double originalInitialRating = player.GetRatingBeforeDate(player.FirstMatch.Date, isIntlLeague);
                     double ratingCorrection = estimatedInitialRating - originalInitialRating;
                     
-                    // Apply partial correction (30%) to avoid over-adjusting
+                    // Apply partial correction (50%) to avoid over-adjusting
                     // The dynamic K-factor should have already moved them partway to their true rating
                     double currentRating = _dict[player.Id];
-                    double correctedRating = currentRating + ratingCorrection * 0.3;
+                    double correctedRating = currentRating + ratingCorrection * 0.5;
                     
                     _dict[player.Id] = correctedRating;
                 }

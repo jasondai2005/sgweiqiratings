@@ -338,18 +338,14 @@ namespace PlayerRatings.Models
             int delta = 0;
             if (!isSWA && !intl)
             {
-                if (rankingNum == 5)
-                {
-                    delta = isDan || isKyu ? 50 : 0;
-                }
-
-                if (isDan && rankingNum <= 5)
+                if (isDan)
                 {
                     rankingNum -= 1;
                 }
                 else if (isKyu && rankingNum <= 5)
                 {
                     rankingNum += 1;
+                    delta = 50;
                 }
             }
 
