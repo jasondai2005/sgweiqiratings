@@ -1,0 +1,106 @@
+@using PlayerRatings.Localization
+@model PlayerRatings.ViewModels.Player.PlayerRatingHistoryViewModel
+
+@{
+    ViewData["Title"] = Model.Player.DisplayName + " - Rating History";
+    var sortedRatings = Model.MonthlyRatings.OrderBy(r => r.Month).ToList();
+}
+
+<h3>@Model.Player.DisplayName</h3>
+<p>
+    <strong>@LocString[nameof(LocalizationKey.Ranking)]:</strong> @Model.Player.LatestRanking
+</p>
+
+<a href="@Url.Action("Rating", new { id = Model.LeagueId })" class="btn btn-outline-secondary mb-3">← Back to Rating</a>
+
+<h4>Rating History Chart</h4>
+<div style="max-width: 800px; margin-bottom: 30px;">
+    <canvas id="ratingChart"></canvas>
+</div>
+
+<h4>Monthly Rating History</h4>
+<div class="table-responsive">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Month</th>
+                <th>Rating</th>
+                <th>Matches</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model.MonthlyRatings.OrderByDescending(r => r.Month))
+            {
+                <tr>
+                    <td>@item.MonthDisplay</td>
+                    <td>@item.RatingDisplay</td>
+                    <td>@(item.MatchesInMonth > 0 ? item.MatchesInMonth.ToString() : "-")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const ctx = document.getElementById('ratingChart').getContext('2d');
+        
+        const labels = [@Html.Raw(string.Join(",", sortedRatings.Select(r => $"'{r.MonthDisplay}'")))];
+        const ratings = [@Html.Raw(string.Join(",", sortedRatings.Select(r => r.Rating.ToString("F1", System.Globalization.CultureInfo.InvariantCulture))))];
+        
+        // Calculate min/max for better Y-axis scaling
+        const minRating = Math.min(...ratings);
+        const maxRating = Math.max(...ratings);
+        const padding = (maxRating - minRating) * 0.1 || 50;
+        
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Rating',
+                    data: ratings,
+                    borderColor: 'rgb(54, 162, 235)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return 'Rating: ' + context.parsed.y.toFixed(1);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        min: Math.floor(minRating - padding),
+                        max: Math.ceil(maxRating + padding),
+                        title: {
+                            display: true,
+                            text: 'Rating'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Month'
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+}
+

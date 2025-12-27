@@ -75,7 +75,7 @@
                     @item.GetPosition(ref number, leagueName)
                 </td>
                 <td>
-                    @item.DisplayName
+                    <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = item.Id })">@item.DisplayName</a>
                 </td>
                 <td>
                     @item.BirthYearU18

@@ -8,6 +8,7 @@ using PlayerRatings.Models;
 using PlayerRatings.Repositories;
 using PlayerRatings.Util;
 using PlayerRatings.ViewModels.League;
+using PlayerRatings.ViewModels.Player;
 
 namespace PlayerRatings.Controllers
 {
@@ -435,6 +436,145 @@ namespace PlayerRatings.Controllers
             }
             else
                 return rankingRating1.CompareTo(rankingRating2) * -1; // higher rating first
+        }
+
+        // GET: Leagues/Player/5?playerId=xxx
+        public async Task<IActionResult> Player(Guid id, string playerId)
+        {
+            if (string.IsNullOrEmpty(playerId))
+            {
+                return NotFound();
+            }
+
+            var currentUser = await User.GetApplicationUser(_userManager);
+            var league = _leaguesRepository.GetUserAuthorizedLeague(currentUser, id);
+
+            if (league == null)
+            {
+                return NotFound();
+            }
+
+            league = _context.League
+                .Include(l => l.Matches).ThenInclude(m => m.FirstPlayer)
+                .Include(l => l.Matches).ThenInclude(m => m.SecondPlayer)
+                .Single(m => m.Id == id);
+
+            var player = await _userManager.FindByIdAsync(playerId);
+            if (player == null)
+            {
+                return NotFound();
+            }
+
+            // Find player's matches
+            var playerMatches = league.Matches
+                .Where(m => (m.FirstPlayerId == playerId || m.SecondPlayerId == playerId) &&
+                       (m.MatchName.Contains("SWA ") || m.MatchName.Contains("TGA ") || m.MatchName.Contains("SG ")))
+                .OrderBy(m => m.Date)
+                .ToList();
+
+            if (!playerMatches.Any())
+            {
+                return NotFound();
+            }
+
+            var firstMatchDate = playerMatches.First().Date;
+            
+            // For new players with foreign/unknown ranking, start from when rating is corrected (after 12 games)
+            // This is because early ratings are unreliable during the estimation period
+            var initialRanking = player.Ranking ?? "";
+            bool isNewForeignPlayer = initialRanking.Contains('[') && !initialRanking.Contains(' ');
+            
+            DateTimeOffset startDate = firstMatchDate;
+            if (isNewForeignPlayer && playerMatches.Count >= 12)
+            {
+                // Start from the month after the 12th game (when correction is applied)
+                startDate = playerMatches[11].Date; // 12th game (0-indexed)
+            }
+            
+            var monthlyRatings = new List<MonthlyRating>();
+
+            // Calculate rating at the beginning of each month from start date to now
+            var currentMonth = new DateTime(startDate.Year, startDate.Month, 1).AddMonths(1);
+            var endMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1).AddMonths(1);
+
+            while (currentMonth <= endMonth)
+            {
+                // Calculate rating up to the first day of this month
+                League.CutoffDate = new DateTimeOffset(currentMonth);
+                var eloStat = new EloStat();
+
+                var matchesUpToDate = league.Matches
+                    .Where(x => x.Date < League.CutoffDate && 
+                           (x.MatchName.Contains("SWA ") || x.MatchName.Contains("TGA ") || x.MatchName.Contains("SG ")))
+                    .OrderBy(m => m.Date)
+                    .ToList();
+
+                // Check if player has any matches before this date
+                var playerMatchesUpToDate = matchesUpToDate
+                    .Where(m => m.FirstPlayerId == playerId || m.SecondPlayerId == playerId)
+                    .ToList();
+                bool playerHasMatches = playerMatchesUpToDate.Any();
+                
+                // For new foreign players, only show rating after 12 games (when correction is applied)
+                if (isNewForeignPlayer && playerMatchesUpToDate.Count < 12)
+                {
+                    playerHasMatches = false;
+                }
+                
+                int matchesInMonth = 0;
+                foreach (var match in matchesUpToDate)
+                {
+                    // Track player's first match for proper initialization
+                    if (match.FirstPlayer.FirstMatch == DateTimeOffset.MinValue)
+                        match.FirstPlayer.FirstMatch = match.Date;
+                    if (match.SecondPlayer.FirstMatch == DateTimeOffset.MinValue)
+                        match.SecondPlayer.FirstMatch = match.Date;
+
+                    match.FirstPlayer.MatchCount++;
+                    match.SecondPlayer.MatchCount++;
+
+                    eloStat.AddMatch(match);
+
+                    // Count matches in this specific month
+                    if ((match.FirstPlayerId == playerId || match.SecondPlayerId == playerId) &&
+                        match.Date.Year == currentMonth.Year && match.Date.Month == currentMonth.Month)
+                    {
+                        matchesInMonth++;
+                    }
+                }
+
+                // Only add rating if player has played matches before this date
+                if (playerHasMatches)
+                {
+                    // Get the player's rating - safe now because player has matches
+                    double rating = eloStat[player];
+
+                    monthlyRatings.Add(new MonthlyRating
+                    {
+                        Month = currentMonth,
+                        Rating = rating,
+                        MatchesInMonth = matchesInMonth
+                    });
+                }
+
+                // Reset match counts for next iteration
+                foreach (var match in matchesUpToDate)
+                {
+                    match.FirstPlayer.MatchCount = 0;
+                    match.FirstPlayer.FirstMatch = DateTimeOffset.MinValue;
+                    match.SecondPlayer.MatchCount = 0;
+                    match.SecondPlayer.FirstMatch = DateTimeOffset.MinValue;
+                }
+
+                currentMonth = currentMonth.AddMonths(1);
+            }
+
+            return View(new PlayerRatingHistoryViewModel
+            {
+                Player = player,
+                LeagueId = id,
+                MonthlyRatings = monthlyRatings
+            });
         }
 
     }
