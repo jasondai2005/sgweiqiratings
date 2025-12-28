@@ -11,7 +11,24 @@
     <strong>@LocString[nameof(LocalizationKey.Ranking)]:</strong> @Model.Player.LatestRanking
 </p>
 
-<a href="@Url.Action("Rating", new { id = Model.LeagueId })" class="btn btn-outline-secondary mb-3">← Back to Rating</a>
+<a href="@Url.Action("Rating", new { id = Model.LeagueId, swaOnly = Model.SwaOnly, catchupBoost = Model.CatchupBoost })" class="btn btn-outline-secondary">← Back to Rating</a>
+
+<form asp-action="Player" method="get" class="mb-3 mt-2">
+    <input type="hidden" name="id" value="@Model.LeagueId" />
+    <input type="hidden" name="playerId" value="@Model.Player.Id" />
+    <input type="hidden" id="swaOnlyHidden" name="swaOnly" value="@(Model.SwaOnly ? "true" : "false")" />
+    <input type="hidden" id="catchupBoostHidden" name="catchupBoost" value="@(Model.CatchupBoost ? "true" : "false")" />
+    <div style="display: inline-flex; gap: 16px; align-items: center;">
+        <div class="form-check form-switch" style="display: flex; align-items: center; gap: 6px;">
+            <input class="form-check-input" type="checkbox" id="swaOnlyToggle" @(Model.SwaOnly ? "checked" : "") onchange="document.getElementById('swaOnlyHidden').value = this.checked; this.form.submit();" style="cursor: pointer;">
+            <label class="form-check-label" for="swaOnlyToggle" style="cursor: pointer; white-space: nowrap;">SWA Only</label>
+        </div>
+        <div class="form-check form-switch" style="display: flex; align-items: center; gap: 6px;">
+            <input class="form-check-input" type="checkbox" id="catchupBoostToggle" @(Model.CatchupBoost ? "checked" : "") onchange="document.getElementById('catchupBoostHidden').value = this.checked; this.form.submit();" style="cursor: pointer;">
+            <label class="form-check-label" for="catchupBoostToggle" style="cursor: pointer; white-space: nowrap;">Catchup Boost</label>
+        </div>
+    </div>
+</form>
 
 <h4>Rating History Chart</h4>
 <div style="max-width: 800px; margin-bottom: 30px;">
@@ -64,7 +81,7 @@
                     borderColor: 'rgb(54, 162, 235)',
                     backgroundColor: 'rgba(54, 162, 235, 0.1)',
                     fill: true,
-                    tension: 0.3,
+                    tension: 0,
                     pointRadius: 4,
                     pointHoverRadius: 6
                 }]

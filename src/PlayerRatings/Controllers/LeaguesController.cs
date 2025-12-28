@@ -237,7 +237,7 @@ namespace PlayerRatings.Controllers
 
         // GET: Leagues/Rating/5
         private EloStat elo = new();
-        public async Task<IActionResult> Rating(Guid? id, string byDate, bool swaOnly = false)
+        public async Task<IActionResult> Rating(Guid? id, string byDate, bool swaOnly = false, bool catchupBoost = true)
         {
             if (id == null)
             {
@@ -266,7 +266,7 @@ namespace PlayerRatings.Controllers
                     _context.LeaguePlayers.Where(lp => lp.LeagueId == league.Id && !lp.IsBlocked)
                         .Select(lp => lp.UserId));
             var activeUsers = new HashSet<ApplicationUser>();
-            elo = new EloStat();
+            elo = new EloStat { CatchupBoostEnabled = catchupBoost };
             var stats = new List<IStat>
             {
                 elo,
@@ -319,7 +319,7 @@ namespace PlayerRatings.Controllers
             var promotedPlayers = activeUsers.Where(x => (date.Year > 2023 || x.IsHiddenPlayer) && x.Promotion.Contains('→')).ToList();
             promotedPlayers.Sort(CompareByRankingRatingAndName);
 
-            return View(new RatingViewModel(stats, users, promotedPlayers, lastMatches, forecast, id.Value, byDate, swaOnly));
+            return View(new RatingViewModel(stats, users, promotedPlayers, lastMatches, forecast, id.Value, byDate, swaOnly, catchupBoost));
         }
 
         private static void AddUser(HashSet<ApplicationUser> activeUsers, Match match, ApplicationUser player)
@@ -442,7 +442,7 @@ namespace PlayerRatings.Controllers
         }
 
         // GET: Leagues/Player/5?playerId=xxx
-        public async Task<IActionResult> Player(Guid id, string playerId)
+        public async Task<IActionResult> Player(Guid id, string playerId, bool swaOnly = false, bool catchupBoost = true)
         {
             if (string.IsNullOrEmpty(playerId))
             {
@@ -468,12 +468,18 @@ namespace PlayerRatings.Controllers
                 return NotFound();
             }
 
-            // Find player's matches
-            var playerMatches = league.Matches
-                .Where(m => (m.FirstPlayerId == playerId || m.SecondPlayerId == playerId) &&
-                       (m.MatchName.Contains("SWA ") || m.MatchName.Contains("TGA ") || m.MatchName.Contains("SG ")))
-                .OrderBy(m => m.Date)
-                .ToList();
+            // Find player's matches based on swaOnly filter
+            var playerMatches = swaOnly
+                ? league.Matches
+                    .Where(m => (m.FirstPlayerId == playerId || m.SecondPlayerId == playerId) &&
+                           m.MatchName.Contains("SWA "))
+                    .OrderBy(m => m.Date)
+                    .ToList()
+                : league.Matches
+                    .Where(m => (m.FirstPlayerId == playerId || m.SecondPlayerId == playerId) &&
+                           (m.MatchName.Contains("SWA ") || m.MatchName.Contains("TGA ") || m.MatchName.Contains("SG ")))
+                    .OrderBy(m => m.Date)
+                    .ToList();
 
             if (!playerMatches.Any())
             {
@@ -504,13 +510,18 @@ namespace PlayerRatings.Controllers
             {
                 // Calculate rating up to the first day of this month
                 League.CutoffDate = new DateTimeOffset(currentMonth);
-                var eloStat = new EloStat();
+                var eloStat = new EloStat { CatchupBoostEnabled = catchupBoost };
 
-                var matchesUpToDate = league.Matches
-                    .Where(x => x.Date < League.CutoffDate && 
-                           (x.MatchName.Contains("SWA ") || x.MatchName.Contains("TGA ") || x.MatchName.Contains("SG ")))
-                    .OrderBy(m => m.Date)
-                    .ToList();
+                var matchesUpToDate = swaOnly
+                    ? league.Matches
+                        .Where(x => x.Date < League.CutoffDate && x.MatchName.Contains("SWA "))
+                        .OrderBy(m => m.Date)
+                        .ToList()
+                    : league.Matches
+                        .Where(x => x.Date < League.CutoffDate && 
+                               (x.MatchName.Contains("SWA ") || x.MatchName.Contains("TGA ") || x.MatchName.Contains("SG ")))
+                        .OrderBy(m => m.Date)
+                        .ToList();
 
                 // Check if player has any matches before this date
                 var playerMatchesUpToDate = matchesUpToDate
@@ -576,7 +587,9 @@ namespace PlayerRatings.Controllers
             {
                 Player = player,
                 LeagueId = id,
-                MonthlyRatings = monthlyRatings
+                MonthlyRatings = monthlyRatings,
+                SwaOnly = swaOnly,
+                CatchupBoost = catchupBoost
             });
         }
 

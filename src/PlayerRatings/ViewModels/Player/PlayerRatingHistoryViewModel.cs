@@ -9,6 +9,8 @@ namespace PlayerRatings.ViewModels.Player
         public ApplicationUser Player { get; set; }
         public Guid LeagueId { get; set; }
         public List<MonthlyRating> MonthlyRatings { get; set; } = new List<MonthlyRating>();
+        public bool SwaOnly { get; set; }
+        public bool CatchupBoost { get; set; }
     }
 
     public class MonthlyRating

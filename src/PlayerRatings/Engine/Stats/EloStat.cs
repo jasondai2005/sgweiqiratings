@@ -28,6 +28,9 @@ namespace PlayerRatings.Engine.Stats
         // Minimum performance gap (in rating points) to trigger catch-up boost
         private const double CATCHUP_THRESHOLD = 100;
 
+        // Toggle for catch-up boost feature
+        public bool CatchupBoostEnabled { get; set; } = true;
+
         public void AddMatch(Match match)
         {
             double firstUserScore = 1.0;
@@ -137,6 +140,10 @@ namespace PlayerRatings.Engine.Stats
         /// </summary>
         private void ApplyImprovementCatchup(ApplicationUser player, double opponentRating, double score, double playerRatingAtTime)
         {
+            // Skip if catch-up boost is disabled
+            if (!CatchupBoostEnabled)
+                return;
+
             // Skip virtual players
             if (player.IsVirtualPlayer)
                 return;

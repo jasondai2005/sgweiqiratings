@@ -110,7 +110,7 @@ namespace PlayerRatings.Models
         }
 
         public bool IsVirtualPlayer => DisplayName.Contains('[');
-        public bool IsUnknownPlayer => false;// string.IsNullOrEmpty(InternalInitRanking) || InternalInitRanking.Contains("?");
+        public bool IsUnknownPlayer => string.IsNullOrEmpty(InternalInitRanking) || InternalInitRanking.Contains("K?");
         public bool IsUnknownRankedPlayer => IsUnknownPlayer || (InternalInitRanking.Contains('[') && !InternalInitRanking.Contains(' '));
         public bool IsNewUnknownRankdedPlayer => MatchCount <= 12 && IsUnknownRankedPlayer;
         public bool IsProPlayer => RankingBeforeCutoffDate.Contains('P');
@@ -324,7 +324,7 @@ namespace PlayerRatings.Models
         public int GetRatingByRanking(string ranking, bool intl = false)
         {
             if (string.IsNullOrEmpty(ranking))
-                return GetKyuRating(5); // Default to 5 kyu = 1600
+                return GetKyuRating(11); // Default to 11 kyu = 1000
 
             ranking = GetEffectiveRanking(ranking);
 
