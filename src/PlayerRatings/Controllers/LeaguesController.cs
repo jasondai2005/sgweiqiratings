@@ -237,7 +237,7 @@ namespace PlayerRatings.Controllers
 
         // GET: Leagues/Rating/5
         private EloStat elo = new();
-        public async Task<IActionResult> Rating(Guid? id, string byDate, bool swaOnly = false, bool catchupBoost = true)
+        public async Task<IActionResult> Rating(Guid? id, string byDate, bool swaOnly = false)
         {
             if (id == null)
             {
@@ -266,7 +266,7 @@ namespace PlayerRatings.Controllers
                     _context.LeaguePlayers.Where(lp => lp.LeagueId == league.Id && !lp.IsBlocked)
                         .Select(lp => lp.UserId));
             var activeUsers = new HashSet<ApplicationUser>();
-            elo = new EloStat { CatchupBoostEnabled = catchupBoost };
+            elo = new EloStat();
             var stats = new List<IStat>
             {
                 elo,
@@ -319,7 +319,7 @@ namespace PlayerRatings.Controllers
             var promotedPlayers = activeUsers.Where(x => (date.Year > 2023 || x.IsHiddenPlayer) && x.Promotion.Contains('→')).ToList();
             promotedPlayers.Sort(CompareByRankingRatingAndName);
 
-            return View(new RatingViewModel(stats, users, promotedPlayers, lastMatches, forecast, id.Value, byDate, swaOnly, catchupBoost));
+            return View(new RatingViewModel(stats, users, promotedPlayers, lastMatches, forecast, id.Value, byDate, swaOnly));
         }
 
         private static void AddUser(HashSet<ApplicationUser> activeUsers, Match match, ApplicationUser player)
@@ -442,7 +442,7 @@ namespace PlayerRatings.Controllers
         }
 
         // GET: Leagues/Player/5?playerId=xxx
-        public async Task<IActionResult> Player(Guid id, string playerId, bool swaOnly = false, bool catchupBoost = true)
+        public async Task<IActionResult> Player(Guid id, string playerId, bool swaOnly = false)
         {
             if (string.IsNullOrEmpty(playerId))
             {
@@ -510,7 +510,7 @@ namespace PlayerRatings.Controllers
             {
                 // Calculate rating up to the first day of this month
                 League.CutoffDate = new DateTimeOffset(currentMonth);
-                var eloStat = new EloStat { CatchupBoostEnabled = catchupBoost };
+                var eloStat = new EloStat();
 
                 var matchesUpToDate = swaOnly
                     ? league.Matches
@@ -588,8 +588,7 @@ namespace PlayerRatings.Controllers
                 Player = player,
                 LeagueId = id,
                 MonthlyRatings = monthlyRatings,
-                SwaOnly = swaOnly,
-                CatchupBoost = catchupBoost
+                SwaOnly = swaOnly
             });
         }
 

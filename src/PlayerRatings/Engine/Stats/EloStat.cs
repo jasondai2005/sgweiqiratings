@@ -14,22 +14,8 @@ namespace PlayerRatings.Engine.Stats
         private readonly Dictionary<string, List<(double opponentRating, double score)>> _performanceTracker 
             = new Dictionary<string, List<(double opponentRating, double score)>>();
 
-        // Track recent WINS for catch-up boost (player beating stronger opponents)
-        // Key: player Id, Value: circular buffer of recent (opponent rating, score, player's rating at time) tuples
-        private readonly Dictionary<string, Queue<(double opponentRating, double score, double playerRating)>> _recentWinsTracker
-            = new Dictionary<string, Queue<(double opponentRating, double score, double playerRating)>>();
-
         // Number of games required before calculating estimated initial rating
         private const int GAMES_FOR_ESTIMATION = 12;
-
-        // Number of recent games to track for improvement detection
-        private const int RECENT_GAMES_WINDOW = 5;
-
-        // Minimum performance gap (in rating points) to trigger catch-up boost
-        private const double CATCHUP_THRESHOLD = 100;
-
-        // Toggle for catch-up boost feature
-        public bool CatchupBoostEnabled { get; set; } = true;
 
         public void AddMatch(Match match)
         {
@@ -127,83 +113,7 @@ namespace PlayerRatings.Engine.Stats
             // Track games for performance-based initial rating calculation
             TrackGameForPerformanceRating(match.FirstPlayer, secondPlayerRating, firstUserScore, isIntlLeague);
             TrackGameForPerformanceRating(match.SecondPlayer, firstPlayerRating, 1 - firstUserScore, isIntlLeague);
-
-            // Track recent wins and apply catch-up boost for improving players
-            ApplyImprovementCatchup(match.FirstPlayer, secondPlayerRating, firstUserScore, firstPlayerRating);
         }
-
-        /// <summary>
-        /// Tracks recent WINS and applies a catch-up boost for players who are
-        /// consistently beating opponents rated higher than themselves.
-        /// Only considers wins to avoid boosting players who just lose to strong opponents.
-        /// Only applies AFTER the initial performance-based rating correction (12 games).
-        /// </summary>
-        private void ApplyImprovementCatchup(ApplicationUser player, double opponentRating, double score, double playerRatingAtTime)
-        {
-            // Skip if catch-up boost is disabled
-            if (!CatchupBoostEnabled)
-                return;
-
-            // Skip virtual players
-            if (player.IsVirtualPlayer)
-                return;
-
-            // Skip if player is still in initial estimation period (first 12 games)
-            // They already have high K-factor and will get a correction at game 12
-            // Applying catch-up boost now would cause over-adjustment
-            if (_performanceTracker.ContainsKey(player.Id))
-                return;
-
-            // Only track WINS - losing to strong opponents doesn't prove you're strong
-            if (score < 1)
-                return;
-
-            // Initialize tracking queue if needed
-            if (!_recentWinsTracker.ContainsKey(player.Id))
-            {
-                _recentWinsTracker[player.Id] = new Queue<(double, double, double)>();
-            }
-
-            var recentWins = _recentWinsTracker[player.Id];
-
-            // Add this WIN to recent history (we only get here if score >= 1)
-            recentWins.Enqueue((opponentRating, score, playerRatingAtTime));
-            // Keep only the most recent games
-            while (recentWins.Count > RECENT_GAMES_WINDOW)
-            {
-                recentWins.Dequeue();
-            }
-
-            if (recentWins.Count < RECENT_GAMES_WINDOW)
-                return;
-
-            // Get current rating
-            if (!_dict.ContainsKey(player.Id))
-                return;
-                
-            double currentRating = _dict[player.Id];
-
-            // Calculate average rating of opponents beaten
-            var winsList = recentWins.ToList();
-            double avgOpponentBeaten = winsList.Average(w => w.opponentRating);
-
-            // Check if player is consistently beating opponents rated higher than themselves
-            // This is a clear sign they are underrated
-            double performanceGap = avgOpponentBeaten - currentRating;
-            
-            if (performanceGap > CATCHUP_THRESHOLD)
-            {
-                // Player is beating opponents stronger than their rating suggests
-                // Apply catch-up boost: move 30% of the gap (more aggressive since we only count wins)
-                double catchupBoost = performanceGap * 0.3;
-                
-                // Cap the boost at 50 points to avoid wild swings
-                catchupBoost = Math.Min(catchupBoost, 50);
-                
-                _dict[player.Id] = currentRating + catchupBoost;
-            }
-        }
-
 
         /// <summary>
         /// Tracks a game result for a new foreign/unknown player and calculates their
