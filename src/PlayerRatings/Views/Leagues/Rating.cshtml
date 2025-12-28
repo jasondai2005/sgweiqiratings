@@ -20,14 +20,14 @@
 
 <h3>@ViewData["Title"]</h3>
 
-<form asp-action="Rating" method="get" class="mb-3" style="display: inline-flex; flex-wrap: nowrap; gap: 4px;">
+<form asp-action="Rating" method="get" class="mb-4" style="display: inline-flex; flex-wrap: nowrap; gap: 4px; align-items: center;">
     <input type="hidden" name="id" value="@Model.LeagueId" />
-    <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = prevMonthStr })" class="btn btn-outline-primary">◀ @prevMonth.ToString("MMM")</a>
+    <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = prevMonthStr, swaOnly = Model.SwaOnly })" class="btn btn-outline-primary">◀ @prevMonth.ToString("MMM")</a>
     <input type="text" name="byDate" value="@currentDateStr" class="form-control text-center" style="width: 110px;" placeholder="dd/MM/yyyy" />
     <button type="submit" class="btn btn-primary">Go</button>
     @if (nextMonth <= DateTime.Now)
     {
-        <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = nextMonthStr })" class="btn btn-outline-primary">@nextMonth.ToString("MMM") ▶</a>
+        <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = nextMonthStr, swaOnly = Model.SwaOnly })" class="btn btn-outline-primary">@nextMonth.ToString("MMM") ▶</a>
     }
     else
     {
@@ -35,8 +35,13 @@
     }
     @if (!string.IsNullOrEmpty(Model.ByDate))
     {
-        <a href="@Url.Action("Rating", new { id = Model.LeagueId })" class="btn btn-success">Today</a>
+        <a href="@Url.Action("Rating", new { id = Model.LeagueId, swaOnly = Model.SwaOnly })" class="btn btn-success">Today</a>
     }
+    <span class="mx-2" style="border-left: 1px solid #ccc; height: 24px;"></span>
+    <div class="form-check form-switch" style="display: flex; align-items: center; gap: 6px;">
+        <input class="form-check-input" type="checkbox" id="swaOnlyToggle" name="swaOnly" value="true" @(Model.SwaOnly ? "checked" : "") onchange="this.form.submit();" style="cursor: pointer;">
+        <label class="form-check-label" for="swaOnlyToggle" style="cursor: pointer; white-space: nowrap;">SWA Only</label>
+    </div>
 </form>
 
 <div class="table-responsive">

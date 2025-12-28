@@ -9,7 +9,7 @@ namespace PlayerRatings.ViewModels.League
     {
         public RatingViewModel(IEnumerable<IStat> stats, IEnumerable<ApplicationUser> users, IEnumerable<ApplicationUser> promotedPlayers,
             IEnumerable<Models.Match> lastMatches, Dictionary<string, Dictionary<string, string>> forecast,
-            Guid leagueId, string byDate = null)
+            Guid leagueId, string byDate = null, bool swaOnly = false)
         {
             Stats = stats;
             Users = users;
@@ -18,6 +18,7 @@ namespace PlayerRatings.ViewModels.League
             LastMatches = lastMatches;
             LeagueId = leagueId;
             ByDate = byDate;
+            SwaOnly = swaOnly;
         }
 
         public IEnumerable<IStat> Stats { get; private set; }
@@ -33,5 +34,7 @@ namespace PlayerRatings.ViewModels.League
         public Guid LeagueId { get; private set; }
 
         public string ByDate { get; private set; }
+
+        public bool SwaOnly { get; private set; }
     }
 }

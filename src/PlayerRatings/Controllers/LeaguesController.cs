@@ -237,7 +237,7 @@ namespace PlayerRatings.Controllers
 
         // GET: Leagues/Rating/5
         private EloStat elo = new();
-        public async Task<IActionResult> Rating(Guid? id, string byDate)
+        public async Task<IActionResult> Rating(Guid? id, string byDate, bool swaOnly = false)
         {
             if (id == null)
             {
@@ -275,7 +275,10 @@ namespace PlayerRatings.Controllers
             if (byDate != null && date.Year < 2024)
                 stats.Add(new EloStatChange());
 
-            var matches = league.Matches.Where(x => x.Date <= date && (x.MatchName.Contains("SWA ") || x.MatchName.Contains("TGA ") || x.MatchName.Contains("SG "))).OrderBy(m => m.Date);
+            // Filter matches based on swaOnly toggle
+            var matches = swaOnly 
+                ? league.Matches.Where(x => x.Date <= date && x.MatchName.Contains("SWA ")).OrderBy(m => m.Date)
+                : league.Matches.Where(x => x.Date <= date && (x.MatchName.Contains("SWA ") || x.MatchName.Contains("TGA ") || x.MatchName.Contains("SG "))).OrderBy(m => m.Date);
             foreach (var match in matches)
             {
                 if (notBlockedUserIds.Contains(match.FirstPlayerId))
@@ -316,7 +319,7 @@ namespace PlayerRatings.Controllers
             var promotedPlayers = activeUsers.Where(x => (date.Year > 2023 || x.IsHiddenPlayer) && x.Promotion.Contains('→')).ToList();
             promotedPlayers.Sort(CompareByRankingRatingAndName);
 
-            return View(new RatingViewModel(stats, users, promotedPlayers, lastMatches, forecast, id.Value, byDate));
+            return View(new RatingViewModel(stats, users, promotedPlayers, lastMatches, forecast, id.Value, byDate, swaOnly));
         }
 
         private static void AddUser(HashSet<ApplicationUser> activeUsers, Match match, ApplicationUser player)
