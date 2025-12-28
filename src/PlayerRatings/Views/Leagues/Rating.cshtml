@@ -24,13 +24,14 @@
 <form asp-action="Rating" method="get" class="mb-4">
     <input type="hidden" name="id" value="@Model.LeagueId" />
     <input type="hidden" id="swaOnlyHidden" name="swaOnly" value="@(Model.SwaOnly ? "true" : "false")" />
+    <input type="hidden" id="promotionBonusHidden" name="promotionBonus" value="@(Model.PromotionBonus ? "true" : "false")" />
     <div style="display: inline-flex; flex-wrap: nowrap; gap: 4px; align-items: center;">
-        <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = prevMonthStr, swaOnly = Model.SwaOnly })" class="btn btn-outline-primary">◀ @prevMonth.ToString("MMM")</a>
+        <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = prevMonthStr, swaOnly = Model.SwaOnly, promotionBonus = Model.PromotionBonus })" class="btn btn-outline-primary">◀ @prevMonth.ToString("MMM")</a>
         <input type="text" name="byDate" value="@currentDateStr" class="form-control text-center" style="width: 110px;" placeholder="dd/MM/yyyy" />
         <button type="submit" class="btn btn-primary">Go</button>
         @if (nextMonth <= DateTime.Now)
         {
-            <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = nextMonthStr, swaOnly = Model.SwaOnly })" class="btn btn-outline-primary">@nextMonth.ToString("MMM") ▶</a>
+            <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = nextMonthStr, swaOnly = Model.SwaOnly, promotionBonus = Model.PromotionBonus })" class="btn btn-outline-primary">@nextMonth.ToString("MMM") ▶</a>
         }
         else
         {
@@ -38,14 +39,20 @@
         }
         @if (!isViewingToday)
         {
-            <a href="@Url.Action("Rating", new { id = Model.LeagueId, swaOnly = Model.SwaOnly })" class="btn btn-success">Today</a>
+            <a href="@Url.Action("Rating", new { id = Model.LeagueId, swaOnly = Model.SwaOnly, promotionBonus = Model.PromotionBonus })" class="btn btn-success">Today</a>
         }
     </div>
     @if (!Model.IsIntlLeague)
     {
-        <div class="form-check form-switch mt-2">
-            <input class="form-check-input" type="checkbox" id="swaOnlyToggle" @(Model.SwaOnly ? "checked" : "") onchange="document.getElementById('swaOnlyHidden').value = this.checked; this.form.submit();" style="cursor: pointer;">
-            <label class="form-check-label" for="swaOnlyToggle" style="cursor: pointer;">SWA Tournaments Only</label>
+        <div class="mt-2" style="display: inline-flex; gap: 16px; align-items: center;">
+            <div class="form-check form-switch" style="display: flex; align-items: center; gap: 6px;">
+                <input class="form-check-input" type="checkbox" id="swaOnlyToggle" @(Model.SwaOnly ? "checked" : "") onchange="document.getElementById('swaOnlyHidden').value = this.checked; this.form.submit();" style="cursor: pointer;">
+                <label class="form-check-label" for="swaOnlyToggle" style="cursor: pointer; white-space: nowrap;">SWA Tournaments Only</label>
+            </div>
+            <div class="form-check form-switch" style="display: flex; align-items: center; gap: 6px;">
+                <input class="form-check-input" type="checkbox" id="promotionBonusToggle" @(Model.PromotionBonus ? "checked" : "") onchange="document.getElementById('promotionBonusHidden').value = this.checked; this.form.submit();" style="cursor: pointer;">
+                <label class="form-check-label" for="promotionBonusToggle" style="cursor: pointer; white-space: nowrap;">Promotion Bonus</label>
+            </div>
         </div>
     }
 </form>
@@ -86,7 +93,7 @@
                     @item.GetPosition(ref number, leagueName)
                 </td>
                 <td>
-                    <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = item.Id, swaOnly = Model.SwaOnly })">@item.DisplayName</a>
+                    <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = item.Id, swaOnly = Model.SwaOnly, promotionBonus = Model.PromotionBonus })">@item.DisplayName</a>
                 </td>
                 <td>
                     @item.BirthYearU18

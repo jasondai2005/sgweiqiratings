@@ -282,7 +282,7 @@ namespace PlayerRatings.Controllers
 
         // GET: Leagues/Rating/5
         private EloStat elo = new EloStat();
-        public async Task<IActionResult> Rating(Guid? id, string byDate, bool swaOnly = false)
+        public async Task<IActionResult> Rating(Guid? id, string byDate, bool swaOnly = false, bool promotionBonus = true)
         {
             if (id == null)
             {
@@ -323,6 +323,9 @@ namespace PlayerRatings.Controllers
             // Check if this is an international league (all matches count, no filtering)
             bool isIntlLeague = league.Name?.Contains("Intl.") ?? false;
 
+            // Set promotion bonus enabled based on parameter
+            EloStat.PromotionBonusEnabled = promotionBonus;
+
             // Filter matches based on swaOnly toggle (ignored for international leagues)
             var matches = FilterMatches(league.Matches, date, swaOnly, isIntlLeague: isIntlLeague);
             foreach (var match in matches)
@@ -341,6 +344,16 @@ namespace PlayerRatings.Controllers
                     stat.AddMatch(match);
                 }
             }
+
+            // Check promotions for all active users at the current date
+            // This ensures promotions are applied even if the player hasn't played recently
+            foreach (var user in activeUsers)
+            {
+                elo.CheckPlayerPromotion(user, date, isIntlLeague);
+            }
+
+            // Finalize any pending operations (e.g., promotion rating floors)
+            elo.FinalizeProcessing();
 
             var userList = new List<ApplicationUser>(activeUsers);
             var forecast = new Dictionary<string, Dictionary<string, string>>();
@@ -365,7 +378,7 @@ namespace PlayerRatings.Controllers
             var promotedPlayers = activeUsers.Where(x => (date.Year > 2023 || x.IsHiddenPlayer) && x.Promotion.Contains('→')).ToList();
             promotedPlayers.Sort(CompareByRankingRatingAndName);
 
-            return View(new RatingViewModel(stats, users, promotedPlayers, lastMatches, forecast, id.Value, byDate, swaOnly, isIntlLeague));
+            return View(new RatingViewModel(stats, users, promotedPlayers, lastMatches, forecast, id.Value, byDate, swaOnly, isIntlLeague, promotionBonus));
         }
 
         private static void AddUser(HashSet<ApplicationUser> activeUsers, Match match, ApplicationUser player)
@@ -478,7 +491,7 @@ namespace PlayerRatings.Controllers
             {
                 var latestRanking1 = ApplicationUser.GetEffectiveRanking(user1Ranking);
                 var latestRanking2 = ApplicationUser.GetEffectiveRanking(user2Ranking);
-                if (rankingRating1 <= 1710) // will not differenciate kyus certified by SWA or other
+                if (rankingRating1 <= 1500) // will not differenciate kyus certified by SWA or other
                 {
                     latestRanking1 = latestRanking1.Trim('(', ')');
                     latestRanking2 = latestRanking2.Trim('(', ')');
@@ -505,7 +518,7 @@ namespace PlayerRatings.Controllers
         }
 
         // GET: Leagues/Player/5?playerId=xxx
-        public async Task<IActionResult> Player(Guid id, string playerId, bool swaOnly = false)
+        public async Task<IActionResult> Player(Guid id, string playerId, bool swaOnly = false, bool promotionBonus = true)
         {
             if (string.IsNullOrEmpty(playerId))
             {
@@ -527,6 +540,9 @@ namespace PlayerRatings.Controllers
 
             // Check if this is an international league
             bool isIntlLeague = league.Name?.Contains("Intl.") ?? false;
+
+            // Set promotion bonus enabled based on parameter
+            EloStat.PromotionBonusEnabled = promotionBonus;
 
             var player = await _userManager.FindByIdAsync(playerId);
             if (player == null)
@@ -558,19 +574,22 @@ namespace PlayerRatings.Controllers
             
             var monthlyRatings = new List<MonthlyRating>();
 
-            // Calculate rating at the beginning of each month from start date to now
-            var currentMonth = new DateTime(startDate.Year, startDate.Month, 1).AddMonths(1);
-            var endMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1).AddMonths(1);
+            // Calculate rating at the end of each month (last day, inclusive)
+            var currentMonth = new DateTime(startDate.Year, startDate.Month, 1);
+            var endMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
 
             while (currentMonth <= endMonth)
             {
-                // Calculate rating up to the first day of this month
-                League.CutoffDate = new DateTimeOffset(currentMonth);
+                // Calculate rating up to and including the last day of this month
+                var lastDayOfMonth = currentMonth.AddMonths(1).AddDays(-1);
+                League.CutoffDate = new DateTimeOffset(lastDayOfMonth.AddDays(1)); // Next day for inclusive filtering
                 var eloStat = new EloStat();
 
+                // includeDate: false means < CutoffDate, so we set CutoffDate to first day of next month
+                // This effectively includes all matches up to and including the last day of currentMonth
                 var matchesUpToDate = FilterMatches(league.Matches, League.CutoffDate, swaOnly, includeDate: false, isIntlLeague: isIntlLeague).ToList();
 
-                // Check if player has any matches before this date
+                // Check if player has any matches up to the end of this month
                 var playerMatchesUpToDate = matchesUpToDate
                     .Where(m => m.FirstPlayerId == playerId || m.SecondPlayerId == playerId)
                     .ToList();
@@ -583,6 +602,7 @@ namespace PlayerRatings.Controllers
                 }
                 
                 int matchesInMonth = 0;
+                var matchNamesInMonth = new List<string>();
                 foreach (var match in matchesUpToDate)
                 {
                     // Track player's first match for proper initialization
@@ -596,15 +616,26 @@ namespace PlayerRatings.Controllers
 
                     eloStat.AddMatch(match);
 
-                    // Count matches in this specific month
+                    // Collect matches in this month for this player
                     if ((match.FirstPlayerId == playerId || match.SecondPlayerId == playerId) &&
                         match.Date.Year == currentMonth.Year && match.Date.Month == currentMonth.Month)
                     {
                         matchesInMonth++;
+                        if (!matchNamesInMonth.Contains(match.MatchName))
+                        {
+                            matchNamesInMonth.Add(match.MatchName);
+                        }
                     }
                 }
 
-                // Only add rating if player has played matches before this date
+                // Check promotion for this player at the end of this month
+                // This ensures promotions are applied even if the player hasn't played recently
+                eloStat.CheckPlayerPromotion(player, new DateTimeOffset(lastDayOfMonth), isIntlLeague);
+
+                // Finalize any pending operations (e.g., promotion rating floors)
+                eloStat.FinalizeProcessing();
+
+                // Only add rating if player has played matches up to this date
                 if (playerHasMatches)
                 {
                     // Get the player's rating - safe now because player has matches
@@ -614,7 +645,8 @@ namespace PlayerRatings.Controllers
                     {
                         Month = currentMonth,
                         Rating = rating,
-                        MatchesInMonth = matchesInMonth
+                        MatchesInMonth = matchesInMonth,
+                        MatchNames = matchNamesInMonth
                     });
                 }
 
@@ -642,7 +674,8 @@ namespace PlayerRatings.Controllers
                 LeagueId = id,
                 MonthlyRatings = monthlyRatings,
                 SwaOnly = swaOnly,
-                IsIntlLeague = isIntlLeague
+                IsIntlLeague = isIntlLeague,
+                PromotionBonus = promotionBonus
             });
         }
 

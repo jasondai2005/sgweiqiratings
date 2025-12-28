@@ -11,7 +11,60 @@
     <strong>@LocString[nameof(LocalizationKey.Ranking)]:</strong> @Model.Player.LatestRanking
 </p>
 
-<a href="@Url.Action("Rating", new { id = Model.LeagueId, swaOnly = Model.SwaOnly })" class="btn btn-outline-secondary mb-3">← Back to Rating</a>
+@{
+    // Build ranking labels for each month - show ranking when it changes
+    var rankingHistory = Model.Player.RankingHistory
+        .Where(x => x.Key != "BY" && !string.IsNullOrEmpty(x.Key) && x.Value != DateTimeOffset.MinValue)
+        .OrderBy(x => x.Value)
+        .ToList();
+    
+    // Get the first match date to identify early rankings
+    var firstMatchDate = Model.MonthlyRatings.Any() 
+        ? Model.MonthlyRatings.Min(r => r.Month) 
+        : DateTime.MaxValue;
+    
+    // Map each month to list of rankings with full date (multiple promotions per month supported)
+    // Format: { "MMM yyyy": [{ ranking: "1D", date: "15/03/2024" }, ...] }
+    var monthRankingLabels = new Dictionary<string, List<(string ranking, string date)>>();
+    
+    // Rankings before first match (to show at bottom of table)
+    // Store DateTimeOffset for proper sorting
+    var earlyRankings = new List<(string ranking, string date, DateTimeOffset sortDate)>();
+    
+    foreach (var entry in rankingHistory)
+    {
+        // The ranking appears on the chart in the same month it was achieved
+        // (since ratings are now shown at the end of each month)
+        var effectiveMonth = new DateTime(entry.Value.Year, entry.Value.Month, 1);
+        var monthKey = effectiveMonth.ToString("MMM yyyy");
+        var fullDate = entry.Value.ToString("dd/MM/yyyy");
+        
+        // Check if this ranking is before the first match month
+        if (effectiveMonth < firstMatchDate)
+        {
+            earlyRankings.Add((entry.Key.ToUpper(), fullDate, entry.Value));
+        }
+        else
+        {
+            if (!monthRankingLabels.ContainsKey(monthKey))
+            {
+                monthRankingLabels[monthKey] = new List<(string ranking, string date)>();
+            }
+            monthRankingLabels[monthKey].Add((entry.Key.ToUpper(), fullDate));
+        }
+    }
+    
+    // For chart labels, combine multiple rankings into single string
+    var chartRankingLabels = monthRankingLabels.ToDictionary(
+        kvp => kvp.Key,
+        kvp => (
+            ranking: string.Join(", ", kvp.Value.Select(r => r.ranking)),
+            date: string.Join(", ", kvp.Value.Select(r => r.date))
+        )
+    );
+}
+
+<a href="@Url.Action("Rating", new { id = Model.LeagueId, swaOnly = Model.SwaOnly, promotionBonus = Model.PromotionBonus })" class="btn btn-outline-secondary mb-3">← Back to Rating</a>
 
 @if (!Model.IsIntlLeague)
 {
@@ -19,10 +72,15 @@
     <input type="hidden" name="id" value="@Model.LeagueId" />
     <input type="hidden" name="playerId" value="@Model.Player.Id" />
     <input type="hidden" id="swaOnlyHidden" name="swaOnly" value="@(Model.SwaOnly ? "true" : "false")" />
+    <input type="hidden" id="promotionBonusHidden" name="promotionBonus" value="@(Model.PromotionBonus ? "true" : "false")" />
     <div style="display: inline-flex; gap: 16px; align-items: center;">
         <div class="form-check form-switch" style="display: flex; align-items: center; gap: 6px;">
             <input class="form-check-input" type="checkbox" id="swaOnlyToggle" @(Model.SwaOnly ? "checked" : "") onchange="document.getElementById('swaOnlyHidden').value = this.checked; this.form.submit();" style="cursor: pointer;">
             <label class="form-check-label" for="swaOnlyToggle" style="cursor: pointer; white-space: nowrap;">SWA Tournaments Only</label>
+        </div>
+        <div class="form-check form-switch" style="display: flex; align-items: center; gap: 6px;">
+            <input class="form-check-input" type="checkbox" id="promotionBonusToggle" @(Model.PromotionBonus ? "checked" : "") onchange="document.getElementById('promotionBonusHidden').value = this.checked; this.form.submit();" style="cursor: pointer;">
+            <label class="form-check-label" for="promotionBonusToggle" style="cursor: pointer; white-space: nowrap;">Promotion Bonus</label>
         </div>
     </div>
 </form>
@@ -41,15 +99,61 @@
                 <th>Month</th>
                 <th>Rating</th>
                 <th>Matches</th>
+                <th>Ranking</th>
             </tr>
         </thead>
         <tbody>
             @foreach (var item in Model.MonthlyRatings.OrderByDescending(r => r.Month))
             {
+                var hasRankings = monthRankingLabels.TryGetValue(item.MonthDisplay, out var rankingList);
+                // Only show rows with matches or ranking changes
+                if (item.MatchesInMonth == 0 && !hasRankings)
+                {
+                    continue;
+                }
                 <tr>
                     <td>@item.MonthDisplay</td>
                     <td>@item.RatingDisplay</td>
-                    <td>@(item.MatchesInMonth > 0 ? item.MatchesInMonth.ToString() : "-")</td>
+                    <td>
+                        @if (item.MatchNames.Any())
+                        {
+                            @foreach (var matchName in item.MatchNames)
+                            {
+                                <div style="font-size: 0.85em;">@matchName</div>
+                            }
+                        }
+                        else
+                        {
+                            <span>-</span>
+                        }
+                    </td>
+                    <td>
+                        @if (hasRankings)
+                        {
+                            @foreach (var rankingInfo in rankingList)
+                            {
+                                <div>
+                                    <span style="color: rgb(255, 99, 132); font-weight: bold;">@rankingInfo.ranking</span>
+                                    <span style="color: #666; font-size: 0.85em;">(@rankingInfo.date)</span>
+                                </div>
+                            }
+                        }
+                    </td>
+                </tr>
+            }
+            @if (earlyRankings.Any())
+            {
+                <tr style="background-color: #f8f9fa;">
+                    <td colspan="3" style="color: #666; font-style: italic;">Before first match</td>
+                    <td>
+                        @foreach (var rankingInfo in earlyRankings.OrderByDescending(r => r.sortDate))
+                        {
+                            <div>
+                                <span style="color: rgb(255, 99, 132); font-weight: bold;">@rankingInfo.ranking</span>
+                                <span style="color: #666; font-size: 0.85em;">(@rankingInfo.date)</span>
+                            </div>
+                        }
+                    </td>
                 </tr>
             }
         </tbody>
@@ -58,16 +162,30 @@
 
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
     <script>
         const ctx = document.getElementById('ratingChart').getContext('2d');
         
+        // All months for continuous axis
         const labels = [@Html.Raw(string.Join(",", sortedRatings.Select(r => $"'{r.MonthDisplay}'")))];
         const ratings = [@Html.Raw(string.Join(",", sortedRatings.Select(r => r.Rating.ToString("F1", System.Globalization.CultureInfo.InvariantCulture))))];
+        
+        // Track which months have activity (matches or ranking changes)
+        const hasActivity = [@Html.Raw(string.Join(",", sortedRatings.Select(r => (r.MatchesInMonth > 0 || monthRankingLabels.ContainsKey(r.MonthDisplay)).ToString().ToLower())))];
+        
+        // Ranking labels for each month (only where ranking changed)
+        // Contains ranking and full date (combined if multiple)
+        const rankingLabels = {
+            @Html.Raw(string.Join(",", chartRankingLabels.Select(kvp => $"'{kvp.Key}': {{ ranking: '{kvp.Value.ranking}', date: '{kvp.Value.date}' }}")))
+        };
         
         // Calculate min/max for better Y-axis scaling
         const minRating = Math.min(...ratings);
         const maxRating = Math.max(...ratings);
         const padding = (maxRating - minRating) * 0.1 || 50;
+        
+        // Register the datalabels plugin
+        Chart.register(ChartDataLabels);
         
         new Chart(ctx, {
             type: 'line',
@@ -80,8 +198,21 @@
                     backgroundColor: 'rgba(54, 162, 235, 0.1)',
                     fill: true,
                     tension: 0,
-                    pointRadius: 4,
-                    pointHoverRadius: 6
+                    pointRadius: function(context) {
+                        const idx = context.dataIndex;
+                        if (!hasActivity[idx]) return 0; // Hide point for inactive months
+                        const label = labels[idx];
+                        return rankingLabels[label] ? 8 : 4;
+                    },
+                    pointBackgroundColor: function(context) {
+                        const label = labels[context.dataIndex];
+                        return rankingLabels[label] ? 'rgb(255, 99, 132)' : 'rgb(54, 162, 235)';
+                    },
+                    pointBorderColor: function(context) {
+                        const label = labels[context.dataIndex];
+                        return rankingLabels[label] ? 'rgb(255, 99, 132)' : 'rgb(54, 162, 235)';
+                    },
+                    pointHoverRadius: 8
                 }]
             },
             options: {
@@ -93,9 +224,38 @@
                     tooltip: {
                         callbacks: {
                             label: function(context) {
-                                return 'Rating: ' + context.parsed.y.toFixed(1);
+                                const label = labels[context.dataIndex];
+                                const rankingInfo = rankingLabels[label];
+                                let result = 'Rating: ' + context.parsed.y.toFixed(1);
+                                if (rankingInfo) {
+                                    result += ' (Promoted to ' + rankingInfo.ranking + ' on ' + rankingInfo.date + ')';
+                                }
+                                return result;
                             }
                         }
+                    },
+                    datalabels: {
+                        align: 'top',
+                        anchor: 'end',
+                        offset: 4,
+                        font: {
+                            weight: 'bold',
+                            size: 10
+                        },
+                        color: 'rgb(255, 99, 132)',
+                        formatter: function(value, context) {
+                            const label = labels[context.dataIndex];
+                            const rankingInfo = rankingLabels[label];
+                            if (rankingInfo) {
+                                return rankingInfo.ranking + '\n(' + rankingInfo.date + ')';
+                            }
+                            return null;
+                        },
+                        display: function(context) {
+                            const label = labels[context.dataIndex];
+                            return !!rankingLabels[label];
+                        },
+                        textAlign: 'center'
                     }
                 },
                 scales: {

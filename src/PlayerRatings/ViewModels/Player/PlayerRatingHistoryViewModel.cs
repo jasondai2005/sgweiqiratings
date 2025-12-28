@@ -11,6 +11,7 @@ namespace PlayerRatings.ViewModels.Player
         public List<MonthlyRating> MonthlyRatings { get; set; } = new List<MonthlyRating>();
         public bool SwaOnly { get; set; }
         public bool IsIntlLeague { get; set; }
+        public bool PromotionBonus { get; set; }
     }
 
     public class MonthlyRating
@@ -20,6 +21,7 @@ namespace PlayerRatings.ViewModels.Player
         public double Rating { get; set; }
         public string RatingDisplay => Rating.ToString("F1");
         public int MatchesInMonth { get; set; }
+        public List<string> MatchNames { get; set; } = new List<string>();
     }
 }
 

@@ -406,7 +406,8 @@ namespace PlayerRatings.Models
                 else if (isKyu && rankingNum <= 5)
                 {
                     rankingNum += 1;
-                    delta = 50;
+                    if (rankingNum == 5)
+                        delta = 50;
                 }
             }
 
@@ -436,8 +437,7 @@ namespace PlayerRatings.Models
             ranking = ranking.ToUpper();
             if (ranking.Contains(' '))
             {
-                bool useSwaRanking = ranking.Contains('[') ||
-                    (ranking.Contains('(') && !ranking.Contains("5D"));
+                bool useSwaRanking = ranking.Contains('[') || ranking.Contains('(');
                 if (useSwaRanking)
                     ranking = ranking.Substring(0, ranking.IndexOf(' '));
                 else

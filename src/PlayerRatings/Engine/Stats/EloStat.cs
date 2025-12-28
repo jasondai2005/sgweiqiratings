@@ -17,6 +17,9 @@ namespace PlayerRatings.Engine.Stats
         // Number of games required before calculating estimated initial rating
         private const int GAMES_FOR_ESTIMATION = 12;
 
+        // Static setting to control whether promotion bonus is enabled
+        public static bool PromotionBonusEnabled { get; set; } = true;
+
         public void AddMatch(Match match)
         {
             double firstUserScore = 1.0;
@@ -86,6 +89,10 @@ namespace PlayerRatings.Engine.Stats
             _dict[match.FirstPlayer.Id] = rating.NewRatingAPlayer;
             _dict[match.SecondPlayer.Id] = specialRating.NewRatingBPlayer;
 
+            // Check for promotions and queue rating floor adjustments (applied after all matches on that day)
+            CheckForPromotion(match.FirstPlayer, match.Date, isIntlLeague);
+            CheckForPromotion(match.SecondPlayer, match.Date, isIntlLeague);
+
             match.ShiftRating = rating.ShiftRatingAPlayer.ToString("F1");
             var player2ShiftRating = (secondPlayerRating - _dict[match.SecondPlayer.Id]).ToString("F1");
             if (match.ShiftRating != player2ShiftRating)
@@ -99,6 +106,131 @@ namespace PlayerRatings.Engine.Stats
             TrackGameForPerformanceRating(match.SecondPlayer, firstPlayerRating, 1 - firstUserScore, isIntlLeague);
         }
 
+        // Track the last known ranking for each player to detect promotions
+        private readonly Dictionary<string, string> _lastKnownRanking = new Dictionary<string, string>();
+
+        // Track pending promotion rating floors: player Id -> (rating floor, isIntlLeague, wasKyuPlayer)
+        private readonly Dictionary<string, (double ratingFloor, bool isIntlLeague, bool wasKyuPlayer)> _pendingPromotionFloors 
+            = new Dictionary<string, (double, bool, bool)>();
+
+        // Track the current date being processed
+        private DateTime _currentProcessingDate = DateTime.MinValue;
+
+        /// <summary>
+        /// Public method to check and apply promotion for a player at a specific date.
+        /// Called when a player is first encountered to apply any promotions that may have happened.
+        /// </summary>
+        public void CheckPlayerPromotion(ApplicationUser player, DateTimeOffset date, bool isIntlLeague)
+        {
+            CheckForPromotion(player, date, isIntlLeague);
+        }
+
+        /// <summary>
+        /// Checks if a player was promoted and queues a rating floor adjustment.
+        /// The adjustment is applied after all matches on that day complete.
+        /// </summary>
+        private void CheckForPromotion(ApplicationUser player, DateTimeOffset matchDate, bool isIntlLeague)
+        {
+            if (player.IsVirtualPlayer)
+                return;
+
+            // Apply any pending promotion floors from previous days
+            if (matchDate.Date > _currentProcessingDate)
+            {
+                ApplyPendingPromotionFloors();
+                _currentProcessingDate = matchDate.Date;
+            }
+
+            // Skip if promotion bonus is disabled
+            if (!PromotionBonusEnabled)
+            {
+                // Still track the ranking for when it's re-enabled
+                string ranking = player.GetRankingBeforeDate(matchDate);
+                if (!string.IsNullOrEmpty(ranking))
+                {
+                    _lastKnownRanking[player.Id] = ranking;
+                }
+                return;
+            }
+
+            // Get current ranking at match date
+            string currentRanking = player.GetRankingBeforeDate(matchDate);
+            if (string.IsNullOrEmpty(currentRanking))
+                return;
+
+            // Check if ranking changed (promotion detected)
+            if (_lastKnownRanking.TryGetValue(player.Id, out var previousRanking))
+            {
+                if (previousRanking != currentRanking)
+                {
+                    // Ranking changed - check if this is a promotion (higher rating for new ranking)
+                    int previousRankingRating = player.GetRatingByRanking(previousRanking, isIntlLeague);
+                    int currentRankingRating = player.GetRatingByRanking(currentRanking, isIntlLeague);
+
+                    if (currentRankingRating > previousRankingRating)
+                    {
+                        // Only apply promotion bonus for 4D and lower promotions
+                        // 5D and above are considered strong enough and don't need the bonus
+                        bool is5DOrHigher = currentRanking.Contains("5D") || currentRanking.Contains("6D") || 
+                                            currentRanking.Contains("7D") || currentRanking.Contains("8D") || 
+                                            currentRanking.Contains("9D");
+                        if (!is5DOrHigher)
+                        {
+                            // This is a promotion - queue rating floor for end of day
+                            double ratingFloor = currentRankingRating - 50;
+                            // Track if previous ranking was kyu (contains 'K') - only kyu players should stop performance tracking
+                            bool wasKyuPlayer = string.IsNullOrEmpty(previousRanking) || previousRanking.Contains("K");
+                            _pendingPromotionFloors[player.Id] = (ratingFloor, isIntlLeague, wasKyuPlayer);
+                        }
+                    }
+                }
+            }
+
+            // Update last known ranking
+            _lastKnownRanking[player.Id] = currentRanking;
+        }
+
+        /// <summary>
+        /// Applies all pending promotion rating floors.
+        /// Called when the processing date changes or at the end of match processing.
+        /// Also stops performance estimation tracking for kyu players who receive the bonus.
+        /// Foreign dan players continue tracking as they could be stronger than the promoted level.
+        /// </summary>
+        private void ApplyPendingPromotionFloors()
+        {
+            foreach (var pending in _pendingPromotionFloors)
+            {
+                string playerId = pending.Key;
+                double ratingFloor = pending.Value.ratingFloor;
+                bool wasKyuPlayer = pending.Value.wasKyuPlayer;
+
+                if (_dict.TryGetValue(playerId, out var currentRating))
+                {
+                    if (currentRating < ratingFloor)
+                    {
+                        _dict[playerId] = ratingFloor;
+                        
+                        // Only stop performance estimation for kyu players
+                        // Foreign dan players could be stronger than the promoted dan level
+                        if (wasKyuPlayer)
+                        {
+                            _performanceTracker.Remove(playerId);
+                        }
+                    }
+                }
+            }
+
+            _pendingPromotionFloors.Clear();
+        }
+
+        /// <summary>
+        /// Finalizes any pending operations. Should be called after all matches are processed.
+        /// </summary>
+        public void FinalizeProcessing()
+        {
+            ApplyPendingPromotionFloors();
+        }
+
         /// <summary>
         /// Tracks a game result for a new foreign/unknown player and calculates their
         /// estimated initial rating after they've played enough games.
@@ -107,9 +239,12 @@ namespace PlayerRatings.Engine.Stats
         private void TrackGameForPerformanceRating(ApplicationUser player, double opponentRating, double score, bool isIntlLeague)
         {
             // Only track for players who need performance estimation
-            // (foreign/unknown players in their first 12 games)
             if (!player.NeedDynamicFactor(isIntlLeague))
+            {
+                // Clean up tracker as we no longer need to track this player
+                _performanceTracker.Remove(player.Id);
                 return;
+            }
 
             // Skip virtual players (aggregated player pools like [China 5D])
             if (player.IsVirtualPlayer)
@@ -142,9 +277,6 @@ namespace PlayerRatings.Engine.Stats
                     
                     _dict[player.Id] = correctedRating;
                 }
-
-                // Clean up tracker as we no longer need to track this player
-                _performanceTracker.Remove(player.Id);
             }
         }
 
