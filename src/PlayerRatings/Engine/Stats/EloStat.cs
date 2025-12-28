@@ -29,11 +29,11 @@ namespace PlayerRatings.Engine.Stats
                 firstUserScore = 0.5;
             }
 
-            bool isIntlLeague = match.League.Name.Contains("Intl.");
+            bool isIntlLeague = match.League?.Name?.Contains("Intl.") ?? false;
             int firstPlayerRankingRating = match.FirstPlayer.GetRatingBeforeDate(match.Date.Date, isIntlLeague);
             int secondPlayerRankingRating = match.SecondPlayer.GetRatingBeforeDate(match.Date.Date, isIntlLeague);
-            double firstPlayerRating = _dict.ContainsKey(match.FirstPlayer.Id) ? _dict[match.FirstPlayer.Id] : firstPlayerRankingRating;
-            double secondPlayerRating = _dict.ContainsKey(match.SecondPlayer.Id) ? _dict[match.SecondPlayer.Id] : secondPlayerRankingRating;
+            double firstPlayerRating = _dict.TryGetValue(match.FirstPlayer.Id, out var cachedFirst) ? cachedFirst : firstPlayerRankingRating;
+            double secondPlayerRating = _dict.TryGetValue(match.SecondPlayer.Id, out var cachedSecond) ? cachedSecond : secondPlayerRankingRating;
 
             double factor1 = match.Factor.GetValueOrDefault(1);
             if (factor1 > 0) factor1 = 1;
@@ -73,36 +73,20 @@ namespace PlayerRatings.Engine.Stats
                     factor1 = Math.Min(factor1, 2.0);
                     factor2 = Math.Min(factor2, 2.0);
                 }
-
-                // Special handling for China 5D virtual player pool (high variance)
-                if (match.FirstPlayer.DisplayName == "[China 5D]" && match.Date.Year >= 2025 && match.Date.Month >= 7)
-                {
-                    if (match.Date.Year >= 2025 && match.Date.Month >= 11 && match.Date.Day >= 24)
-                    {
-                        factor2 *= Math.Min(1, (firstPlayerRating - 1000) * (firstPlayerRating - 1000) / (_china6dRating - 1000) / (secondPlayerRating - 1000));
-                    }
-                    else
-                    {
-                        factor2 *= 0.5;
-                    }
-                }
             }
 
-            var rating1 = new Elo(firstPlayerRating, secondPlayerRating, firstUserScore, 1 - firstUserScore, Elo.GetK(firstPlayerRating) * factor1);
-            var rating2 = new Elo(firstPlayerRating, secondPlayerRating, firstUserScore, 1 - firstUserScore, Elo.GetK(firstPlayerRating) * factor2);
-
-            if (match.FirstPlayer.DisplayName == "[China 6D]")
-                _china6dRating = rating1.NewRatingAPlayer;
-            else if (match.SecondPlayer.DisplayName == "[China 6D]")
-                _china6dRating = rating1.NewRatingBPlayer;
+            var rating = new Elo(firstPlayerRating, secondPlayerRating, firstUserScore, 1 - firstUserScore, Elo.GetK(firstPlayerRating) * factor1);
+            Elo specialRating = factor1 != factor2 ? 
+                specialRating = new Elo(firstPlayerRating, secondPlayerRating, firstUserScore, 1 - firstUserScore, Elo.GetK(secondPlayerRating) * factor2) :
+                rating;
 
             match.OldFirstPlayerRating = firstPlayerRating.ToString("F1");
             match.OldSecondPlayerRating = secondPlayerRating.ToString("F1");
 
-            _dict[match.FirstPlayer.Id] = rating1.NewRatingAPlayer;
-            _dict[match.SecondPlayer.Id] = rating2.NewRatingBPlayer;
+            _dict[match.FirstPlayer.Id] = rating.NewRatingAPlayer;
+            _dict[match.SecondPlayer.Id] = specialRating.NewRatingBPlayer;
 
-            match.ShiftRating = rating1.ShiftRatingAPlayer.ToString("F1");
+            match.ShiftRating = rating.ShiftRatingAPlayer.ToString("F1");
             var player2ShiftRating = (secondPlayerRating - _dict[match.SecondPlayer.Id]).ToString("F1");
             if (match.ShiftRating != player2ShiftRating)
             {
@@ -131,31 +115,29 @@ namespace PlayerRatings.Engine.Stats
             if (player.IsVirtualPlayer)
                 return;
 
-            // Initialize tracking list if needed
-            if (!_performanceTracker.ContainsKey(player.Id))
+            // Initialize tracking list if needed and add game result
+            if (!_performanceTracker.TryGetValue(player.Id, out var games))
             {
-                _performanceTracker[player.Id] = new List<(double opponentRating, double score)>();
+                games = new List<(double opponentRating, double score)>();
+                _performanceTracker[player.Id] = games;
             }
-
-            // Add this game result
-            _performanceTracker[player.Id].Add((opponentRating, score));
+            games.Add((opponentRating, score));
 
             // After GAMES_FOR_ESTIMATION games, calculate estimated initial rating and apply correction
-            if (_performanceTracker[player.Id].Count == GAMES_FOR_ESTIMATION)
+            if (games.Count == GAMES_FOR_ESTIMATION)
             {
-                var estimatedInitialRating = CalculatePerformanceRating(_performanceTracker[player.Id]);
+                var estimatedInitialRating = CalculatePerformanceRating(games);
                 player.EstimatedInitialRating = estimatedInitialRating;
 
                 // Apply rating correction based on the difference between
                 // original ranking-based rating and performance-based estimate
-                if (_dict.ContainsKey(player.Id))
+                if (_dict.TryGetValue(player.Id, out var currentRating))
                 {
                     double originalInitialRating = player.GetRatingBeforeDate(player.FirstMatch.Date, isIntlLeague);
                     double ratingCorrection = estimatedInitialRating - originalInitialRating;
                     
                     // Apply partial correction (50%) to avoid over-adjusting
                     // The dynamic K-factor should have already moved them partway to their true rating
-                    double currentRating = _dict[player.Id];
                     double correctedRating = currentRating + ratingCorrection * 0.5;
                     
                     _dict[player.Id] = correctedRating;
@@ -271,15 +253,15 @@ namespace PlayerRatings.Engine.Stats
 
         public virtual string GetResult(ApplicationUser user)
         {
-            return _dict.ContainsKey(user.Id) ? _dict[user.Id].ToString("F1") : "";
+            return _dict.TryGetValue(user.Id, out var rating) ? rating.ToString("F1") : "";
         }
 
         public virtual string NameLocalizationKey => nameof(LocalizationKey.Elo);
 
         public virtual double this[ApplicationUser user]
         {
-            get { return _dict.ContainsKey(user.Id) ? _dict[user.Id] : user.GetRatingBeforeDate(user.FirstMatch.Date); }
-            set { _dict[user.Id] = value; }
+            get => _dict.TryGetValue(user.Id, out var rating) ? rating : user.GetRatingBeforeDate(user.FirstMatch.Date);
+            set => _dict[user.Id] = value;
         }
     }
 
@@ -287,11 +269,11 @@ namespace PlayerRatings.Engine.Stats
     {
         public override string GetResult(ApplicationUser user)
         {
-            return _dict.ContainsKey(user.Id) ? (_dict[user.Id] - user.GetRatingBeforeDate(League.CutoffDate)).ToString("F1") : "";
+            return _dict.TryGetValue(user.Id, out var rating) ? (rating - user.GetRatingBeforeDate(League.CutoffDate)).ToString("F1") : "";
         }
 
         public override string NameLocalizationKey => nameof(LocalizationKey.Delta);
 
-        public override double this[ApplicationUser user] => _dict.ContainsKey(user.Id) ? _dict[user.Id] : 0;
+        public override double this[ApplicationUser user] => _dict.TryGetValue(user.Id, out var rating) ? rating : 0;
     }
 }

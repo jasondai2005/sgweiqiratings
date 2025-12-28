@@ -27,6 +27,39 @@ namespace PlayerRatings.Controllers
             _leaguesRepository = leaguesRepository;
         }
 
+        // Match type constants
+        private const string MATCH_SWA = "SWA ";
+        private const string MATCH_TGA = "TGA ";
+        private const string MATCH_SG = "SG ";
+
+        /// <summary>
+        /// Filters matches based on date and match type.
+        /// </summary>
+        /// <param name="includeDate">If true, includes matches on the exact date (<=). If false, excludes them (&lt;).</param>
+        private static IOrderedEnumerable<Match> FilterMatches(IEnumerable<Match> matches, DateTimeOffset date, bool swaOnly, bool includeDate = true)
+        {
+            Func<Match, bool> dateFilter = includeDate 
+                ? x => x.Date <= date 
+                : x => x.Date < date;
+            
+            return swaOnly
+                ? matches.Where(x => dateFilter(x) && x.MatchName.Contains(MATCH_SWA)).OrderBy(m => m.Date)
+                : matches.Where(x => dateFilter(x) && 
+                    (x.MatchName.Contains(MATCH_SWA) || x.MatchName.Contains(MATCH_TGA) || x.MatchName.Contains(MATCH_SG))).OrderBy(m => m.Date);
+        }
+
+        /// <summary>
+        /// Filters matches for a specific player based on date and match type.
+        /// </summary>
+        private static IOrderedEnumerable<Match> FilterPlayerMatches(IEnumerable<Match> matches, string playerId, bool swaOnly)
+        {
+            return swaOnly
+                ? matches.Where(m => (m.FirstPlayerId == playerId || m.SecondPlayerId == playerId) && 
+                    m.MatchName.Contains(MATCH_SWA)).OrderBy(m => m.Date)
+                : matches.Where(m => (m.FirstPlayerId == playerId || m.SecondPlayerId == playerId) && 
+                    (m.MatchName.Contains(MATCH_SWA) || m.MatchName.Contains(MATCH_TGA) || m.MatchName.Contains(MATCH_SG))).OrderBy(m => m.Date);
+        }
+
         // GET: Leagues
         public async Task<IActionResult> Index()
         {
@@ -236,7 +269,7 @@ namespace PlayerRatings.Controllers
         }
 
         // GET: Leagues/Rating/5
-        private EloStat elo = new();
+        private EloStat elo = new EloStat();
         public async Task<IActionResult> Rating(Guid? id, string byDate, bool swaOnly = false)
         {
             if (id == null)
@@ -276,9 +309,7 @@ namespace PlayerRatings.Controllers
                 stats.Add(new EloStatChange());
 
             // Filter matches based on swaOnly toggle
-            var matches = swaOnly 
-                ? league.Matches.Where(x => x.Date <= date && x.MatchName.Contains("SWA ")).OrderBy(m => m.Date)
-                : league.Matches.Where(x => x.Date <= date && (x.MatchName.Contains("SWA ") || x.MatchName.Contains("TGA ") || x.MatchName.Contains("SG "))).OrderBy(m => m.Date);
+            var matches = FilterMatches(league.Matches, date, swaOnly);
             foreach (var match in matches)
             {
                 if (notBlockedUserIds.Contains(match.FirstPlayerId))
@@ -469,17 +500,7 @@ namespace PlayerRatings.Controllers
             }
 
             // Find player's matches based on swaOnly filter
-            var playerMatches = swaOnly
-                ? league.Matches
-                    .Where(m => (m.FirstPlayerId == playerId || m.SecondPlayerId == playerId) &&
-                           m.MatchName.Contains("SWA "))
-                    .OrderBy(m => m.Date)
-                    .ToList()
-                : league.Matches
-                    .Where(m => (m.FirstPlayerId == playerId || m.SecondPlayerId == playerId) &&
-                           (m.MatchName.Contains("SWA ") || m.MatchName.Contains("TGA ") || m.MatchName.Contains("SG ")))
-                    .OrderBy(m => m.Date)
-                    .ToList();
+            var playerMatches = FilterPlayerMatches(league.Matches, playerId, swaOnly).ToList();
 
             if (!playerMatches.Any())
             {
@@ -512,16 +533,7 @@ namespace PlayerRatings.Controllers
                 League.CutoffDate = new DateTimeOffset(currentMonth);
                 var eloStat = new EloStat();
 
-                var matchesUpToDate = swaOnly
-                    ? league.Matches
-                        .Where(x => x.Date < League.CutoffDate && x.MatchName.Contains("SWA "))
-                        .OrderBy(m => m.Date)
-                        .ToList()
-                    : league.Matches
-                        .Where(x => x.Date < League.CutoffDate && 
-                               (x.MatchName.Contains("SWA ") || x.MatchName.Contains("TGA ") || x.MatchName.Contains("SG ")))
-                        .OrderBy(m => m.Date)
-                        .ToList();
+                var matchesUpToDate = FilterMatches(league.Matches, League.CutoffDate, swaOnly, includeDate: false).ToList();
 
                 // Check if player has any matches before this date
                 var playerMatchesUpToDate = matchesUpToDate

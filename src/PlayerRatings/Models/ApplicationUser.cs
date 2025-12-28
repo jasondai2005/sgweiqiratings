@@ -16,10 +16,10 @@ namespace PlayerRatings.Models
         private const int GRADE_DIFF = 100;
         private const int PRO_GRADE_DIFF = 30;
         private const int MIN_RATING = -900;
-        private Dictionary<string, DateTimeOffset> _rankingHistory = new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
-        private Dictionary<string, DateTimeOffset> _swaRankingHistory = new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, DateTimeOffset> _rankingHistory = new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, DateTimeOffset> _swaRankingHistory = new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
 
-        public static List<string> InvisiblePlayers = new List<string>()
+        public static List<string> InvisiblePlayers = new List<string>
         {
             "mok.jj@sw.org"
         };
@@ -212,24 +212,17 @@ namespace PlayerRatings.Models
                 {
                     var ranking = Ranking ?? string.Empty;
                     var rankingHistory = ranking.Split(";");
-                    for (int i = 0; i < rankingHistory.Length; i++)
+                    foreach (var entry in rankingHistory)
                     {
-                        try
+                        var kvPair = entry.Split(':');
+                        if (kvPair.Length > 1)
                         {
-                            var kvPair = rankingHistory[i].Split(':');
-                            if (kvPair.Length > 1)
-                            {
-                                var rankingDate = DateTimeOffset.ParseExact(kvPair[1], kvPair[0] == BIRTH_YEAR ? "yyyy" : DATE_FORMAT, null);
-                                _rankingHistory.Add(kvPair[0], rankingDate);
-                            }
-                            else
-                            {
-                                _rankingHistory.Add(kvPair[0], DateTimeOffset.MinValue);
-                            }
+                            var rankingDate = DateTimeOffset.ParseExact(kvPair[1], kvPair[0] == BIRTH_YEAR ? "yyyy" : DATE_FORMAT, null);
+                            _rankingHistory.Add(kvPair[0], rankingDate);
                         }
-                        catch
+                        else
                         {
-                            throw;
+                            _rankingHistory.Add(kvPair[0], DateTimeOffset.MinValue);
                         }
                     }
                 }
