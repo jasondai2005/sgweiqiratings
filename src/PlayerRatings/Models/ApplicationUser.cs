@@ -52,6 +52,18 @@ namespace PlayerRatings.Models
         internal int MatchCount { get; set; } = 0;
 
         /// <summary>
+        /// Tracks the previous match date before updating LastMatch.
+        /// Used to detect gaps in playing activity.
+        /// </summary>
+        internal DateTimeOffset PreviousMatchDate { get; set; } = DateTimeOffset.MinValue;
+
+        /// <summary>
+        /// Counts matches played since returning from a 2+ year break.
+        /// Reset when a gap is detected.
+        /// </summary>
+        internal int MatchesSinceReturn { get; set; } = 0;
+
+        /// <summary>
         /// Estimated initial rating calculated from performance in first 12 games.
         /// This is used to provide a more accurate initial rating for foreign/unknown players
         /// after they have played enough games to determine their true strength.
@@ -103,8 +115,7 @@ namespace PlayerRatings.Models
             {
                 if (m_initRanking == null)
                     m_initRanking = GetRankingBeforeDate(FirstMatch.Date);
-                if (DisplayName.Contains("Zhou Yi")) // temp fix for known data issue
-                    m_initRanking = "[5D]";
+
                 return m_initRanking;
             }
         }
@@ -117,9 +128,66 @@ namespace PlayerRatings.Models
         public bool IsNewKyuPlayer => MatchCount <= 12 && !InternalInitRanking.Contains('D') && !IsProPlayer && !IsVirtualPlayer;
         public bool IsHiddenPlayer => (InvisiblePlayers.Contains(Email, StringComparer.OrdinalIgnoreCase) || IsNewKyuPlayer || IsNewUnknownRankdedPlayer);
 
+        // Number of games to monitor for local dan players and returning players
+        private const int LOCAL_PLAYER_GAMES_THRESHOLD = 6;
+
+        /// <summary>
+        /// New local dan player who started playing from 2025.
+        /// These players have a local dan ranking (SWA like "2D" or TGA like "(2D)") but are new to the league.
+        /// Foreign dan players with square brackets "[2D]" are handled separately by IsUnknownRankedPlayer.
+        /// Only monitored for 6 games since their local ranking is more reliable.
+        /// </summary>
+        public bool IsNewLocalDanPlayer
+        {
+            get
+            {
+                if (MatchCount > LOCAL_PLAYER_GAMES_THRESHOLD || IsVirtualPlayer || IsProPlayer)
+                    return false;
+                
+                // Must have first match in 2025 or later
+                if (FirstMatch == DateTimeOffset.MinValue || FirstMatch.Year < 2025)
+                    return false;
+                
+                // Must be a local dan player (has 'D', no square brackets which indicate foreign ranking)
+                // SWA: "2D" (no brackets)
+                // TGA: "(2D)" (parentheses) 
+                // Foreign: "[2D]" (square brackets) - excluded
+                var ranking = InternalInitRanking ?? string.Empty;
+                bool isDan = ranking.Contains('D');
+                bool isLocalRanking = !ranking.Contains('[');
+                
+                return isDan && isLocalRanking;
+            }
+        }
+
+        /// <summary>
+        /// Inactive player who has returned after a long break (2+ years).
+        /// Their rating may no longer reflect their current strength.
+        /// Only monitored for 6 games since they have prior playing history.
+        /// </summary>
+        public bool IsReturningInactivePlayer
+        {
+            get
+            {
+                if (IsVirtualPlayer)
+                    return false;
+                
+                // Check if we detected a 2+ year gap (MatchesSinceReturn > 0 means gap was detected)
+                // and they haven't played enough games since returning
+                return MatchesSinceReturn > 0 && MatchesSinceReturn <= LOCAL_PLAYER_GAMES_THRESHOLD;
+            }
+        }
+
         public bool NeedDynamicFactor(bool intl)
         {
-            return intl ? MatchCount <= 12 : IsNewUnknownRankdedPlayer;
+            if (intl)
+                return MatchCount <= 12;
+            
+            // Need dynamic factor for:
+            // 1. New players with unknown/foreign ranking
+            // 2. New local dan players (SWA/TGA) who started in 2025
+            // 3. Inactive players returning after 2+ years
+            return IsNewUnknownRankdedPlayer || IsNewLocalDanPlayer || IsReturningInactivePlayer;
         }
 
         public string LatestRanking => GetRankingBeforeDate(DateTimeOffset.Now.AddDays(1));

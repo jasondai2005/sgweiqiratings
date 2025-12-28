@@ -360,8 +360,25 @@ namespace PlayerRatings.Controllers
                 player.FirstMatch = match.Date;
             }
 
+            // Check for 2+ year gap (returning inactive player)
+            if (player.LastMatch != DateTimeOffset.MinValue)
+            {
+                var gap = match.Date - player.LastMatch;
+                if (gap.TotalDays > 365 * 2)
+                {
+                    // Detected a 2+ year gap, reset the counter
+                    player.MatchesSinceReturn = 1;
+                }
+                else if (player.MatchesSinceReturn > 0)
+                {
+                    // Already tracking since return, increment counter
+                    player.MatchesSinceReturn++;
+                }
+            }
+
+            player.PreviousMatchDate = player.LastMatch;
             player.LastMatch = match.Date;
-                player.MatchCount++;
+            player.MatchCount++;
 
             activeUsers.Add(player);
         }
@@ -588,8 +605,14 @@ namespace PlayerRatings.Controllers
                 {
                     match.FirstPlayer.MatchCount = 0;
                     match.FirstPlayer.FirstMatch = DateTimeOffset.MinValue;
+                    match.FirstPlayer.LastMatch = DateTimeOffset.MinValue;
+                    match.FirstPlayer.PreviousMatchDate = DateTimeOffset.MinValue;
+                    match.FirstPlayer.MatchesSinceReturn = 0;
                     match.SecondPlayer.MatchCount = 0;
                     match.SecondPlayer.FirstMatch = DateTimeOffset.MinValue;
+                    match.SecondPlayer.LastMatch = DateTimeOffset.MinValue;
+                    match.SecondPlayer.PreviousMatchDate = DateTimeOffset.MinValue;
+                    match.SecondPlayer.MatchesSinceReturn = 0;
                 }
 
                 currentMonth = currentMonth.AddMonths(1);
