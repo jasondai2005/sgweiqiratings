@@ -34,13 +34,19 @@ namespace PlayerRatings.Controllers
 
         /// <summary>
         /// Filters matches based on date and match type.
+        /// For international leagues, all matches are included.
         /// </summary>
         /// <param name="includeDate">If true, includes matches on the exact date (<=). If false, excludes them (&lt;).</param>
-        private static IOrderedEnumerable<Match> FilterMatches(IEnumerable<Match> matches, DateTimeOffset date, bool swaOnly, bool includeDate = true)
+        /// <param name="isIntlLeague">If true, includes all matches regardless of match type.</param>
+        private static IOrderedEnumerable<Match> FilterMatches(IEnumerable<Match> matches, DateTimeOffset date, bool swaOnly, bool includeDate = true, bool isIntlLeague = false)
         {
             Func<Match, bool> dateFilter = includeDate 
                 ? x => x.Date <= date 
                 : x => x.Date < date;
+            
+            // International leagues include all matches
+            if (isIntlLeague)
+                return matches.Where(x => dateFilter(x)).OrderBy(m => m.Date);
             
             return swaOnly
                 ? matches.Where(x => dateFilter(x) && x.MatchName.Contains(MATCH_SWA)).OrderBy(m => m.Date)
@@ -50,13 +56,19 @@ namespace PlayerRatings.Controllers
 
         /// <summary>
         /// Filters matches for a specific player based on date and match type.
+        /// For international leagues, all matches are included.
         /// </summary>
-        private static IOrderedEnumerable<Match> FilterPlayerMatches(IEnumerable<Match> matches, string playerId, bool swaOnly)
+        private static IOrderedEnumerable<Match> FilterPlayerMatches(IEnumerable<Match> matches, string playerId, bool swaOnly, bool isIntlLeague = false)
         {
+            Func<Match, bool> playerFilter = m => m.FirstPlayerId == playerId || m.SecondPlayerId == playerId;
+            
+            // International leagues include all matches
+            if (isIntlLeague)
+                return matches.Where(m => playerFilter(m)).OrderBy(m => m.Date);
+            
             return swaOnly
-                ? matches.Where(m => (m.FirstPlayerId == playerId || m.SecondPlayerId == playerId) && 
-                    m.MatchName.Contains(MATCH_SWA)).OrderBy(m => m.Date)
-                : matches.Where(m => (m.FirstPlayerId == playerId || m.SecondPlayerId == playerId) && 
+                ? matches.Where(m => playerFilter(m) && m.MatchName.Contains(MATCH_SWA)).OrderBy(m => m.Date)
+                : matches.Where(m => playerFilter(m) && 
                     (m.MatchName.Contains(MATCH_SWA) || m.MatchName.Contains(MATCH_TGA) || m.MatchName.Contains(MATCH_SG))).OrderBy(m => m.Date);
         }
 
@@ -308,8 +320,11 @@ namespace PlayerRatings.Controllers
             if (byDate != null && date.Year < 2024)
                 stats.Add(new EloStatChange());
 
-            // Filter matches based on swaOnly toggle
-            var matches = FilterMatches(league.Matches, date, swaOnly);
+            // Check if this is an international league (all matches count, no filtering)
+            bool isIntlLeague = league.Name?.Contains("Intl.") ?? false;
+
+            // Filter matches based on swaOnly toggle (ignored for international leagues)
+            var matches = FilterMatches(league.Matches, date, swaOnly, isIntlLeague: isIntlLeague);
             foreach (var match in matches)
             {
                 if (notBlockedUserIds.Contains(match.FirstPlayerId))
@@ -350,7 +365,7 @@ namespace PlayerRatings.Controllers
             var promotedPlayers = activeUsers.Where(x => (date.Year > 2023 || x.IsHiddenPlayer) && x.Promotion.Contains('→')).ToList();
             promotedPlayers.Sort(CompareByRankingRatingAndName);
 
-            return View(new RatingViewModel(stats, users, promotedPlayers, lastMatches, forecast, id.Value, byDate, swaOnly));
+            return View(new RatingViewModel(stats, users, promotedPlayers, lastMatches, forecast, id.Value, byDate, swaOnly, isIntlLeague));
         }
 
         private static void AddUser(HashSet<ApplicationUser> activeUsers, Match match, ApplicationUser player)
@@ -510,14 +525,17 @@ namespace PlayerRatings.Controllers
                 .Include(l => l.Matches).ThenInclude(m => m.SecondPlayer)
                 .Single(m => m.Id == id);
 
+            // Check if this is an international league
+            bool isIntlLeague = league.Name?.Contains("Intl.") ?? false;
+
             var player = await _userManager.FindByIdAsync(playerId);
             if (player == null)
             {
                 return NotFound();
             }
 
-            // Find player's matches based on swaOnly filter
-            var playerMatches = FilterPlayerMatches(league.Matches, playerId, swaOnly).ToList();
+            // Find player's matches (all matches for intl leagues, filtered for local leagues)
+            var playerMatches = FilterPlayerMatches(league.Matches, playerId, swaOnly, isIntlLeague).ToList();
 
             if (!playerMatches.Any())
             {
@@ -550,7 +568,7 @@ namespace PlayerRatings.Controllers
                 League.CutoffDate = new DateTimeOffset(currentMonth);
                 var eloStat = new EloStat();
 
-                var matchesUpToDate = FilterMatches(league.Matches, League.CutoffDate, swaOnly, includeDate: false).ToList();
+                var matchesUpToDate = FilterMatches(league.Matches, League.CutoffDate, swaOnly, includeDate: false, isIntlLeague: isIntlLeague).ToList();
 
                 // Check if player has any matches before this date
                 var playerMatchesUpToDate = matchesUpToDate
@@ -623,7 +641,8 @@ namespace PlayerRatings.Controllers
                 Player = player,
                 LeagueId = id,
                 MonthlyRatings = monthlyRatings,
-                SwaOnly = swaOnly
+                SwaOnly = swaOnly,
+                IsIntlLeague = isIntlLeague
             });
         }
 

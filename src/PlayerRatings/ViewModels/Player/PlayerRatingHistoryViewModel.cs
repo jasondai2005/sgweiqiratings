@@ -10,6 +10,7 @@ namespace PlayerRatings.ViewModels.Player
         public Guid LeagueId { get; set; }
         public List<MonthlyRating> MonthlyRatings { get; set; } = new List<MonthlyRating>();
         public bool SwaOnly { get; set; }
+        public bool IsIntlLeague { get; set; }
     }
 
     public class MonthlyRating

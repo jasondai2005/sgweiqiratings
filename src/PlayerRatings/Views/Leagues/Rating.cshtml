@@ -41,10 +41,13 @@
             <a href="@Url.Action("Rating", new { id = Model.LeagueId, swaOnly = Model.SwaOnly })" class="btn btn-success">Today</a>
         }
     </div>
-    <div class="form-check form-switch mt-2">
-        <input class="form-check-input" type="checkbox" id="swaOnlyToggle" @(Model.SwaOnly ? "checked" : "") onchange="document.getElementById('swaOnlyHidden').value = this.checked; this.form.submit();" style="cursor: pointer;">
-        <label class="form-check-label" for="swaOnlyToggle" style="cursor: pointer;">SWA Only</label>
-    </div>
+    @if (!Model.IsIntlLeague)
+    {
+        <div class="form-check form-switch mt-2">
+            <input class="form-check-input" type="checkbox" id="swaOnlyToggle" @(Model.SwaOnly ? "checked" : "") onchange="document.getElementById('swaOnlyHidden').value = this.checked; this.form.submit();" style="cursor: pointer;">
+            <label class="form-check-label" for="swaOnlyToggle" style="cursor: pointer;">SWA Tournaments Only</label>
+        </div>
+    }
 </form>
 
 <div class="table-responsive">
