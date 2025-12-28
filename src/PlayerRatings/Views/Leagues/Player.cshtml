@@ -23,12 +23,10 @@
         ? Model.MonthlyRatings.Min(r => r.Month) 
         : DateTime.MaxValue;
     
-    // Map each month to list of rankings with full date (multiple promotions per month supported)
-    // Format: { "MMM yyyy": [{ ranking: "1D", date: "15/03/2024" }, ...] }
-    var monthRankingLabels = new Dictionary<string, List<(string ranking, string date)>>();
+    // Map each month to list of rankings with full date and sort date (multiple promotions per month supported)
+    var monthRankingLabels = new Dictionary<string, List<(string ranking, string date, DateTimeOffset sortDate)>>();
     
     // Rankings before first match (to show at bottom of table)
-    // Store DateTimeOffset for proper sorting
     var earlyRankings = new List<(string ranking, string date, DateTimeOffset sortDate)>();
     
     foreach (var entry in rankingHistory)
@@ -48,18 +46,18 @@
         {
             if (!monthRankingLabels.ContainsKey(monthKey))
             {
-                monthRankingLabels[monthKey] = new List<(string ranking, string date)>();
+                monthRankingLabels[monthKey] = new List<(string ranking, string date, DateTimeOffset sortDate)>();
             }
-            monthRankingLabels[monthKey].Add((entry.Key.ToUpper(), fullDate));
+            monthRankingLabels[monthKey].Add((entry.Key.ToUpper(), fullDate, entry.Value));
         }
     }
     
-    // For chart labels, combine multiple rankings into single string
+    // For chart labels, combine multiple rankings into single string (sorted by date)
     var chartRankingLabels = monthRankingLabels.ToDictionary(
         kvp => kvp.Key,
         kvp => (
-            ranking: string.Join(", ", kvp.Value.Select(r => r.ranking)),
-            date: string.Join(", ", kvp.Value.Select(r => r.date))
+            ranking: string.Join(", ", kvp.Value.OrderBy(r => r.sortDate).Select(r => r.ranking)),
+            date: string.Join(", ", kvp.Value.OrderBy(r => r.sortDate).Select(r => r.date))
         )
     );
 }
@@ -130,7 +128,7 @@
                     <td>
                         @if (hasRankings)
                         {
-                            @foreach (var rankingInfo in rankingList)
+                            @foreach (var rankingInfo in rankingList.OrderByDescending(r => r.sortDate))
                             {
                                 <div>
                                     <span style="color: rgb(255, 99, 132); font-weight: bold;">@rankingInfo.ranking</span>

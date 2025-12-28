@@ -7,7 +7,6 @@ namespace PlayerRatings.Engine.Stats
     public class EloStat : IStat
     {
         protected readonly Dictionary<string, double> _dict = new Dictionary<string, double>();
-        protected double _china6dRating = 0.0;
 
         // Track game results for new foreign/unknown players to calculate performance rating
         // Key: player Id, Value: list of (opponent rating, score) tuples
@@ -19,6 +18,9 @@ namespace PlayerRatings.Engine.Stats
 
         // Static setting to control whether promotion bonus is enabled
         public static bool PromotionBonusEnabled { get; set; } = true;
+
+        // Static setting to control SWA Only mode (skips TGA promotions)
+        public static bool SwaOnly { get; set; } = false;
 
         public void AddMatch(Match match)
         {
@@ -158,30 +160,50 @@ namespace PlayerRatings.Engine.Stats
             if (string.IsNullOrEmpty(currentRanking))
                 return;
 
-            // Check if ranking changed (promotion detected)
-            if (_lastKnownRanking.TryGetValue(player.Id, out var previousRanking))
+            // Skip TGA promotions when SWA Only is enabled
+            // TGA rankings contain parentheses like "(1D)" or "(4K)"
+            if (SwaOnly && currentRanking.Contains("(") && !currentRanking.Contains(" "))
             {
-                if (previousRanking != currentRanking)
-                {
-                    // Ranking changed - check if this is a promotion (higher rating for new ranking)
-                    int previousRankingRating = player.GetRatingByRanking(previousRanking, isIntlLeague);
-                    int currentRankingRating = player.GetRatingByRanking(currentRanking, isIntlLeague);
+                _lastKnownRanking[player.Id] = currentRanking;
+                return;
+            }
 
-                    if (currentRankingRating > previousRankingRating)
+            // Check if ranking changed (promotion detected)
+            string previousRanking;
+            if (!_lastKnownRanking.TryGetValue(player.Id, out previousRanking))
+            {
+                // First time seeing this player - initialize with their earliest known ranking
+                // so we can detect promotions from their initial rank
+                var earliestRanking = player.RankingHistory
+                    .Where(x => x.Key != "BY" && !string.IsNullOrEmpty(x.Key) && x.Value != DateTimeOffset.MinValue)
+                    .OrderBy(x => x.Value)
+                    .FirstOrDefault();
+                
+                if (earliestRanking.Key != null && earliestRanking.Key != currentRanking)
+                {
+                    previousRanking = earliestRanking.Key;
+                    _lastKnownRanking[player.Id] = previousRanking;
+                }
+            }
+
+            if (previousRanking != null && previousRanking != currentRanking)
+            {
+                // Ranking changed - check if this is a promotion (higher rating for new ranking)
+                int previousRankingRating = player.GetRatingByRanking(previousRanking, isIntlLeague);
+                int currentRankingRating = player.GetRatingByRanking(currentRanking, isIntlLeague);
+
+                if (currentRankingRating > previousRankingRating)
+                {
+                    // Only apply promotion bonus for 4D and lower promotions
+                    // 5D and above (rating >= 2500) are considered strong enough and don't need the bonus
+                    // Note: TGA (5D) = 2400 still gets bonus as it's equivalent to SWA 4D in strength
+                    if (currentRankingRating < 2500)
                     {
-                        // Only apply promotion bonus for 4D and lower promotions
-                        // 5D and above are considered strong enough and don't need the bonus
-                        bool is5DOrHigher = currentRanking.Contains("5D") || currentRanking.Contains("6D") || 
-                                            currentRanking.Contains("7D") || currentRanking.Contains("8D") || 
-                                            currentRanking.Contains("9D");
-                        if (!is5DOrHigher)
-                        {
-                            // This is a promotion - queue rating floor for end of day
-                            double ratingFloor = currentRankingRating - 50;
-                            // Track if previous ranking was kyu (contains 'K') - only kyu players should stop performance tracking
-                            bool wasKyuPlayer = string.IsNullOrEmpty(previousRanking) || previousRanking.Contains("K");
-                            _pendingPromotionFloors[player.Id] = (ratingFloor, isIntlLeague, wasKyuPlayer);
-                        }
+                        // This is a promotion - queue rating floor for end of day
+                        double ratingFloor = currentRankingRating - 50;
+                        // Track if previous ranking was kyu (contains 'K') - only kyu players should stop performance tracking
+                        bool wasKyuPlayer = string.IsNullOrEmpty(previousRanking) || previousRanking.Contains("K");
+                        _pendingPromotionFloors[player.Id] = (ratingFloor, isIntlLeague, wasKyuPlayer);
                     }
                 }
             }

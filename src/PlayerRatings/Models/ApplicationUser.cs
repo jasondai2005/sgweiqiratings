@@ -401,12 +401,19 @@ namespace PlayerRatings.Models
             {
                 if (isDan)
                 {
-                    rankingNum -= 1;
+                    // TGA dan ratings are 100 points lower than SWA (one level down)
+                    // except (1D) which is 2050 (to be higher than 1K=1900)
+                    if (rankingNum == 1)
+                        delta = -50;  // (1D) = 2050
+                    else
+                        rankingNum -= 1;  // (2D) = 2100, (3D) = 2200, etc.
                 }
                 else if (isKyu && rankingNum <= 5)
                 {
+                    // TGA kyu 1K-5K are adjusted down one level
                     rankingNum += 1;
-                    if (rankingNum == 5)
+                    // TGA (5K) -> 1550 (between SWA 5K=1600 and 6K=1500)
+                    if (rankingNum == 6)
                         delta = 50;
                 }
             }

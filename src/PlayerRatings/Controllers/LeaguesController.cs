@@ -325,6 +325,7 @@ namespace PlayerRatings.Controllers
 
             // Set promotion bonus enabled based on parameter
             EloStat.PromotionBonusEnabled = promotionBonus;
+            EloStat.SwaOnly = swaOnly;
 
             // Filter matches based on swaOnly toggle (ignored for international leagues)
             var matches = FilterMatches(league.Matches, date, swaOnly, isIntlLeague: isIntlLeague);
@@ -543,6 +544,7 @@ namespace PlayerRatings.Controllers
 
             // Set promotion bonus enabled based on parameter
             EloStat.PromotionBonusEnabled = promotionBonus;
+            EloStat.SwaOnly = swaOnly;
 
             var player = await _userManager.FindByIdAsync(playerId);
             if (player == null)
