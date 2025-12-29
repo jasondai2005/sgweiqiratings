@@ -7,15 +7,27 @@
 }
 
 <h3>@Model.Player.DisplayName</h3>
+@if (!string.IsNullOrEmpty(Model.Player.BirthYear))
+{
+<p>
+    <strong>Birth Year:</strong> @Model.Player.BirthYear
+</p>
+}
 <p>
     <strong>@LocString[nameof(LocalizationKey.Ranking)]:</strong> @Model.Player.LatestRanking
 </p>
 
 @{
     // Build ranking labels for each month - show ranking when it changes
-    var rankingHistory = Model.Player.RankingHistory
+    // Include rankings with known dates
+    var rankingHistoryWithDates = Model.Player.RankingHistory
         .Where(x => x.Key != "BY" && !string.IsNullOrEmpty(x.Key) && x.Value != DateTimeOffset.MinValue)
         .OrderBy(x => x.Value)
+        .ToList();
+    
+    // Also get rankings without known dates (to show as "before first match")
+    var rankingHistoryWithoutDates = Model.Player.RankingHistory
+        .Where(x => x.Key != "BY" && !string.IsNullOrEmpty(x.Key) && x.Value == DateTimeOffset.MinValue)
         .ToList();
     
     // Get the first match date to identify early rankings
@@ -29,7 +41,13 @@
     // Rankings before first match (to show at bottom of table)
     var earlyRankings = new List<(string ranking, string date, DateTimeOffset sortDate)>();
     
-    foreach (var entry in rankingHistory)
+    // Add rankings without known dates first (they go to early rankings)
+    foreach (var entry in rankingHistoryWithoutDates)
+    {
+        earlyRankings.Add((entry.Key.ToUpper(), "", DateTimeOffset.MinValue));
+    }
+    
+    foreach (var entry in rankingHistoryWithDates)
     {
         // The ranking appears on the chart in the same month it was achieved
         // (since ratings are now shown at the end of each month)
@@ -139,8 +157,9 @@
                     </td>
                 </tr>
             }
-            @if (earlyRankings.Any())
+            @if (earlyRankings.Any() && monthRankingLabels.Any())
             {
+                // Only show early rankings if there are also promotions since first match
                 <tr style="background-color: #f8f9fa;">
                     <td colspan="3" style="color: #666; font-style: italic;">Before first match</td>
                     <td>
@@ -148,7 +167,10 @@
                         {
                             <div>
                                 <span style="color: rgb(255, 99, 132); font-weight: bold;">@rankingInfo.ranking</span>
-                                <span style="color: #666; font-size: 0.85em;">(@rankingInfo.date)</span>
+                                @if (!string.IsNullOrEmpty(rankingInfo.date))
+                                {
+                                    <span style="color: #666; font-size: 0.85em;">(@rankingInfo.date)</span>
+                                }
                             </div>
                         }
                     </td>

@@ -643,6 +643,9 @@ namespace PlayerRatings.Controllers
                     // Get the player's rating - safe now because player has matches
                     double rating = eloStat[player];
 
+                    // Reverse to show latest matches first
+                    matchNamesInMonth.Reverse();
+                    
                     monthlyRatings.Add(new MonthlyRating
                     {
                         Month = currentMonth,
