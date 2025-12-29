@@ -673,11 +673,39 @@ namespace PlayerRatings.Controllers
                 currentMonth = currentMonth.AddMonths(1);
             }
 
+            // Build game records from player matches
+            var gameRecords = new List<GameRecord>();
+            foreach (var match in playerMatches)
+            {
+                bool isFirstPlayer = match.FirstPlayerId == playerId;
+                var opponent = isFirstPlayer ? match.SecondPlayer : match.FirstPlayer;
+                var playerScore = isFirstPlayer ? match.FirstPlayerScore : match.SecondPlayerScore;
+                var opponentScore = isFirstPlayer ? match.SecondPlayerScore : match.FirstPlayerScore;
+                
+                string result;
+                if (playerScore > opponentScore)
+                    result = "Win";
+                else if (playerScore < opponentScore)
+                    result = "Loss";
+                else
+                    result = "Draw";
+                
+                gameRecords.Add(new GameRecord
+                {
+                    Date = match.Date,
+                    MatchName = match.MatchName,
+                    OpponentName = opponent.DisplayName,
+                    OpponentId = opponent.Id,
+                    Result = result
+                });
+            }
+
             return View(new PlayerRatingHistoryViewModel
             {
                 Player = player,
                 LeagueId = id,
                 MonthlyRatings = monthlyRatings,
+                GameRecords = gameRecords,
                 SwaOnly = swaOnly,
                 IsIntlLeague = isIntlLeague,
                 PromotionBonus = promotionBonus
