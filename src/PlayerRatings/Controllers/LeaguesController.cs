@@ -673,8 +673,48 @@ namespace PlayerRatings.Controllers
                 currentMonth = currentMonth.AddMonths(1);
             }
 
-            // Build game records from player matches
+            // Build game records from player matches with opponent ratings
+            // Process all league matches chronologically to calculate ratings
+            var allMatches = FilterMatches(league.Matches, DateTimeOffset.Now, swaOnly, isIntlLeague: isIntlLeague).ToList();
+            var ratingCalculator = new EloStat();
             var gameRecords = new List<GameRecord>();
+            
+            // Dictionary to store opponent rating before each of this player's matches
+            var opponentRatings = new Dictionary<Guid, double>();
+            
+            // Store both player and opponent ratings, plus opponent ranking
+            var playerRatings = new Dictionary<Guid, double>();
+            var opponentRankings = new Dictionary<Guid, string>();
+            
+            foreach (var match in allMatches)
+            {
+                // Track first match date for both players (needed for rating calculations)
+                if (match.FirstPlayer.FirstMatch == DateTimeOffset.MinValue)
+                    match.FirstPlayer.FirstMatch = match.Date;
+                if (match.SecondPlayer.FirstMatch == DateTimeOffset.MinValue)
+                    match.SecondPlayer.FirstMatch = match.Date;
+                
+                // Before processing the match, check if this is one of the player's matches
+                // and capture ratings before the match
+                if (match.FirstPlayerId == playerId || match.SecondPlayerId == playerId)
+                {
+                    bool isFirstPlayer = match.FirstPlayerId == playerId;
+                    var thePlayer = isFirstPlayer ? match.FirstPlayer : match.SecondPlayer;
+                    var opponent = isFirstPlayer ? match.SecondPlayer : match.FirstPlayer;
+                    
+                    // Get ratings before this match
+                    playerRatings[match.Id] = ratingCalculator[thePlayer];
+                    opponentRatings[match.Id] = ratingCalculator[opponent];
+                    
+                    // Get opponent's ranking at the time of the match
+                    opponentRankings[match.Id] = opponent.GetRankingBeforeDate(match.Date);
+                }
+                
+                // Process the match to update ratings
+                ratingCalculator.AddMatch(match);
+            }
+            
+            // Now build game records with the captured ratings
             foreach (var match in playerMatches)
             {
                 bool isFirstPlayer = match.FirstPlayerId == playerId;
@@ -690,13 +730,21 @@ namespace PlayerRatings.Controllers
                 else
                     result = "Draw";
                 
+                // Build opponent display name with ranking
+                var opponentRanking = opponentRankings.TryGetValue(match.Id, out var ranking) ? ranking : "";
+                var opponentDisplayName = string.IsNullOrEmpty(opponentRanking) 
+                    ? opponent.DisplayName 
+                    : $"{opponent.DisplayName} {opponentRanking}";
+                
                 gameRecords.Add(new GameRecord
                 {
                     Date = match.Date,
                     MatchName = match.MatchName,
-                    OpponentName = opponent.DisplayName,
+                    OpponentName = opponentDisplayName,
                     OpponentId = opponent.Id,
-                    Result = result
+                    Result = result,
+                    PlayerRating = playerRatings.TryGetValue(match.Id, out var pRating) ? pRating : 0,
+                    OpponentRating = opponentRatings.TryGetValue(match.Id, out var oRating) ? oRating : 0
                 });
             }
 

@@ -414,7 +414,17 @@ namespace PlayerRatings.Engine.Stats
 
         public virtual double this[ApplicationUser user]
         {
-            get => _dict.TryGetValue(user.Id, out var rating) ? rating : user.GetRatingBeforeDate(user.FirstMatch.Date);
+            get
+            {
+                if (_dict.TryGetValue(user.Id, out var rating))
+                    return rating;
+                
+                // If user has no matches yet, use their ranking-based rating
+                if (user.FirstMatch == DateTimeOffset.MinValue)
+                    return user.GetRatingByRanking(user.Ranking);
+                
+                return user.GetRatingBeforeDate(user.FirstMatch.Date);
+            }
             set => _dict[user.Id] = value;
         }
     }

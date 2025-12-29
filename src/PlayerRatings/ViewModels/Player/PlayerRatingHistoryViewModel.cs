@@ -33,6 +33,9 @@ namespace PlayerRatings.ViewModels.Player
         public string OpponentName { get; set; }
         public string OpponentId { get; set; }
         public string Result { get; set; }
+        public double PlayerRating { get; set; }
+        public double OpponentRating { get; set; }
+        public string RatingDisplay => $"{PlayerRating.ToString("F1")} - {OpponentRating.ToString("F1")}";
     }
 }
 
