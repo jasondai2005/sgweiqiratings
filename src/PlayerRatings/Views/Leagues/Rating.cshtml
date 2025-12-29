@@ -48,17 +48,17 @@
         <div class="mt-2" style="display: inline-flex; gap: 16px; align-items: center;">
             <div class="form-check form-switch" style="display: flex; align-items: center; gap: 6px;">
                 <input class="form-check-input" type="checkbox" id="swaOnlyToggle" @(Model.SwaOnly ? "checked" : "") onchange="document.getElementById('swaOnlyHidden').value = this.checked; this.form.submit();" style="cursor: pointer;">
-                <label class="form-check-label" for="swaOnlyToggle" style="cursor: pointer; white-space: nowrap;">SWA Tournaments Only</label>
+                <label class="form-check-label" for="swaOnlyToggle" style="cursor: pointer; white-space: nowrap;">@LocString[nameof(LocalizationKey.SWATournamentsOnly)]</label>
             </div>
             <div class="form-check form-switch" style="display: flex; align-items: center; gap: 6px;">
                 <input class="form-check-input" type="checkbox" id="promotionBonusToggle" @(Model.PromotionBonus ? "checked" : "") onchange="document.getElementById('promotionBonusHidden').value = this.checked; this.form.submit();" style="cursor: pointer;">
-                <label class="form-check-label" for="promotionBonusToggle" style="cursor: pointer; white-space: nowrap;">Promotion Bonus</label>
+                <label class="form-check-label" for="promotionBonusToggle" style="cursor: pointer; white-space: nowrap;">@LocString[nameof(LocalizationKey.PromotionBonus)]</label>
             </div>
             @if (Model.NonLocalUsers.Any())
             {
             <div class="form-check form-switch" style="display: flex; align-items: center; gap: 6px;">
                 <input class="form-check-input" type="checkbox" id="showNonLocalToggle" @(Model.ShowNonLocal ? "checked" : "") onchange="document.getElementById('showNonLocalHidden').value = this.checked; this.form.submit();" style="cursor: pointer;">
-                <label class="form-check-label" for="showNonLocalToggle" style="cursor: pointer; white-space: nowrap;">Show Non-Local Players</label>
+                <label class="form-check-label" for="showNonLocalToggle" style="cursor: pointer; white-space: nowrap;">@LocString[nameof(LocalizationKey.ShowNonLocalPlayers)]</label>
             </div>
             }
         </div>
@@ -126,7 +126,7 @@
 
         @if (Model.ShowNonLocal && Model.NonLocalUsers.Any())
         {
-            <tr><td colspan="10" style="background-color: #f0f0f0; font-weight: bold; padding: 8px;">Non-Local Players</td></tr>
+            <tr><td colspan="10" style="background-color: #f0f0f0; font-weight: bold; padding: 8px;">@LocString[nameof(LocalizationKey.NonLocalPlayers)]</td></tr>
             @foreach (var item in Model.NonLocalUsers)
             {
             <tr style="background-color: #fafafa;">

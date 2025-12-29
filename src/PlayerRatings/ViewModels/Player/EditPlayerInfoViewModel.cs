@@ -13,6 +13,10 @@ namespace PlayerRatings.ViewModels.Player
         public string PlayerId { get; set; }
         public Guid LeagueId { get; set; }
         
+        [Display(Name = "Display Name")]
+        [MaxLength(200)]
+        public string DisplayName { get; set; }
+        
         [Display(Name = "Birth Year")]
         [Range(1900, 2100, ErrorMessage = "Please enter a valid year")]
         public int? BirthYearValue { get; set; }

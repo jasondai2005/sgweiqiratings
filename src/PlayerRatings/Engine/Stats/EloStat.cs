@@ -45,7 +45,6 @@ namespace PlayerRatings.Engine.Stats
             double secondPlayerRating = _dict.TryGetValue(match.SecondPlayer.Id, out var cachedSecond) ? cachedSecond : secondPlayerRankingRating;
 
             double factor1 = match.Factor.GetValueOrDefault(1);
-            if (factor1 > 0) factor1 = 1;
             double factor2 = factor1;
             if (factor1 == 1) // factor is not specified
             {

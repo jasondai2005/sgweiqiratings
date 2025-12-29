@@ -304,6 +304,33 @@ namespace PlayerRatings.Localization
 
         public static readonly LocalizationKey WinRate = new LocalizationKey("Win rate", "Соотношение побед", "胜率");
         public static readonly LocalizationKey WinStreak = new LocalizationKey("Win streak", "Победы подряд", "连胜");
+        
+        // Player page strings
+        public static readonly LocalizationKey PlayerInformation = new LocalizationKey("Player Information", "Информация", "选手信息");
+        public static readonly LocalizationKey Residence = new LocalizationKey("Residence", "Residence", "居住地");
+        public static readonly LocalizationKey CurrentRanking = new LocalizationKey("Current Ranking", "Current Ranking", "当前段位");
+        public static readonly LocalizationKey SaveChanges = new LocalizationKey("Save Changes", "Сохранить", "保存修改");
+        public static readonly LocalizationKey Cancel = new LocalizationKey("Cancel", "Отмена", "取消");
+        public static readonly LocalizationKey EditRankingHistory = new LocalizationKey("Edit Ranking History", "Edit Ranking History", "编辑段位历史");
+        public static readonly LocalizationKey AddRanking = new LocalizationKey("Add Ranking", "Add Ranking", "添加段位");
+        public static readonly LocalizationKey Organization = new LocalizationKey("Organization", "Organization", "机构");
+        public static readonly LocalizationKey Note = new LocalizationKey("Note", "Note", "备注");
+        public static readonly LocalizationKey MonthlyRatingHistory = new LocalizationKey("Monthly Rating History", "Monthly Rating History", "月等级分历史");
+        public static readonly LocalizationKey Month = new LocalizationKey("Month", "Month", "月份");
+        public static readonly LocalizationKey PreEntry = new LocalizationKey("Pre-entry", "Pre-entry", "入榜前");
+        public static readonly LocalizationKey GameRecords = new LocalizationKey("Game Records", "Game Records", "对局记录");
+        public static readonly LocalizationKey Opponent = new LocalizationKey("Opponent", "Opponent", "对手");
+        public static readonly LocalizationKey Result = new LocalizationKey("Result", "Result", "结果");
+        public static readonly LocalizationKey Win = new LocalizationKey("Win", "Win", "胜");
+        public static readonly LocalizationKey Loss = new LocalizationKey("Loss", "Loss", "负");
+        public static readonly LocalizationKey Draw = new LocalizationKey("Draw", "Draw", "和");
+        public static readonly LocalizationKey SWATournamentsOnly = new LocalizationKey("SWA Tournaments Only", "SWA Tournaments Only", "仅SWA赛事");
+        public static readonly LocalizationKey PromotionBonus = new LocalizationKey("Promotion Bonus", "Promotion Bonus", "升段加分");
+        public static readonly LocalizationKey BackToRating = new LocalizationKey("Back to Rating", "Back to Rating", "返回等级分");
+        public static readonly LocalizationKey RatingHistoryChart = new LocalizationKey("Rating History Chart", "Rating History Chart", "等级分历史图表");
+        public static readonly LocalizationKey PhotoUrl = new LocalizationKey("Photo URL", "Photo URL", "照片链接");
+        public static readonly LocalizationKey ShowNonLocalPlayers = new LocalizationKey("Show Non-Local Players", "Show Non-Local Players", "显示非本地选手");
+        public static readonly LocalizationKey NonLocalPlayers = new LocalizationKey("Non-Local Players", "Non-Local Players", "非本地选手");
 
         public static readonly LocalizationKey YouCanInviteNewPlayer =
             new LocalizationKey("You can invite new player to the league", "Вы можете добавить нового игрока в лигу", "您可以邀请新选手加入联赛");

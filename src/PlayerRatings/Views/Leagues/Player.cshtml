@@ -11,14 +11,14 @@
 
 <div class="row">
     <div class="col-md-8">
-        <h3>@Model.Player.DisplayName</h3>
+        <h3 id="playerDisplayName">@Model.Player.DisplayName</h3>
         
         <!-- Player Info Section -->
         <div class="panel panel-default" style="margin-bottom: 15px;">
             <div class="panel-heading" style="display: flex; justify-content: space-between; align-items: center;">
-                <span><strong>Player Information</strong></span>
+                <span><strong>@LocString[nameof(LocalizationKey.PlayerInformation)]</strong></span>
                 <button class="btn btn-sm btn-primary" type="button" data-toggle="collapse" data-target="#editPlayerInfo">
-                    Edit
+                    @LocString[nameof(LocalizationKey.Edit)]
                 </button>
             </div>
             <div class="panel-body">
@@ -30,9 +30,9 @@
                     </div>
                     }
                     <div class="@(string.IsNullOrEmpty(Model.Player.Photo) ? "col-xs-12" : "col-xs-9 col-sm-10")" id="playerInfoContainer">
-                        <p style="margin-bottom: 5px; @(Model.Player.BirthYearValue == null ? "display:none;" : "")" id="birthYearRow"><strong>Birth Year:</strong> <span id="displayBirthYear">@Model.Player.BirthYear</span></p>
-                        <p style="margin-bottom: 5px;"><strong>Residence:</strong> <span id="displayResidence">@(Model.Player.Residence ?? "Singapore")</span></p>
-                        <p style="margin-bottom: 0;"><strong>Current Ranking:</strong> @Model.Player.LatestRanking</p>
+                        <p style="margin-bottom: 5px; @(Model.Player.BirthYearValue == null ? "display:none;" : "")" id="birthYearRow"><strong>@LocString[nameof(LocalizationKey.BirthYear)]:</strong> <span id="displayBirthYear">@Model.Player.BirthYear</span></p>
+                        <p style="margin-bottom: 5px;"><strong>@LocString[nameof(LocalizationKey.Residence)]:</strong> <span id="displayResidence">@(Model.Player.Residence ?? "Singapore")</span></p>
+                        <p style="margin-bottom: 0;"><strong>@LocString[nameof(LocalizationKey.CurrentRanking)]:</strong> @Model.Player.LatestRanking</p>
                     </div>
                 </div>
                 
@@ -43,22 +43,28 @@
                         <input type="hidden" name="PlayerId" value="@Model.Player.Id" />
                         <input type="hidden" name="LeagueId" value="@Model.LeagueId" />
                         <div class="row">
-                            <div class="col-md-4 form-group">
-                                <label>Birth Year</label>
-                                <input type="number" class="form-control" name="BirthYearValue" value="@Model.Player.BirthYearValue" min="1900" max="2100" placeholder="e.g., 2005" />
+                            <div class="col-md-6 form-group">
+                                <label>@LocString[nameof(LocalizationKey.DisplayName)]</label>
+                                <input type="text" class="form-control" name="DisplayName" value="@Model.Player.DisplayName" />
                             </div>
-                            <div class="col-md-4 form-group">
-                                <label>Residence</label>
-                                <input type="text" class="form-control" name="Residence" value="@Model.Player.Residence" placeholder="e.g., Singapore" />
+                            <div class="col-md-3 form-group">
+                                <label>@LocString[nameof(LocalizationKey.BirthYear)]</label>
+                                <input type="number" class="form-control" name="BirthYearValue" value="@Model.Player.BirthYearValue" min="1900" max="2100" />
                             </div>
-                            <div class="col-md-4 form-group">
-                                <label>Photo URL</label>
+                            <div class="col-md-3 form-group">
+                                <label>@LocString[nameof(LocalizationKey.Residence)]</label>
+                                <input type="text" class="form-control" name="Residence" value="@Model.Player.Residence" />
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 form-group">
+                                <label>@LocString[nameof(LocalizationKey.PhotoUrl)]</label>
                                 <input type="url" class="form-control" name="Photo" value="@Model.Player.Photo" placeholder="https://..." />
                             </div>
                         </div>
                         <div style="margin-top: 15px;">
-                            <button type="submit" class="btn btn-primary btn-sm">Save Changes</button>
-                            <button type="button" class="btn btn-default btn-sm" data-toggle="collapse" data-target="#editPlayerInfo">Cancel</button>
+                            <button type="submit" class="btn btn-primary btn-sm">@LocString[nameof(LocalizationKey.SaveChanges)]</button>
+                            <button type="button" class="btn btn-default btn-sm" data-toggle="collapse" data-target="#editPlayerInfo">@LocString[nameof(LocalizationKey.Cancel)]</button>
                         </div>
                     </form>
                 </div>
@@ -68,15 +74,15 @@
         <!-- Rankings Management Section (collapsed by default) -->
         <div style="margin-bottom: 15px;">
             <button class="btn btn-sm btn-default" type="button" data-toggle="collapse" data-target="#rankingManagement">
-                ✏️ Edit Ranking History
+                ✏️ @LocString[nameof(LocalizationKey.EditRankingHistory)]
             </button>
         </div>
         <div class="collapse" id="rankingManagement">
             <div class="panel panel-default" style="margin-bottom: 15px;">
                 <div class="panel-heading" style="display: flex; justify-content: space-between; align-items: center;">
-                    <span><strong>Ranking History</strong></span>
+                    <span><strong>@LocString[nameof(LocalizationKey.RankingHistory)]</strong></span>
                     <button class="btn btn-sm btn-success" type="button" data-toggle="collapse" data-target="#addRankingForm">
-                        + Add Ranking
+                        + @LocString[nameof(LocalizationKey.AddRanking)]
                     </button>
                 </div>
                 <div class="panel-body">
@@ -87,11 +93,11 @@
                             <input type="hidden" name="LeagueId" value="@Model.LeagueId" />
                             <div class="row">
                                 <div class="col-md-2 form-group">
-                                    <label>Ranking</label>
+                                    <label>@LocString[nameof(LocalizationKey.Ranking)]</label>
                                     <input type="text" class="form-control" name="Ranking" placeholder="e.g., 1D" required pattern="^\d{1,2}[DKP]$" />
                                 </div>
                                 <div class="col-md-3 form-group">
-                                    <label>Organization</label>
+                                    <label>@LocString[nameof(LocalizationKey.Organization)]</label>
                                     <select class="form-control" name="Organization" required>
                                         @foreach (var org in EditRankingViewModel.CommonOrganizations)
                                         {
@@ -100,32 +106,32 @@
                                     </select>
                                 </div>
                                 <div class="col-md-3 form-group">
-                                    <label>Date</label>
+                                    <label>@LocString[nameof(LocalizationKey.Date)]</label>
                                     <input type="date" class="form-control" name="RankingDate" />
                                 </div>
                                 <div class="col-md-4 form-group">
-                                    <label>Note</label>
-                                    <input type="text" class="form-control" name="RankingNote" placeholder="Optional note" />
+                                    <label>@LocString[nameof(LocalizationKey.Note)]</label>
+                                    <input type="text" class="form-control" name="RankingNote" />
                                 </div>
                             </div>
                             <div style="margin-top: 10px;">
-                                <button type="submit" class="btn btn-success btn-sm">Add Ranking</button>
-                                <button type="button" class="btn btn-default btn-sm" data-toggle="collapse" data-target="#addRankingForm">Cancel</button>
+                                <button type="submit" class="btn btn-success btn-sm">@LocString[nameof(LocalizationKey.AddRanking)]</button>
+                                <button type="button" class="btn btn-default btn-sm" data-toggle="collapse" data-target="#addRankingForm">@LocString[nameof(LocalizationKey.Cancel)]</button>
                             </div>
                         </form>
                     </div>
                     
                     <!-- Rankings List -->
-                <p class="text-muted" style="margin-bottom: 0; @(playerRankings.Any() ? "display:none;" : "")" id="noRankingsMsg">No ranking records found.</p>
+                <p class="text-muted" style="margin-bottom: 0; @(playerRankings.Any() ? "display:none;" : "")" id="noRankingsMsg"></p>
                 <div class="table-responsive" @(!playerRankings.Any() ? "style=\"display:none;\"" : "")>
                     <table class="table table-condensed table-hover" style="margin-bottom: 0;" id="rankingsTable">
                             <thead>
                                 <tr>
-                                    <th>Ranking</th>
-                                    <th>Organization</th>
-                                    <th>Date</th>
-                                    <th>Note</th>
-                                    <th style="width: 100px;">Actions</th>
+                                    <th>@LocString[nameof(LocalizationKey.Ranking)]</th>
+                                    <th>@LocString[nameof(LocalizationKey.Organization)]</th>
+                                    <th>@LocString[nameof(LocalizationKey.Date)]</th>
+                                    <th>@LocString[nameof(LocalizationKey.Note)]</th>
+                                    <th style="width: 100px;"></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -263,7 +269,7 @@
     );
 }
 
-<a href="@Url.Action("Rating", new { id = Model.LeagueId, swaOnly = Model.SwaOnly, promotionBonus = Model.PromotionBonus })" class="btn btn-outline-secondary mb-3">← Back to Rating</a>
+<a href="@Url.Action("Rating", new { id = Model.LeagueId, swaOnly = Model.SwaOnly, promotionBonus = Model.PromotionBonus })" class="btn btn-outline-secondary mb-3">← @LocString[nameof(LocalizationKey.BackToRating)]</a>
 
 @if (!Model.IsIntlLeague && Model.MonthlyRatings.Any())
 {
@@ -275,11 +281,11 @@
     <div style="display: inline-flex; gap: 16px; align-items: center;">
         <div class="form-check form-switch" style="display: flex; align-items: center; gap: 6px;">
             <input class="form-check-input" type="checkbox" id="swaOnlyToggle" @(Model.SwaOnly ? "checked" : "") onchange="document.getElementById('swaOnlyHidden').value = this.checked; this.form.submit();" style="cursor: pointer;">
-            <label class="form-check-label" for="swaOnlyToggle" style="cursor: pointer; white-space: nowrap;">SWA Tournaments Only</label>
+            <label class="form-check-label" for="swaOnlyToggle" style="cursor: pointer; white-space: nowrap;">@LocString[nameof(LocalizationKey.SWATournamentsOnly)]</label>
         </div>
         <div class="form-check form-switch" style="display: flex; align-items: center; gap: 6px;">
             <input class="form-check-input" type="checkbox" id="promotionBonusToggle" @(Model.PromotionBonus ? "checked" : "") onchange="document.getElementById('promotionBonusHidden').value = this.checked; this.form.submit();" style="cursor: pointer;">
-            <label class="form-check-label" for="promotionBonusToggle" style="cursor: pointer; white-space: nowrap;">Promotion Bonus</label>
+            <label class="form-check-label" for="promotionBonusToggle" style="cursor: pointer; white-space: nowrap;">@LocString[nameof(LocalizationKey.PromotionBonus)]</label>
         </div>
     </div>
 </form>
@@ -287,21 +293,21 @@
 
 @if (Model.MonthlyRatings.Any())
 {
-<h4>Rating History Chart</h4>
+<h4>@LocString[nameof(LocalizationKey.RatingHistoryChart)]</h4>
 <div style="max-width: 800px; margin-bottom: 30px;">
     <canvas id="ratingChart"></canvas>
 </div>
 }
 
-<h4>Monthly Rating History</h4>
+<h4>@LocString[nameof(LocalizationKey.MonthlyRatingHistory)]</h4>
 <div class="table-responsive">
     <table class="table table-striped">
         <thead>
             <tr>
-                <th>Month</th>
-                <th>Rating</th>
-                <th>Matches</th>
-                <th>Ranking</th>
+                <th>@LocString[nameof(LocalizationKey.Month)]</th>
+                <th>@LocString[nameof(LocalizationKey.Rating)]</th>
+                <th>@LocString[nameof(LocalizationKey.Matches)]</th>
+                <th>@LocString[nameof(LocalizationKey.Ranking)]</th>
             </tr>
         </thead>
         <tbody>
@@ -354,7 +360,7 @@
                     : "-";
             }
             <tr style="background-color: #f8f9fa;">
-                <td style="color: #666; font-style: italic;">Pre-entry</td>
+                <td style="color: #666; font-style: italic;">@LocString[nameof(LocalizationKey.PreEntry)]</td>
                 <td>@preEntryRating</td>
                 <td>-</td>
                 <td>
@@ -381,15 +387,15 @@
     </table>
 </div>
 
-<h4 class="mt-4">Game Records</h4>
+<h4 class="mt-4">@LocString[nameof(LocalizationKey.GameRecords)]</h4>
 <div class="table-responsive">
     <table class="table table-striped">
         <thead>
             <tr>
-                <th>Date</th>
-                <th>Match</th>
-                <th>Opponent</th>
-                <th>Result</th>
+                <th>@LocString[nameof(LocalizationKey.Date)]</th>
+                <th>@LocString[nameof(LocalizationKey.Match)]</th>
+                <th>@LocString[nameof(LocalizationKey.Opponent)]</th>
+                <th>@LocString[nameof(LocalizationKey.Result)]</th>
             </tr>
         </thead>
         <tbody>
@@ -561,6 +567,10 @@
                         if (response.success) {
                             showMessage(response.message, true);
                             // Update displayed values
+                            var displayName = $form.find('[name="DisplayName"]').val();
+                            if (displayName) {
+                                $('#playerDisplayName').text(displayName);
+                            }
                             var birthYear = $form.find('[name="BirthYearValue"]').val();
                             if (birthYear) {
                                 $('#displayBirthYear').text(birthYear);

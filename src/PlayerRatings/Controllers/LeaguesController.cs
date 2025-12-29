@@ -621,7 +621,9 @@ namespace PlayerRatings.Controllers
             }
 
             var firstMatchDate = playerMatches.First().Date;
-            
+            if (player.FirstMatch == DateTimeOffset.MinValue)
+                player.FirstMatch = firstMatchDate;
+
             // For new players with foreign/unknown ranking, start from when rating is corrected (after 12 games)
             // This is because early ratings are unreliable during the estimation period
             bool isNewForeignPlayer = player.IsUnknownRankedPlayer;
@@ -798,6 +800,8 @@ namespace PlayerRatings.Controllers
                 return NotFound();
             }
 
+            if (!string.IsNullOrWhiteSpace(model.DisplayName))
+                player.DisplayName = model.DisplayName;
             player.BirthYearValue = model.BirthYearValue;
             player.Residence = model.Residence;
             player.Photo = model.Photo;

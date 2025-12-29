@@ -129,15 +129,7 @@ namespace PlayerRatings.Models
             {
                 if (m_initRanking == null)
                 {
-                    // Handle case where player has no matches yet
-                    if (FirstMatch == DateTimeOffset.MinValue)
-                    {
-                        m_initRanking = LatestRanking ?? string.Empty;
-                    }
-                    else
-                    {
-                        m_initRanking = GetRankingBeforeDate(FirstMatch.Date);
-                    }
+                    m_initRanking = GetRankingBeforeDate(FirstMatch.Date);
                 }
 
                 return m_initRanking;
@@ -159,9 +151,7 @@ namespace PlayerRatings.Models
                     return true;
                 
                 // Get the ranking at the time of first match (or earliest if no match yet)
-                var initialRanking = FirstMatch == DateTimeOffset.MinValue 
-                    ? GetLatestRanking() 
-                    : GetPlayerRankingBeforeDate(FirstMatch);
+                var initialRanking = GetPlayerRankingBeforeDate(FirstMatch);
                 
                 if (initialRanking != null && initialRanking.IsForeignRanking && !initialRanking.Ranking.Contains("P"))
                 {
@@ -170,20 +160,6 @@ namespace PlayerRatings.Models
                 
                 return false;
             }
-        }
-        
-        /// <summary>
-        /// Gets the latest known ranking for this player.
-        /// Rankings without dates are considered the earliest.
-        /// </summary>
-        private PlayerRanking GetLatestRanking()
-        {
-            if (Rankings == null || !Rankings.Any())
-                return null;
-            
-            return Rankings
-                .OrderBy(r => r.RankingDate ?? DateTimeOffset.MinValue)
-                .LastOrDefault();
         }
         
         public bool IsNewUnknownRankdedPlayer => MatchCount <= 12 && IsUnknownRankedPlayer;
@@ -363,7 +339,7 @@ namespace PlayerRatings.Models
                 string otherFormatted = FormatRankingForDisplay(highestOther);
                 if (!string.IsNullOrEmpty(result))
                 {
-                    if (result.Contains("K") && highestOther.IsLocalRanking)
+                    if (highestOther.Ranking.Contains("P") || (result.Contains("K") && highestOther.IsLocalRanking))
                         result = otherFormatted;
                     else
                         result += " " + otherFormatted;
@@ -566,7 +542,7 @@ namespace PlayerRatings.Models
             string org = playerRanking.Organization ?? "SWA";
             string ranking = playerRanking.Ranking;
 
-            if (org == "SWA" || string.IsNullOrEmpty(org))
+            if (org == "SWA" || string.IsNullOrEmpty(org) || ranking.Contains("P"))
                 return ranking;
             if (org == "TGA")
                 return $"({ranking})";
