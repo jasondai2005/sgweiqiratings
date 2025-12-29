@@ -160,32 +160,30 @@ namespace PlayerRatings.Models
                 
                 // Get the ranking at the time of first match (or earliest if no match yet)
                 var initialRanking = FirstMatch == DateTimeOffset.MinValue 
-                    ? GetEarliestRanking() 
+                    ? GetLatestRanking() 
                     : GetPlayerRankingBeforeDate(FirstMatch);
                 
-                if (initialRanking != null && initialRanking.IsForeignRanking)
+                if (initialRanking != null && initialRanking.IsForeignRanking && !initialRanking.Ranking.Contains("P"))
                 {
                     return true;
                 }
                 
-                // Fall back to legacy format detection for string-based check
-                var rankingStr = InternalInitRanking ?? string.Empty;
-                return rankingStr.Contains('[') && !rankingStr.Contains(' ');
+                return false;
             }
         }
         
         /// <summary>
-        /// Gets the earliest known ranking for this player.
+        /// Gets the latest known ranking for this player.
         /// Rankings without dates are considered the earliest.
         /// </summary>
-        private PlayerRanking GetEarliestRanking()
+        private PlayerRanking GetLatestRanking()
         {
             if (Rankings == null || !Rankings.Any())
                 return null;
             
             return Rankings
                 .OrderBy(r => r.RankingDate ?? DateTimeOffset.MinValue)
-                .FirstOrDefault();
+                .LastOrDefault();
         }
         
         public bool IsNewUnknownRankdedPlayer => MatchCount <= 12 && IsUnknownRankedPlayer;
@@ -224,18 +222,6 @@ namespace PlayerRatings.Models
             if (playerRanking == null)
                 return false;
             return playerRanking.IsLocalRanking;
-        }
-
-        /// <summary>
-        /// Determines if the player's initial ranking is from a local organization.
-        /// </summary>
-        private bool IsInitialRankingLocal()
-        {
-            if (FirstMatch == DateTimeOffset.MinValue)
-                return false;
-
-            var initialRanking = GetPlayerRankingBeforeDate(FirstMatch);
-            return IsLocalRanking(initialRanking);
         }
 
         /// <summary>

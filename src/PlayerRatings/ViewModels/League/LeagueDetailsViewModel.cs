@@ -10,5 +10,7 @@ namespace PlayerRatings.ViewModels.League
         public Models.League League { get; set; }
 
         public IEnumerable<LeaguePlayer> Players { get; set; }
+
+        public IEnumerable<LeaguePlayer> NonLocalPlayers { get; set; } = new List<LeaguePlayer>();
     }
 }

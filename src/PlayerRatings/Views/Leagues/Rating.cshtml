@@ -25,13 +25,14 @@
     <input type="hidden" name="id" value="@Model.LeagueId" />
     <input type="hidden" id="swaOnlyHidden" name="swaOnly" value="@(Model.SwaOnly ? "true" : "false")" />
     <input type="hidden" id="promotionBonusHidden" name="promotionBonus" value="@(Model.PromotionBonus ? "true" : "false")" />
+    <input type="hidden" id="showNonLocalHidden" name="showNonLocal" value="@(Model.ShowNonLocal ? "true" : "false")" />
     <div style="display: inline-flex; flex-wrap: nowrap; gap: 4px; align-items: center;">
-        <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = prevMonthStr, swaOnly = Model.SwaOnly, promotionBonus = Model.PromotionBonus })" class="btn btn-outline-primary">◀ @prevMonth.ToString("MMM")</a>
+        <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = prevMonthStr, swaOnly = Model.SwaOnly, promotionBonus = Model.PromotionBonus, showNonLocal = Model.ShowNonLocal })" class="btn btn-outline-primary">◀ @prevMonth.ToString("MMM")</a>
         <input type="text" name="byDate" value="@currentDateStr" class="form-control text-center" style="width: 110px;" placeholder="dd/MM/yyyy" />
         <button type="submit" class="btn btn-primary">Go</button>
         @if (nextMonth <= DateTime.Now)
         {
-            <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = nextMonthStr, swaOnly = Model.SwaOnly, promotionBonus = Model.PromotionBonus })" class="btn btn-outline-primary">@nextMonth.ToString("MMM") ▶</a>
+            <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = nextMonthStr, swaOnly = Model.SwaOnly, promotionBonus = Model.PromotionBonus, showNonLocal = Model.ShowNonLocal })" class="btn btn-outline-primary">@nextMonth.ToString("MMM") ▶</a>
         }
         else
         {
@@ -39,7 +40,7 @@
         }
         @if (!isViewingToday)
         {
-            <a href="@Url.Action("Rating", new { id = Model.LeagueId, swaOnly = Model.SwaOnly, promotionBonus = Model.PromotionBonus })" class="btn btn-success">Today</a>
+            <a href="@Url.Action("Rating", new { id = Model.LeagueId, swaOnly = Model.SwaOnly, promotionBonus = Model.PromotionBonus, showNonLocal = Model.ShowNonLocal })" class="btn btn-success">Today</a>
         }
     </div>
     @if (!Model.IsIntlLeague)
@@ -53,6 +54,13 @@
                 <input class="form-check-input" type="checkbox" id="promotionBonusToggle" @(Model.PromotionBonus ? "checked" : "") onchange="document.getElementById('promotionBonusHidden').value = this.checked; this.form.submit();" style="cursor: pointer;">
                 <label class="form-check-label" for="promotionBonusToggle" style="cursor: pointer; white-space: nowrap;">Promotion Bonus</label>
             </div>
+            @if (Model.NonLocalUsers.Any())
+            {
+            <div class="form-check form-switch" style="display: flex; align-items: center; gap: 6px;">
+                <input class="form-check-input" type="checkbox" id="showNonLocalToggle" @(Model.ShowNonLocal ? "checked" : "") onchange="document.getElementById('showNonLocalHidden').value = this.checked; this.form.submit();" style="cursor: pointer;">
+                <label class="form-check-label" for="showNonLocalToggle" style="cursor: pointer; white-space: nowrap;">Show Non-Local Players</label>
+            </div>
+            }
         </div>
     }
 </form>
@@ -114,6 +122,30 @@
                     </td>
                 }
             </tr>
+        }
+
+        @if (Model.ShowNonLocal && Model.NonLocalUsers.Any())
+        {
+            <tr><td colspan="10" style="background-color: #f0f0f0; font-weight: bold; padding: 8px;">Non-Local Players</td></tr>
+            @foreach (var item in Model.NonLocalUsers)
+            {
+            <tr style="background-color: #fafafa;">
+                <td style="color: #888;">fn</td>
+                <td>
+                    <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = item.Id, swaOnly = Model.SwaOnly, promotionBonus = Model.PromotionBonus })">@item.DisplayName</a>
+                </td>
+                <td>@item.BirthYearU18</td>
+                <td>@item.RankingBeforeCutoffDate.ToUpper()</td>
+                @foreach (var res in Model.Stats)
+                {
+                    <td>@res.GetResult(item)</td>
+                }
+                @if (Model.Stats.Count() > 2)
+                {
+                    <td>@item.InitRanking</td>
+                }
+            </tr>
+            }
         }
 
     </table>

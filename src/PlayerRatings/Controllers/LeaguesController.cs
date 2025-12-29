@@ -97,19 +97,37 @@ namespace PlayerRatings.Controllers
                 return NotFound();
             }
 
-            var players = _context.LeaguePlayers
+            var allPlayers = _context.LeaguePlayers
                 .Include(lp => lp.User).ThenInclude(u => u.Rankings)
                 .Where(lp =>
                     lp.LeagueId == league.Id &&
                     !lp.User.DisplayName.Contains("[") &&
                     lp.User.DisplayName != "Admin").ToList();
             if (Elo.SwaRankedPlayersOnly)
-                players = players.Where(x => x.User.LatestSwaRanking.Any()).ToList();
+                allPlayers = allPlayers.Where(x => x.User.LatestSwaRanking.Any()).ToList();
+            
+            // For Singapore Weiqi league, separate local and non-local players
+            bool isSgLeague = league.Name?.Contains("Singapore Weiqi") ?? false;
+            List<LeaguePlayer> players;
+            List<LeaguePlayer> nonLocalPlayers = new List<LeaguePlayer>();
+            
+            if (isSgLeague)
+            {
+                players = allPlayers.Where(x => x.User.IsLocalPlayer).ToList();
+                nonLocalPlayers = allPlayers.Where(x => !x.User.IsLocalPlayer).ToList();
+                nonLocalPlayers.Sort(CompareByRankingAndName);
+            }
+            else
+            {
+                players = allPlayers;
+            }
+            
             players.Sort(CompareByRankingAndName);
             return View(new LeagueDetailsViewModel
             {
                 League = league,
                 Players = players,
+                NonLocalPlayers = nonLocalPlayers,
                 SwaRankedPlayersOnly = Elo.SwaRankedPlayersOnly
             });
         }
@@ -284,7 +302,7 @@ namespace PlayerRatings.Controllers
 
         // GET: Leagues/Rating/5
         private EloStat elo = new EloStat();
-        public async Task<IActionResult> Rating(Guid? id, string byDate, bool swaOnly = false, bool promotionBonus = true)
+        public async Task<IActionResult> Rating(Guid? id, string byDate, bool swaOnly = false, bool promotionBonus = true, bool showNonLocal = false)
         {
             if (id == null)
             {
@@ -379,12 +397,23 @@ namespace PlayerRatings.Controllers
             var lastMatches = matches.Where(m=> m.Date > date.AddMonths(-1));
             // Players in monitoring period shouldn't impact existing players' positions
             var users = activeUsers.Where(x => league.Name.Contains("Intl.") || (!x.IsHiddenPlayer)).ToList();
+            
+            // For Singapore Weiqi league, separate local and non-local players
+            bool isSgLeague = league.Name?.Contains("Singapore Weiqi") ?? false;
+            List<ApplicationUser> nonLocalUsers = new List<ApplicationUser>();
+            if (isSgLeague)
+            {
+                nonLocalUsers = users.Where(x => !x.IsLocalPlayer).ToList();
+                nonLocalUsers.Sort(CompareByRatingAndName);
+                users = users.Where(x => x.IsLocalPlayer).ToList();
+            }
+            
             users.Sort(CompareByRatingAndName);
 
             var promotedPlayers = activeUsers.Where(x => (date.Year > 2023 || x.IsHiddenPlayer) && x.Promotion.Contains('→')).ToList();
             promotedPlayers.Sort(CompareByRankingRatingAndName);
 
-            return View(new RatingViewModel(stats, users, promotedPlayers, lastMatches, forecast, id.Value, byDate, swaOnly, isIntlLeague, promotionBonus));
+            return View(new RatingViewModel(stats, users, promotedPlayers, lastMatches, forecast, id.Value, byDate, swaOnly, isIntlLeague, promotionBonus, nonLocalUsers, showNonLocal));
         }
 
         private static void AddUser(HashSet<ApplicationUser> activeUsers, Match match, ApplicationUser player)
