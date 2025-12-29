@@ -13,6 +13,10 @@ namespace PlayerRatings.Engine.Stats
         private readonly Dictionary<string, List<(double opponentRating, double score)>> _performanceTracker 
             = new Dictionary<string, List<(double opponentRating, double score)>>();
 
+        // Track which players received a performance correction (12th game adjustment only)
+        // This is independent of promotion bonus logic
+        private readonly HashSet<string> _playersWithCorrectionApplied = new HashSet<string>();
+
         // Number of games required before calculating estimated initial rating
         private const int GAMES_FOR_ESTIMATION = 12;
 
@@ -226,18 +230,23 @@ namespace PlayerRatings.Engine.Stats
                 double ratingFloor = pending.Value.ratingFloor;
                 bool wasKyuPlayer = pending.Value.wasKyuPlayer;
 
-                if (_dict.TryGetValue(playerId, out var currentRating))
+                // Get current rating - either from _dict or initialize with rating floor
+                double currentRating;
+                if (!_dict.TryGetValue(playerId, out currentRating))
                 {
-                    if (currentRating < ratingFloor)
+                    // Player not in _dict yet - initialize with the rating floor
+                    currentRating = 0;
+                }
+
+                if (currentRating < ratingFloor)
+                {
+                    _dict[playerId] = ratingFloor;
+                    
+                    // Only stop performance estimation for kyu players
+                    // Foreign dan players could be stronger than the promoted dan level
+                    if (wasKyuPlayer)
                     {
-                        _dict[playerId] = ratingFloor;
-                        
-                        // Only stop performance estimation for kyu players
-                        // Foreign dan players could be stronger than the promoted dan level
-                        if (wasKyuPlayer)
-                        {
-                            _performanceTracker.Remove(playerId);
-                        }
+                        _performanceTracker.Remove(playerId);
                     }
                 }
             }
@@ -298,8 +307,20 @@ namespace PlayerRatings.Engine.Stats
                     double correctedRating = currentRating + ratingCorrection * 0.5;
                     
                     _dict[player.Id] = correctedRating;
+                    
+                    // Track that this player received a correction
+                    _playersWithCorrectionApplied.Add(player.Id);
                 }
             }
+        }
+
+        /// <summary>
+        /// Checks if a player received a performance correction (12th game adjustment) and clears the flag.
+        /// This is independent of promotion bonus - only tracks performance-based corrections.
+        /// </summary>
+        public bool DidPlayerReceiveCorrection(string playerId)
+        {
+            return _playersWithCorrectionApplied.Remove(playerId);
         }
 
         /// <summary>

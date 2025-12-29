@@ -188,7 +188,6 @@
                 <th>Date</th>
                 <th>Match</th>
                 <th>Opponent</th>
-                <th>Rating before Match</th>
                 <th>Result</th>
             </tr>
         </thead>
@@ -200,8 +199,11 @@
                     <td>@game.MatchName</td>
                     <td>
                         <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = game.OpponentId, swaOnly = Model.SwaOnly, promotionBonus = Model.PromotionBonus })">@game.OpponentName</a>
+                        @if (!string.IsNullOrEmpty(game.OpponentRanking))
+                        {
+                            <span style="font-size: 0.8em; color: #666;">@game.OpponentRanking</span>
+                        }
                     </td>
-                    <td>@game.RatingDisplay</td>
                     <td style="color: @(game.Result == "Win" ? "green" : game.Result == "Loss" ? "red" : "gray"); font-weight: bold;">
                         @game.Result
                     </td>
