@@ -97,10 +97,12 @@ namespace PlayerRatings.Controllers
                 return NotFound();
             }
 
-            var players = _context.LeaguePlayers.Include(lp => lp.User).Where(lp =>
-                lp.LeagueId == league.Id &&
-                !lp.User.DisplayName.Contains("[") &&
-                lp.User.DisplayName != "Admin").ToList();
+            var players = _context.LeaguePlayers
+                .Include(lp => lp.User).ThenInclude(u => u.Rankings)
+                .Where(lp =>
+                    lp.LeagueId == league.Id &&
+                    !lp.User.DisplayName.Contains("[") &&
+                    lp.User.DisplayName != "Admin").ToList();
             if (Elo.SwaRankedPlayersOnly)
                 players = players.Where(x => x.User.LatestSwaRanking.Any()).ToList();
             players.Sort(CompareByRankingAndName);
@@ -300,10 +302,13 @@ namespace PlayerRatings.Controllers
             }
 
             league =
-                _context.League.Include(l => l.Matches)
+                _context.League
+                    .Include(l => l.Matches)
                     .ThenInclude(m => m.FirstPlayer)
+                    .ThenInclude(p => p.Rankings)
                     .Include(l => l.Matches)
                     .ThenInclude(m => m.SecondPlayer)
+                    .ThenInclude(p => p.Rankings)
                     .Single(m => m.Id == id);
 
             var notBlockedUserIds =
@@ -535,8 +540,8 @@ namespace PlayerRatings.Controllers
             }
 
             league = _context.League
-                .Include(l => l.Matches).ThenInclude(m => m.FirstPlayer)
-                .Include(l => l.Matches).ThenInclude(m => m.SecondPlayer)
+                .Include(l => l.Matches).ThenInclude(m => m.FirstPlayer).ThenInclude(p => p.Rankings)
+                .Include(l => l.Matches).ThenInclude(m => m.SecondPlayer).ThenInclude(p => p.Rankings)
                 .Single(m => m.Id == id);
 
             // Check if this is an international league
@@ -546,26 +551,51 @@ namespace PlayerRatings.Controllers
             EloStat.PromotionBonusEnabled = promotionBonus;
             EloStat.SwaOnly = swaOnly;
 
-            var player = await _userManager.FindByIdAsync(playerId);
+            // Get player from already loaded match data (includes Rankings via ThenInclude)
+            var player = league.Matches
+                .Where(m => m.FirstPlayerId == playerId)
+                .Select(m => m.FirstPlayer)
+                .FirstOrDefault()
+                ?? league.Matches
+                .Where(m => m.SecondPlayerId == playerId)
+                .Select(m => m.SecondPlayer)
+                .FirstOrDefault();
+            
+            // If player not found in matches, load directly from database (they may have no matches yet)
             if (player == null)
             {
-                return NotFound();
+                player = await _context.Users
+                    .Include(u => u.Rankings)
+                    .FirstOrDefaultAsync(u => u.Id == playerId);
+                
+                if (player == null)
+                {
+                    return NotFound();
+                }
             }
 
             // Find player's matches (all matches for intl leagues, filtered for local leagues)
             var playerMatches = FilterPlayerMatches(league.Matches, playerId, swaOnly, isIntlLeague).ToList();
 
+            // If player has no matches, show page with just their info (no rating history)
             if (!playerMatches.Any())
             {
-                return NotFound();
+                return View(new PlayerRatingHistoryViewModel
+                {
+                    LeagueId = league.Id,
+                    Player = player,
+                    MonthlyRatings = new List<MonthlyRating>(),
+                    SwaOnly = swaOnly,
+                    PromotionBonus = promotionBonus,
+                    GameRecords = new List<GameRecord>()
+                });
             }
 
             var firstMatchDate = playerMatches.First().Date;
             
             // For new players with foreign/unknown ranking, start from when rating is corrected (after 12 games)
             // This is because early ratings are unreliable during the estimation period
-            var initialRanking = player.Ranking ?? "";
-            bool isNewForeignPlayer = initialRanking.Contains('[') && !initialRanking.Contains(' ');
+            bool isNewForeignPlayer = player.IsUnknownRankedPlayer;
             
             DateTimeOffset startDate = firstMatchDate;
             if (isNewForeignPlayer && playerMatches.Count >= 12)
@@ -717,6 +747,152 @@ namespace PlayerRatings.Controllers
                 IsIntlLeague = isIntlLeague,
                 PromotionBonus = promotionBonus
             });
+        }
+
+        // POST: Leagues/UpdatePlayerInfo
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdatePlayerInfo(EditPlayerInfoViewModel model)
+        {
+            bool isAjax = Request.Headers["X-Requested-With"] == "XMLHttpRequest";
+            
+            if (!ModelState.IsValid)
+            {
+                if (isAjax) return Json(new { success = false, message = "Invalid data" });
+                return RedirectToAction(nameof(Player), new { id = model.LeagueId, playerId = model.PlayerId });
+            }
+
+            var player = await _userManager.FindByIdAsync(model.PlayerId);
+            if (player == null)
+            {
+                if (isAjax) return Json(new { success = false, message = "Player not found" });
+                return NotFound();
+            }
+
+            player.BirthYearValue = model.BirthYearValue;
+            player.Residence = model.Residence;
+            player.Photo = model.Photo;
+
+            await _userManager.UpdateAsync(player);
+
+            if (isAjax) return Json(new { success = true, message = "Player info saved" });
+            return RedirectToAction(nameof(Player), new { id = model.LeagueId, playerId = model.PlayerId });
+        }
+
+        // POST: Leagues/AddRanking
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AddRanking(EditRankingViewModel model)
+        {
+            bool isAjax = Request.Headers["X-Requested-With"] == "XMLHttpRequest";
+            
+            if (!ModelState.IsValid)
+            {
+                if (isAjax) return Json(new { success = false, message = "Invalid data" });
+                return RedirectToAction(nameof(Player), new { id = model.LeagueId, playerId = model.PlayerId });
+            }
+
+            var player = await _userManager.FindByIdAsync(model.PlayerId);
+            if (player == null)
+            {
+                if (isAjax) return Json(new { success = false, message = "Player not found" });
+                return NotFound();
+            }
+
+            var ranking = new PlayerRanking
+            {
+                RankingId = Guid.NewGuid(),
+                PlayerId = model.PlayerId,
+                Ranking = model.Ranking.ToUpper(),
+                Organization = model.Organization,
+                RankingDate = model.RankingDate.HasValue 
+                    ? new DateTimeOffset(model.RankingDate.Value, TimeSpan.Zero) 
+                    : null,
+                RankingNote = model.RankingNote
+            };
+
+            _context.PlayerRankings.Add(ranking);
+            await _context.SaveChangesAsync();
+
+            if (isAjax) return Json(new { 
+                success = true, 
+                message = "Ranking added",
+                ranking = new {
+                    rankingId = ranking.RankingId,
+                    rankingGrade = ranking.Ranking,
+                    organization = ranking.Organization,
+                    date = ranking.RankingDate?.ToString("dd/MM/yyyy") ?? "-",
+                    dateValue = ranking.RankingDate?.ToString("yyyy-MM-dd") ?? "",
+                    note = ranking.RankingNote ?? ""
+                }
+            });
+            return RedirectToAction(nameof(Player), new { id = model.LeagueId, playerId = model.PlayerId });
+        }
+
+        // POST: Leagues/EditRanking
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> EditRanking(EditRankingViewModel model)
+        {
+            bool isAjax = Request.Headers["X-Requested-With"] == "XMLHttpRequest";
+            
+            if (!ModelState.IsValid || !model.RankingId.HasValue)
+            {
+                if (isAjax) return Json(new { success = false, message = "Invalid data" });
+                return RedirectToAction(nameof(Player), new { id = model.LeagueId, playerId = model.PlayerId });
+            }
+
+            var ranking = await _context.PlayerRankings.FindAsync(model.RankingId.Value);
+            if (ranking == null || ranking.PlayerId != model.PlayerId)
+            {
+                if (isAjax) return Json(new { success = false, message = "Ranking not found" });
+                return NotFound();
+            }
+
+            ranking.Ranking = model.Ranking.ToUpper();
+            ranking.Organization = model.Organization;
+            ranking.RankingDate = model.RankingDate.HasValue 
+                ? new DateTimeOffset(model.RankingDate.Value, TimeSpan.Zero) 
+                : null;
+            ranking.RankingNote = model.RankingNote;
+
+            _context.PlayerRankings.Update(ranking);
+            await _context.SaveChangesAsync();
+
+            if (isAjax) return Json(new { 
+                success = true, 
+                message = "Ranking updated",
+                ranking = new {
+                    rankingId = ranking.RankingId,
+                    rankingGrade = ranking.Ranking,
+                    organization = ranking.Organization,
+                    date = ranking.RankingDate?.ToString("dd/MM/yyyy") ?? "-",
+                    dateValue = ranking.RankingDate?.ToString("yyyy-MM-dd") ?? "",
+                    note = ranking.RankingNote ?? ""
+                }
+            });
+            return RedirectToAction(nameof(Player), new { id = model.LeagueId, playerId = model.PlayerId });
+        }
+
+        // POST: Leagues/DeleteRanking
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteRanking(Guid rankingId, string playerId, Guid leagueId)
+        {
+            bool isAjax = Request.Headers["X-Requested-With"] == "XMLHttpRequest";
+            
+            var ranking = await _context.PlayerRankings.FindAsync(rankingId);
+            if (ranking == null || ranking.PlayerId != playerId)
+            {
+                if (isAjax) return Json(new { success = false, message = "Ranking not found" });
+                return NotFound();
+            }
+
+            _context.PlayerRankings.Remove(ranking);
+            await _context.SaveChangesAsync();
+
+            if (isAjax) return Json(new { success = true, message = "Ranking deleted", rankingId = rankingId });
+            return RedirectToAction(nameof(Player), new { id = leagueId, playerId = playerId });
         }
 
     }

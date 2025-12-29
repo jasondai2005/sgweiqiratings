@@ -103,6 +103,8 @@ namespace PlayerRatings.Migrations
 
                     b.Property<int>("AccessFailedCount");
 
+                    b.Property<int?>("BirthYearValue");
+
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken();
 
@@ -128,6 +130,12 @@ namespace PlayerRatings.Migrations
                     b.Property<string>("PhoneNumber");
 
                     b.Property<bool>("PhoneNumberConfirmed");
+
+                    b.Property<string>("Photo")
+                        .HasAnnotation("MaxLength", 500);
+
+                    b.Property<string>("Residence")
+                        .HasAnnotation("MaxLength", 100);
 
                     b.Property<string>("SecurityStamp");
 
@@ -211,6 +219,35 @@ namespace PlayerRatings.Migrations
                     b.HasKey("Id");
                 });
 
+            modelBuilder.Entity("PlayerRatings.Models.PlayerRanking", b =>
+                {
+                    b.Property<Guid>("RankingId")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<string>("Organization")
+                        .HasAnnotation("MaxLength", 50);
+
+                    b.Property<string>("PlayerId")
+                        .IsRequired();
+
+                    b.Property<string>("Ranking")
+                        .IsRequired()
+                        .HasAnnotation("MaxLength", 10);
+
+                    b.Property<DateTimeOffset?>("RankingDate");
+
+                    b.Property<string>("RankingNote")
+                        .HasAnnotation("MaxLength", 200);
+
+                    b.HasKey("RankingId");
+
+                    b.HasIndex("PlayerId");
+
+                    b.HasIndex("RankingDate");
+
+                    b.HasAnnotation("Relational:TableName", "PlayerRanking");
+                });
+
             modelBuilder.Entity("Microsoft.AspNet.Identity.EntityFramework.IdentityRoleClaim<string>", b =>
                 {
                     b.HasOne("Microsoft.AspNet.Identity.EntityFramework.IdentityRole")
@@ -289,6 +326,14 @@ namespace PlayerRatings.Migrations
                     b.HasOne("PlayerRatings.Models.ApplicationUser")
                         .WithMany()
                         .HasForeignKey("SecondPlayerId");
+                });
+
+            modelBuilder.Entity("PlayerRatings.Models.PlayerRanking", b =>
+                {
+                    b.HasOne("PlayerRatings.Models.ApplicationUser")
+                        .WithMany("Rankings")
+                        .HasForeignKey("PlayerId")
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
         }
     }

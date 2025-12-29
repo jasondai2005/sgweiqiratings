@@ -58,12 +58,13 @@ namespace PlayerRatings.Controllers
             }
 
             var matches =
-                _context.Match.Where(m => m.LeagueId == leagueId)
+                _context.Match
+                    .Where(m => m.LeagueId == leagueId)
                     .OrderByDescending(m => m.Date)
                     .Skip(pageSize*page)
                     .Take(pageSize)
-                    .Include(m => m.FirstPlayer)
-                    .Include(m => m.SecondPlayer)
+                    .Include(m => m.FirstPlayer).ThenInclude(p => p.Rankings)
+                    .Include(m => m.SecondPlayer).ThenInclude(p => p.Rankings)
                     .Include(m => m.League)
                     .ToList();
 

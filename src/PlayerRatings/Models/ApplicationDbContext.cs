@@ -44,5 +44,7 @@ namespace PlayerRatings.Models
         public DbSet<LeaguePlayer> LeaguePlayers { get; set; }
 
         public DbSet<Invite> Invites { get; set; }
+
+        public DbSet<PlayerRanking> PlayerRankings { get; set; }
     }
 }

@@ -62,7 +62,7 @@ else
                     @(number++)
                 </td>
                 <td>
-                    @player.User.DisplayName
+                    <a href="@Url.Action("Player", new { id = Model.League.Id, playerId = player.User.Id })">@player.User.DisplayName</a>
                 </td>
                 <td>
                     @player.User.BirthYear

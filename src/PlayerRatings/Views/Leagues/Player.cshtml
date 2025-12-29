@@ -1,21 +1,204 @@
 @using PlayerRatings.Localization
+@using PlayerRatings.ViewModels.Player
 @model PlayerRatings.ViewModels.Player.PlayerRatingHistoryViewModel
 
 @{
     ViewData["Title"] = Model.Player.DisplayName + " - Rating History";
     var sortedRatings = Model.MonthlyRatings.OrderBy(r => r.Month).ToList();
+    var playerRankings = Model.Player.Rankings?.OrderByDescending(r => r.RankingDate ?? DateTimeOffset.MinValue).ToList() 
+        ?? new List<PlayerRatings.Models.PlayerRanking>();
 }
 
-<h3>@Model.Player.DisplayName</h3>
-@if (!string.IsNullOrEmpty(Model.Player.BirthYear))
-{
-<p>
-    <strong>Birth Year:</strong> @Model.Player.BirthYear
-</p>
-}
-<p>
-    <strong>@LocString[nameof(LocalizationKey.Ranking)]:</strong> @Model.Player.LatestRanking
-</p>
+<div class="row">
+    <div class="col-md-8">
+        <h3>@Model.Player.DisplayName</h3>
+        
+        <!-- Player Info Section -->
+        <div class="panel panel-default" style="margin-bottom: 15px;">
+            <div class="panel-heading" style="display: flex; justify-content: space-between; align-items: center;">
+                <span><strong>Player Information</strong></span>
+                <button class="btn btn-sm btn-primary" type="button" data-toggle="collapse" data-target="#editPlayerInfo">
+                    Edit
+                </button>
+            </div>
+            <div class="panel-body">
+                <div class="row">
+                    @if (!string.IsNullOrEmpty(Model.Player.Photo))
+                    {
+                    <div class="col-xs-3 col-sm-2" id="playerPhotoContainer">
+                        <img id="playerPhoto" src="@Model.Player.Photo" alt="@Model.Player.DisplayName" style="max-width: 120px; max-height: 120px; border-radius: 8px;" />
+                    </div>
+                    }
+                    <div class="@(string.IsNullOrEmpty(Model.Player.Photo) ? "col-xs-12" : "col-xs-9 col-sm-10")" id="playerInfoContainer">
+                        <p style="margin-bottom: 5px; @(Model.Player.BirthYearValue == null ? "display:none;" : "")" id="birthYearRow"><strong>Birth Year:</strong> <span id="displayBirthYear">@Model.Player.BirthYear</span></p>
+                        <p style="margin-bottom: 5px;"><strong>Residence:</strong> <span id="displayResidence">@(Model.Player.Residence ?? "Singapore")</span></p>
+                        <p style="margin-bottom: 0;"><strong>Current Ranking:</strong> @Model.Player.LatestRanking</p>
+                    </div>
+                </div>
+                
+                <!-- Edit Player Info Form (collapsed by default) -->
+                <div class="collapse" id="editPlayerInfo" style="margin-top: 15px;">
+                    <hr />
+                    <form asp-action="UpdatePlayerInfo" method="post" id="playerInfoForm">
+                        <input type="hidden" name="PlayerId" value="@Model.Player.Id" />
+                        <input type="hidden" name="LeagueId" value="@Model.LeagueId" />
+                        <div class="row">
+                            <div class="col-md-4 form-group">
+                                <label>Birth Year</label>
+                                <input type="number" class="form-control" name="BirthYearValue" value="@Model.Player.BirthYearValue" min="1900" max="2100" placeholder="e.g., 2005" />
+                            </div>
+                            <div class="col-md-4 form-group">
+                                <label>Residence</label>
+                                <input type="text" class="form-control" name="Residence" value="@Model.Player.Residence" placeholder="e.g., Singapore" />
+                            </div>
+                            <div class="col-md-4 form-group">
+                                <label>Photo URL</label>
+                                <input type="url" class="form-control" name="Photo" value="@Model.Player.Photo" placeholder="https://..." />
+                            </div>
+                        </div>
+                        <div style="margin-top: 15px;">
+                            <button type="submit" class="btn btn-primary btn-sm">Save Changes</button>
+                            <button type="button" class="btn btn-default btn-sm" data-toggle="collapse" data-target="#editPlayerInfo">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Rankings Management Section (collapsed by default) -->
+        <div style="margin-bottom: 15px;">
+            <button class="btn btn-sm btn-default" type="button" data-toggle="collapse" data-target="#rankingManagement">
+                ✏️ Edit Ranking History
+            </button>
+        </div>
+        <div class="collapse" id="rankingManagement">
+            <div class="panel panel-default" style="margin-bottom: 15px;">
+                <div class="panel-heading" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span><strong>Ranking History</strong></span>
+                    <button class="btn btn-sm btn-success" type="button" data-toggle="collapse" data-target="#addRankingForm">
+                        + Add Ranking
+                    </button>
+                </div>
+                <div class="panel-body">
+                    <!-- Add Ranking Form (collapsed by default) -->
+                    <div class="collapse" id="addRankingForm" style="margin-bottom: 15px;">
+                        <form asp-action="AddRanking" method="post" class="well">
+                            <input type="hidden" name="PlayerId" value="@Model.Player.Id" />
+                            <input type="hidden" name="LeagueId" value="@Model.LeagueId" />
+                            <div class="row">
+                                <div class="col-md-2 form-group">
+                                    <label>Ranking</label>
+                                    <input type="text" class="form-control" name="Ranking" placeholder="e.g., 1D" required pattern="^\d{1,2}[DKP]$" />
+                                </div>
+                                <div class="col-md-3 form-group">
+                                    <label>Organization</label>
+                                    <select class="form-control" name="Organization" required>
+                                        @foreach (var org in EditRankingViewModel.CommonOrganizations)
+                                        {
+                                            <option value="@org">@org</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="col-md-3 form-group">
+                                    <label>Date</label>
+                                    <input type="date" class="form-control" name="RankingDate" />
+                                </div>
+                                <div class="col-md-4 form-group">
+                                    <label>Note</label>
+                                    <input type="text" class="form-control" name="RankingNote" placeholder="Optional note" />
+                                </div>
+                            </div>
+                            <div style="margin-top: 10px;">
+                                <button type="submit" class="btn btn-success btn-sm">Add Ranking</button>
+                                <button type="button" class="btn btn-default btn-sm" data-toggle="collapse" data-target="#addRankingForm">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <!-- Rankings List -->
+                <p class="text-muted" style="margin-bottom: 0; @(playerRankings.Any() ? "display:none;" : "")" id="noRankingsMsg">No ranking records found.</p>
+                <div class="table-responsive" @(!playerRankings.Any() ? "style=\"display:none;\"" : "")>
+                    <table class="table table-condensed table-hover" style="margin-bottom: 0;" id="rankingsTable">
+                            <thead>
+                                <tr>
+                                    <th>Ranking</th>
+                                    <th>Organization</th>
+                                    <th>Date</th>
+                                    <th>Note</th>
+                                    <th style="width: 100px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var ranking in playerRankings)
+                                {
+                                    var editFormId = $"editRanking_{ranking.RankingId}";
+                                    <tr data-ranking-id="@ranking.RankingId">
+                                        <td>
+                                            <span style="color: rgb(255, 99, 132); font-weight: bold;">@ranking.Ranking</span>
+                                        </td>
+                                        <td>@ranking.Organization</td>
+                                        <td>@(ranking.RankingDate?.ToString("dd/MM/yyyy") ?? "-")</td>
+                                        <td style="font-size: 0.85em; color: #666;">@ranking.RankingNote</td>
+                                        <td>
+                                            <button class="btn btn-primary btn-xs" type="button" data-toggle="collapse" data-target="#@editFormId" title="Edit">
+                                                ✏️
+                                            </button>
+                                            <form asp-action="DeleteRanking" method="post" style="display: inline;" class="delete-ranking-form">
+                                                <input type="hidden" name="rankingId" value="@ranking.RankingId" />
+                                                <input type="hidden" name="playerId" value="@Model.Player.Id" />
+                                                <input type="hidden" name="leagueId" value="@Model.LeagueId" />
+                                                <button type="submit" class="btn btn-danger btn-xs" title="Delete">🗑️</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    <tr class="collapse" id="@editFormId">
+                                        <td colspan="5" style="background-color: #f5f5f5; padding: 10px;">
+                                            <form asp-action="EditRanking" method="post" class="edit-ranking-form">
+                                                <input type="hidden" name="RankingId" value="@ranking.RankingId" />
+                                                <input type="hidden" name="PlayerId" value="@Model.Player.Id" />
+                                                <input type="hidden" name="LeagueId" value="@Model.LeagueId" />
+                                                <div class="row">
+                                                    <div class="col-md-2">
+                                                        <input type="text" class="form-control input-sm" name="Ranking" value="@ranking.Ranking" required pattern="^\d{1,2}[DKP]$" />
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <select class="form-control input-sm" name="Organization" required>
+                                                            @foreach (var org in EditRankingViewModel.CommonOrganizations)
+                                                            {
+                                                                if (ranking.Organization == org)
+                                                                {
+                                                                    <option value="@org" selected>@org</option>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <option value="@org">@org</option>
+                                                                }
+                                                            }
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <input type="date" class="form-control input-sm" name="RankingDate" value="@(ranking.RankingDate?.ToString("yyyy-MM-dd"))" />
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <input type="text" class="form-control input-sm" name="RankingNote" value="@ranking.RankingNote" />
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <button type="submit" class="btn btn-primary btn-xs">Save</button>
+                                                        <button type="button" class="btn btn-default btn-xs" data-toggle="collapse" data-target="#@editFormId">Cancel</button>
+                                                    </div>
+                                                </div>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 @{
     // Build ranking labels for each month - show ranking when it changes
@@ -82,7 +265,7 @@
 
 <a href="@Url.Action("Rating", new { id = Model.LeagueId, swaOnly = Model.SwaOnly, promotionBonus = Model.PromotionBonus })" class="btn btn-outline-secondary mb-3">← Back to Rating</a>
 
-@if (!Model.IsIntlLeague)
+@if (!Model.IsIntlLeague && Model.MonthlyRatings.Any())
 {
 <form asp-action="Player" method="get" class="mb-3">
     <input type="hidden" name="id" value="@Model.LeagueId" />
@@ -102,10 +285,13 @@
 </form>
 }
 
+@if (Model.MonthlyRatings.Any())
+{
 <h4>Rating History Chart</h4>
 <div style="max-width: 800px; margin-bottom: 30px;">
     <canvas id="ratingChart"></canvas>
 </div>
+}
 
 <h4>Monthly Rating History</h4>
 <div class="table-responsive">
@@ -157,12 +343,23 @@
                     </td>
                 </tr>
             }
-            @if (earlyRankings.Any() && monthRankingLabels.Any())
-            {
-                // Only show early rankings if there are also promotions since first match
-                <tr style="background-color: #f8f9fa;">
-                    <td colspan="3" style="color: #666; font-style: italic;">Before first match</td>
-                    <td>
+            @{
+                // Use the latest ranking before first match (most recent promotion before playing)
+                var latestRankingBeforeFirstMatch = earlyRankings.Any() 
+                    ? earlyRankings.OrderByDescending(r => r.sortDate).First().ranking 
+                    : Model.Player.LatestRanking;
+                // For players with no matches, show their current ranking rating
+                var preEntryRating = !Model.MonthlyRatings.Any() && Model.Player.Rankings != null && Model.Player.Rankings.Any()
+                    ? Model.Player.GetRatingByRanking(Model.Player.Rankings.OrderByDescending(r => r.RankingDate ?? DateTimeOffset.MinValue).First()).ToString()
+                    : "-";
+            }
+            <tr style="background-color: #f8f9fa;">
+                <td style="color: #666; font-style: italic;">Pre-entry</td>
+                <td>@preEntryRating</td>
+                <td>-</td>
+                <td>
+                    @if (earlyRankings.Any())
+                    {
                         @foreach (var rankingInfo in earlyRankings.OrderByDescending(r => r.sortDate))
                         {
                             <div>
@@ -173,9 +370,13 @@
                                 }
                             </div>
                         }
-                    </td>
-                </tr>
-            }
+                    }
+                    else
+                    {
+                        <span style="color: rgb(255, 99, 132); font-weight: bold;">@latestRankingBeforeFirstMatch.ToUpper()</span>
+                    }
+                </td>
+            </tr>
         </tbody>
     </table>
 </div>
@@ -214,6 +415,8 @@
 </div>
 
 @section Scripts {
+@if (Model.MonthlyRatings.Any())
+{
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
     <script>
@@ -328,6 +531,168 @@
                     }
                 }
             }
+        });
+    </script>
+}
+    <script>
+        // AJAX form handling for player info and rankings
+        $(document).ready(function() {
+            // Show status message
+            function showMessage(message, isSuccess) {
+                var alertClass = isSuccess ? 'alert-success' : 'alert-danger';
+                var $alert = $('<div class="alert ' + alertClass + '" style="position: fixed; top: 60px; right: 20px; z-index: 9999; padding: 10px 20px;">' + message + '</div>');
+                $('body').append($alert);
+                setTimeout(function() { $alert.fadeOut(function() { $(this).remove(); }); }, 2000);
+            }
+            
+            // Handle player info form
+            $('#playerInfoForm').on('submit', function(e) {
+                e.preventDefault();
+                var $form = $(this);
+                var $btn = $form.find('button[type="submit"]');
+                $btn.prop('disabled', true).text('Saving...');
+                
+                $.ajax({
+                    url: $form.attr('action'),
+                    type: 'POST',
+                    data: $form.serialize(),
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    success: function(response) {
+                        if (response.success) {
+                            showMessage(response.message, true);
+                            // Update displayed values
+                            var birthYear = $form.find('[name="BirthYearValue"]').val();
+                            if (birthYear) {
+                                $('#displayBirthYear').text(birthYear);
+                                $('#birthYearRow').show();
+                            } else {
+                                $('#birthYearRow').hide();
+                            }
+                            $('#displayResidence').text($form.find('[name="Residence"]').val() || 'Singapore');
+                            var photoUrl = $form.find('[name="Photo"]').val();
+                            var $photoContainer = $('#playerPhotoContainer');
+                            var $infoContainer = $('#playerInfoContainer');
+                            if (photoUrl) {
+                                if ($photoContainer.length === 0) {
+                                    // Create photo container if it doesn't exist
+                                    $infoContainer.before('<div class="col-xs-3 col-sm-2" id="playerPhotoContainer"><img id="playerPhoto" src="' + photoUrl + '" style="max-width: 120px; max-height: 120px; border-radius: 8px;" /></div>');
+                                    $infoContainer.removeClass('col-xs-12').addClass('col-xs-9 col-sm-10');
+                                } else {
+                                    $('#playerPhoto').attr('src', photoUrl);
+                                }
+                            } else {
+                                // Remove photo container if URL is cleared
+                                $photoContainer.remove();
+                                $infoContainer.removeClass('col-xs-9 col-sm-10').addClass('col-xs-12');
+                            }
+                        } else {
+                            showMessage(response.message || 'Error saving', false);
+                        }
+                    },
+                    error: function() { showMessage('Error saving', false); },
+                    complete: function() { $btn.prop('disabled', false).text('Save Changes'); }
+                });
+            });
+            
+            // Handle add ranking form
+            $('#addRankingForm form').on('submit', function(e) {
+                e.preventDefault();
+                var $form = $(this);
+                var $btn = $form.find('button[type="submit"]');
+                $btn.prop('disabled', true).text('Adding...');
+                
+                $.ajax({
+                    url: $form.attr('action'),
+                    type: 'POST',
+                    data: $form.serialize(),
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    success: function(response) {
+                        if (response.success) {
+                            showMessage(response.message, true);
+                            // Add new row to table
+                            var r = response.ranking;
+                            var newRow = '<tr data-ranking-id="' + r.rankingId + '">' +
+                                '<td><span style="color: rgb(255, 99, 132); font-weight: bold;">' + r.rankingGrade + '</span></td>' +
+                                '<td>' + r.organization + '</td>' +
+                                '<td>' + r.date + '</td>' +
+                                '<td style="font-size: 0.85em; color: #666;">' + r.note + '</td>' +
+                                '<td><button class="btn btn-danger btn-xs delete-ranking-btn" data-ranking-id="' + r.rankingId + '">🗑️</button></td>' +
+                                '</tr>';
+                            $('#rankingsTable tbody').prepend(newRow);
+                            $('#noRankingsMsg').hide();
+                            $('#rankingsTable').show();
+                            // Clear form
+                            $form[0].reset();
+                            $('#addRankingForm').collapse('hide');
+                        } else {
+                            showMessage(response.message || 'Error adding', false);
+                        }
+                    },
+                    error: function() { showMessage('Error adding ranking', false); },
+                    complete: function() { $btn.prop('disabled', false).text('Add Ranking'); }
+                });
+            });
+            
+            // Handle edit ranking forms
+            $(document).on('submit', '.edit-ranking-form', function(e) {
+                e.preventDefault();
+                var $form = $(this);
+                var $btn = $form.find('button[type="submit"]');
+                var rankingId = $form.find('[name="RankingId"]').val();
+                $btn.prop('disabled', true).text('Saving...');
+                
+                $.ajax({
+                    url: $form.attr('action'),
+                    type: 'POST',
+                    data: $form.serialize(),
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    success: function(response) {
+                        if (response.success) {
+                            showMessage(response.message, true);
+                            // Update the row
+                            var r = response.ranking;
+                            var $row = $('tr[data-ranking-id="' + rankingId + '"]');
+                            $row.find('td:eq(0) span').text(r.rankingGrade);
+                            $row.find('td:eq(1)').text(r.organization);
+                            $row.find('td:eq(2)').text(r.date);
+                            $row.find('td:eq(3)').text(r.note);
+                            // Collapse the edit form
+                            $('#editRanking_' + rankingId).collapse('hide');
+                        } else {
+                            showMessage(response.message || 'Error saving', false);
+                        }
+                    },
+                    error: function() { showMessage('Error saving ranking', false); },
+                    complete: function() { $btn.prop('disabled', false).text('Save'); }
+                });
+            });
+            
+            // Handle delete ranking
+            $(document).on('submit', '.delete-ranking-form', function(e) {
+                e.preventDefault();
+                if (!confirm('Delete this ranking?')) return;
+                
+                var $form = $(this);
+                var rankingId = $form.find('[name="rankingId"]').val();
+                
+                $.ajax({
+                    url: $form.attr('action'),
+                    type: 'POST',
+                    data: $form.serialize(),
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    success: function(response) {
+                        if (response.success) {
+                            showMessage(response.message, true);
+                            // Remove the row and edit form row
+                            $('tr[data-ranking-id="' + rankingId + '"]').remove();
+                            $('#editRanking_' + rankingId).closest('tr').remove();
+                        } else {
+                            showMessage(response.message || 'Error deleting', false);
+                        }
+                    },
+                    error: function() { showMessage('Error deleting ranking', false); }
+                });
+            });
         });
     </script>
 }

@@ -113,7 +113,7 @@ namespace PlayerRatings.Engine.Stats
         }
 
         // Track the last known ranking for each player to detect promotions
-        private readonly Dictionary<string, string> _lastKnownRanking = new Dictionary<string, string>();
+        private readonly Dictionary<string, PlayerRanking> _lastKnownRanking = new Dictionary<string, PlayerRanking>();
 
         // Track pending promotion rating floors: player Id -> (rating floor, isIntlLeague, wasKyuPlayer)
         private readonly Dictionary<string, (double ratingFloor, bool isIntlLeague, bool wasKyuPlayer)> _pendingPromotionFloors 
@@ -147,51 +147,58 @@ namespace PlayerRatings.Engine.Stats
                 _currentProcessingDate = matchDate.Date;
             }
 
+            // Get current ranking at match date
+            var currentRanking = player.GetPlayerRankingBeforeDate(matchDate);
+            if (currentRanking == null || string.IsNullOrEmpty(currentRanking.Ranking))
+                return;
+
             // Skip if promotion bonus is disabled
             if (!PromotionBonusEnabled)
             {
                 // Still track the ranking for when it's re-enabled
-                string ranking = player.GetRankingBeforeDate(matchDate);
-                if (!string.IsNullOrEmpty(ranking))
-                {
-                    _lastKnownRanking[player.Id] = ranking;
-                }
-                return;
-            }
-
-            // Get current ranking at match date
-            string currentRanking = player.GetRankingBeforeDate(matchDate);
-            if (string.IsNullOrEmpty(currentRanking))
-                return;
-
-            // Skip TGA promotions when SWA Only is enabled
-            // TGA rankings contain parentheses like "(1D)" or "(4K)"
-            if (SwaOnly && currentRanking.Contains("(") && !currentRanking.Contains(" "))
-            {
                 _lastKnownRanking[player.Id] = currentRanking;
                 return;
             }
 
+            // Skip TGA promotions when SWA Only is enabled
+            if (SwaOnly && currentRanking.Organization == "TGA")
+            {
+                // Don't track TGA rankings when SWA Only is enabled
+                return;
+            }
+
             // Check if ranking changed (promotion detected)
-            string previousRanking;
+            PlayerRanking previousRanking;
             if (!_lastKnownRanking.TryGetValue(player.Id, out previousRanking))
             {
                 // First time seeing this player - initialize with their earliest known ranking
                 // so we can detect promotions from their initial rank
-                var earliestRanking = player.RankingHistory
-                    .Where(x => x.Key != "BY" && !string.IsNullOrEmpty(x.Key) && x.Value != DateTimeOffset.MinValue)
-                    .OrderBy(x => x.Value)
-                    .FirstOrDefault();
-                
-                if (earliestRanking.Key != null && earliestRanking.Key != currentRanking)
+                // Rankings without dates are treated as earliest (MinValue)
+                if (player.Rankings != null && player.Rankings.Any())
                 {
-                    previousRanking = earliestRanking.Key;
-                    _lastKnownRanking[player.Id] = previousRanking;
+                    var earliest = player.Rankings
+                        .Where(r => !string.IsNullOrEmpty(r.Ranking))
+                        .OrderBy(r => r.RankingDate ?? DateTimeOffset.MinValue)
+                        .FirstOrDefault();
+                    
+                    if (earliest != null && !IsSameRanking(earliest, currentRanking))
+                    {
+                        previousRanking = earliest;
+                        _lastKnownRanking[player.Id] = previousRanking;
+                    }
                 }
             }
 
-            if (previousRanking != null && previousRanking != currentRanking)
+            if (previousRanking != null && !IsSameRanking(previousRanking, currentRanking))
             {
+                // Only local promotions (SWA/TGA) can trigger promotion bonus
+                // Foreign rankings are not officially verified by local associations
+                if (!currentRanking.IsLocalRanking)
+                {
+                    _lastKnownRanking[player.Id] = currentRanking;
+                    return;
+                }
+
                 // Ranking changed - check if this is a promotion (higher rating for new ranking)
                 int previousRankingRating = player.GetRatingByRanking(previousRanking, isIntlLeague);
                 int currentRankingRating = player.GetRatingByRanking(currentRanking, isIntlLeague);
@@ -205,8 +212,8 @@ namespace PlayerRatings.Engine.Stats
                     {
                         // This is a promotion - queue rating floor for end of day
                         double ratingFloor = currentRankingRating - 50;
-                        // Track if previous ranking was kyu (contains 'K') - only kyu players should stop performance tracking
-                        bool wasKyuPlayer = string.IsNullOrEmpty(previousRanking) || previousRanking.Contains("K");
+                        // Track if previous ranking was kyu - only kyu players should stop performance tracking
+                        bool wasKyuPlayer = previousRanking.Ranking?.Contains('K', StringComparison.OrdinalIgnoreCase) ?? true;
                         _pendingPromotionFloors[player.Id] = (ratingFloor, isIntlLeague, wasKyuPlayer);
                     }
                 }
@@ -214,6 +221,17 @@ namespace PlayerRatings.Engine.Stats
 
             // Update last known ranking
             _lastKnownRanking[player.Id] = currentRanking;
+        }
+
+        /// <summary>
+        /// Checks if two PlayerRanking objects represent the same ranking.
+        /// </summary>
+        private static bool IsSameRanking(PlayerRanking a, PlayerRanking b)
+        {
+            if (a == null || b == null)
+                return a == b;
+            return string.Equals(a.Ranking, b.Ranking, StringComparison.OrdinalIgnoreCase) &&
+                   string.Equals(a.Organization ?? "SWA", b.Organization ?? "SWA", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
@@ -440,9 +458,9 @@ namespace PlayerRatings.Engine.Stats
                 if (_dict.TryGetValue(user.Id, out var rating))
                     return rating;
                 
-                // If user has no matches yet, use their ranking-based rating
+                // If user has no matches yet, use their latest ranking-based rating
                 if (user.FirstMatch == DateTimeOffset.MinValue)
-                    return user.GetRatingByRanking(user.Ranking);
+                    return user.GetRatingByRanking(user.LatestRanking);
                 
                 return user.GetRatingBeforeDate(user.FirstMatch.Date);
             }
