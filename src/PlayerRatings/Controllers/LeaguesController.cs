@@ -119,7 +119,7 @@ namespace PlayerRatings.Controllers
             if (isSgLeague)
             {
                 players = allPlayers.Where(x => x.User.IsLocalPlayer).ToList();
-                nonLocalPlayers = allPlayers.Where(x => !x.User.IsLocalPlayer).ToList();
+                nonLocalPlayers = allPlayers.Where(x => !x.User.IsLocalPlayer && string.IsNullOrEmpty(x.User.LatestSwaRanking)).ToList();
                 nonLocalPlayers.Sort(CompareByRankingAndName);
             }
             else

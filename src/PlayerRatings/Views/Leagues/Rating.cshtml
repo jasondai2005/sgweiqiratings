@@ -130,7 +130,7 @@
             @foreach (var item in Model.NonLocalUsers)
             {
             <tr style="background-color: #fafafa;">
-                <td style="color: #888;">fn</td>
+                <td style="color: #888;">intl</td>
                 <td>
                     <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = item.Id, swaOnly = Model.SwaOnly, promotionBonus = Model.PromotionBonus })">@item.DisplayName</a>
                 </td>

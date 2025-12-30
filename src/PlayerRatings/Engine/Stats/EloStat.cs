@@ -230,7 +230,7 @@ namespace PlayerRatings.Engine.Stats
             if (a == null || b == null)
                 return a == b;
             return string.Equals(a.Ranking, b.Ranking, StringComparison.OrdinalIgnoreCase) &&
-                   string.Equals(a.Organization ?? "SWA", b.Organization ?? "SWA", StringComparison.OrdinalIgnoreCase);
+                   string.Equals(a.Organization, b.Organization, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>

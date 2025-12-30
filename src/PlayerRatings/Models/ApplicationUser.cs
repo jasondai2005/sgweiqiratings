@@ -314,7 +314,7 @@ namespace PlayerRatings.Models
 
             // Get latest SWA ranking before date
             var latestSwa = Rankings
-                .Where(r => (r.Organization == "SWA" || string.IsNullOrEmpty(r.Organization)) && !string.IsNullOrEmpty(r.Ranking))
+                .Where(r => r.Organization == "SWA" && !string.IsNullOrEmpty(r.Ranking))
                 .Where(r => r.RankingDate == null || r.RankingDate < date)
                 .OrderByDescending(r => r.RankingDate ?? DateTimeOffset.MinValue)
                 .ThenByDescending(r => GetRatingByRanking(r))
@@ -322,7 +322,7 @@ namespace PlayerRatings.Models
 
             // Get highest ranking from any other organization before date
             var highestOther = Rankings
-                .Where(r => r.Organization != "SWA" && !string.IsNullOrEmpty(r.Organization) && !string.IsNullOrEmpty(r.Ranking))
+                .Where(r => r.Organization != "SWA" && !string.IsNullOrEmpty(r.Ranking))
                 .Where(r => r.RankingDate == null || r.RankingDate < date)
                 .OrderByDescending(r => GetRatingByRanking(r))
                 .ThenByDescending(r => r.RankingDate ?? DateTimeOffset.MinValue)
@@ -539,10 +539,10 @@ namespace PlayerRatings.Models
             if (playerRanking == null || string.IsNullOrEmpty(playerRanking.Ranking))
                 return string.Empty;
 
-            string org = playerRanking.Organization ?? "SWA";
+            string org = playerRanking.Organization;
             string ranking = playerRanking.Ranking;
 
-            if (org == "SWA" || string.IsNullOrEmpty(org) || ranking.Contains("P"))
+            if (org == "SWA" || ranking.Contains("P"))
                 return ranking;
             if (org == "TGA")
                 return $"({ranking})";
@@ -583,7 +583,7 @@ namespace PlayerRatings.Models
                 return GetKyuRating(11); // Default to 11 kyu = 1000
 
             string rankingGrade = playerRanking.Ranking.ToUpper();
-            string organization = playerRanking.Organization ?? "SWA";
+            string organization = playerRanking.Organization;
 
             return CalculateRating(rankingGrade, organization, intl);
         }

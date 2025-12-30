@@ -125,15 +125,12 @@ namespace PlayerRatings.Services
             var gradeMatch = Regex.Match(rankingString, @"(\d+[DKP])", RegexOptions.IgnoreCase);
             string ranking = gradeMatch.Success ? gradeMatch.Groups[1].Value.ToUpper() : rankingString.ToUpper();
 
-            // Default to SWA if organization not specified
-            string org = string.IsNullOrEmpty(organization) || organization == "Other" ? "SWA" : organization;
-
             return new PlayerRanking
             {
                 RankingId = Guid.NewGuid(),
                 PlayerId = userId,
                 Ranking = ranking,
-                Organization = org == "Other" ? null : org,
+                Organization = organization == "Other" ? null : organization,
                 RankingDate = rankingDate,
                 RankingNote = "Initial ranking"
             };
