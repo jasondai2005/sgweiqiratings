@@ -32,7 +32,11 @@
                     <div class="@(string.IsNullOrEmpty(Model.Player.Photo) ? "col-xs-12" : "col-xs-9 col-sm-10")" id="playerInfoContainer">
                         <p style="margin-bottom: 5px; @(Model.Player.BirthYearValue == null ? "display:none;" : "")" id="birthYearRow"><strong>@LocString[nameof(LocalizationKey.BirthYear)]:</strong> <span id="displayBirthYear">@Model.Player.BirthYear</span></p>
                         <p style="margin-bottom: 5px;"><strong>@LocString[nameof(LocalizationKey.Residence)]:</strong> <span id="displayResidence">@(Model.Player.Residence ?? "Singapore")</span></p>
-                        <p style="margin-bottom: 0;"><strong>@LocString[nameof(LocalizationKey.CurrentRanking)]:</strong> @Model.Player.LatestRanking</p>
+                        <p style="margin-bottom: 5px;"><strong>@LocString[nameof(LocalizationKey.CurrentRanking)]:</strong> @Model.Player.LatestRanking</p>
+                        @if (Model.Position > 0)
+                        {
+                        <p style="margin-bottom: 0;"><strong>@LocString[nameof(LocalizationKey.Position)]:</strong> @Model.PositionDisplay <span style="color: #666; font-size: 0.9em;">/ @Model.TotalPlayers</span></p>
+                        }
                     </div>
                 </div>
                 

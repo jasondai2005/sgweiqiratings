@@ -307,6 +307,7 @@ namespace PlayerRatings.Localization
         
         // Player page strings
         public static readonly LocalizationKey PlayerInformation = new LocalizationKey("Player Information", "Информация", "选手信息");
+        public static readonly LocalizationKey Position = new LocalizationKey("Position", "Позиция", "排名");
         public static readonly LocalizationKey Residence = new LocalizationKey("Residence", "Residence", "居住地");
         public static readonly LocalizationKey CurrentRanking = new LocalizationKey("Current Ranking", "Current Ranking", "当前段位");
         public static readonly LocalizationKey SaveChanges = new LocalizationKey("Save Changes", "Сохранить", "保存修改");

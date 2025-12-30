@@ -13,6 +13,21 @@ namespace PlayerRatings.ViewModels.Player
         public bool SwaOnly { get; set; }
         public bool IsIntlLeague { get; set; }
         public bool PromotionBonus { get; set; }
+        
+        /// <summary>
+        /// Player's current position in the league ranking (1-based). 0 means not ranked (hidden/new player).
+        /// </summary>
+        public int Position { get; set; }
+        
+        /// <summary>
+        /// Total number of ranked players in the league.
+        /// </summary>
+        public int TotalPlayers { get; set; }
+        
+        /// <summary>
+        /// Position display string (e.g., "№3" or "-" if not ranked).
+        /// </summary>
+        public string PositionDisplay => Position > 0 ? $"№{Position}" : "-";
     }
 
     public class MonthlyRating

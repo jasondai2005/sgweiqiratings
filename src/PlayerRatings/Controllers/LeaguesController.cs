@@ -739,6 +739,78 @@ namespace PlayerRatings.Controllers
                 currentMonth = currentMonth.AddMonths(1);
             }
 
+            // Calculate player's current position using the same logic as Rating page
+            int position = 0;
+            int totalPlayers = 0;
+            
+            // Run one more calculation at current date to get all players' final ratings
+            League.CutoffDate = DateTimeOffset.Now;
+            var finalEloStat = new EloStat();
+            var positionActiveUsers = new HashSet<ApplicationUser>();
+            var allMatches = FilterMatches(league.Matches, League.CutoffDate, swaOnly, includeDate: false, isIntlLeague: isIntlLeague).ToList();
+            
+            foreach (var match in allMatches)
+            {
+                // AddUser handles FirstMatch, LastMatch, MatchCount, etc.
+                AddUser(positionActiveUsers, match, match.FirstPlayer);
+                AddUser(positionActiveUsers, match, match.SecondPlayer);
+                finalEloStat.AddMatch(match);
+            }
+            
+            // Check promotions for all active users (same as Rating page)
+            foreach (var user in positionActiveUsers)
+            {
+                finalEloStat.CheckPlayerPromotion(user, League.CutoffDate, isIntlLeague);
+            }
+            finalEloStat.FinalizeProcessing();
+            
+            // Filter to get ranked players (same as Rating page)
+            // Exclude: virtual players, inactive players, pro players, hidden players (for non-intl), non-local (for SG league)
+            bool isSgLeague = league.Name?.Contains("Singapore Weiqi") ?? false;
+            var rankedUsers = positionActiveUsers
+                .Where(x => !x.IsVirtualPlayer)
+                .Where(x => x.Active)
+                .Where(x => !x.IsProPlayer)
+                .Where(x => isIntlLeague || !x.IsHiddenPlayer)
+                .Where(x => !isSgLeague || x.IsLocalPlayer)
+                .ToList();
+            
+            // Sort by rating (descending) - virtual/inactive/pro already filtered out
+            rankedUsers.Sort((x, y) =>
+            {
+                double ratingX = finalEloStat[x];
+                double ratingY = finalEloStat[y];
+                int result = ratingY.CompareTo(ratingX); // Descending
+                if (result == 0)
+                {
+                    // Same rating - compare by ranking then name (same as Rating page)
+                    var ranking1 = x.GetRankingBeforeDate(League.CutoffDate);
+                    var ranking2 = y.GetRankingBeforeDate(League.CutoffDate);
+                    if (ranking1 != ranking2)
+                        return string.Compare(ranking1, ranking2, StringComparison.OrdinalIgnoreCase);
+                    return string.Compare(x.DisplayName, y.DisplayName, StringComparison.OrdinalIgnoreCase);
+                }
+                return result;
+            });
+            
+            totalPlayers = rankedUsers.Count;
+            position = rankedUsers.FindIndex(u => u.Id == playerId) + 1; // 1-based, 0 if not found
+            
+            // Reset player data for consistency
+            foreach (var match in allMatches)
+            {
+                match.FirstPlayer.MatchCount = 0;
+                match.FirstPlayer.FirstMatch = DateTimeOffset.MinValue;
+                match.FirstPlayer.LastMatch = DateTimeOffset.MinValue;
+                match.FirstPlayer.PreviousMatchDate = DateTimeOffset.MinValue;
+                match.FirstPlayer.MatchesSinceReturn = 0;
+                match.SecondPlayer.MatchCount = 0;
+                match.SecondPlayer.FirstMatch = DateTimeOffset.MinValue;
+                match.SecondPlayer.LastMatch = DateTimeOffset.MinValue;
+                match.SecondPlayer.PreviousMatchDate = DateTimeOffset.MinValue;
+                match.SecondPlayer.MatchesSinceReturn = 0;
+            }
+
             // Build game records from player matches
             var gameRecords = new List<GameRecord>();
             
@@ -781,7 +853,9 @@ namespace PlayerRatings.Controllers
                 GameRecords = gameRecords,
                 SwaOnly = swaOnly,
                 IsIntlLeague = isIntlLeague,
-                PromotionBonus = promotionBonus
+                PromotionBonus = promotionBonus,
+                Position = position,
+                TotalPlayers = totalPlayers
             });
         }
 
