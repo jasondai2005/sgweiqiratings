@@ -93,7 +93,13 @@ namespace PlayerRatings.Controllers
 
             try
             {
-                await _invitesService.Invite(invite.Email, invite.DisplayName, invite.Ranking, currentUser, league, Url);
+                DateTimeOffset? rankingDate = invite.RankingDate.HasValue 
+                    ? new DateTimeOffset(invite.RankingDate.Value, TimeSpan.Zero) 
+                    : null;
+                await _invitesService.Invite(invite.Email, invite.DisplayName, invite.Ranking, 
+                    invite.RankingOrganization, rankingDate,
+                    invite.Residence, invite.BirthYearValue, invite.PhotoUrl,
+                    currentUser, league, Url);
             }
             catch (Exception ex)
             {

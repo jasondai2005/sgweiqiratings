@@ -1,4 +1,7 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using System.IO;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -18,13 +21,15 @@ namespace PlayerRatings.Controllers
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly ILeaguesRepository _leaguesRepository;
+        private readonly IWebHostEnvironment _env;
 
         public LeaguesController(ApplicationDbContext context, UserManager<ApplicationUser> userManager,
-            ILeaguesRepository leaguesRepository)
+            ILeaguesRepository leaguesRepository, IWebHostEnvironment env)
         {
             _context = context;
             _userManager = userManager;
             _leaguesRepository = leaguesRepository;
+            _env = env;
         }
 
         // Match type constants
@@ -812,6 +817,78 @@ namespace PlayerRatings.Controllers
             return RedirectToAction(nameof(Player), new { id = model.LeagueId, playerId = model.PlayerId });
         }
 
+        // POST: Leagues/UploadPlayerPhoto
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UploadPlayerPhoto(string playerId, Guid leagueId, IFormFile photoFile)
+        {
+            bool isAjax = Request.Headers["X-Requested-With"] == "XMLHttpRequest";
+            
+            if (photoFile == null || photoFile.Length == 0)
+            {
+                if (isAjax) return Json(new { success = false, message = "No file selected" });
+                return RedirectToAction(nameof(Player), new { id = leagueId, playerId = playerId });
+            }
+
+            // Validate file type
+            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+            var extension = Path.GetExtension(photoFile.FileName).ToLowerInvariant();
+            if (!allowedExtensions.Contains(extension))
+            {
+                if (isAjax) return Json(new { success = false, message = "Invalid file type. Supported: JPG, PNG, GIF, WebP" });
+                return RedirectToAction(nameof(Player), new { id = leagueId, playerId = playerId });
+            }
+
+            // Validate file size (max 5MB)
+            if (photoFile.Length > 5 * 1024 * 1024)
+            {
+                if (isAjax) return Json(new { success = false, message = "File too large. Maximum size: 5MB" });
+                return RedirectToAction(nameof(Player), new { id = leagueId, playerId = playerId });
+            }
+
+            var player = await _userManager.FindByIdAsync(playerId);
+            if (player == null)
+            {
+                if (isAjax) return Json(new { success = false, message = "Player not found" });
+                return NotFound();
+            }
+
+            // Generate unique filename using player ID
+            var fileName = $"{playerId}{extension}";
+            var picFolder = Path.Combine(_env.WebRootPath, "pic");
+            
+            // Ensure the pic folder exists
+            if (!Directory.Exists(picFolder))
+            {
+                Directory.CreateDirectory(picFolder);
+            }
+
+            var filePath = Path.Combine(picFolder, fileName);
+
+            // Delete existing photo if exists (different extension)
+            foreach (var ext in allowedExtensions)
+            {
+                var existingFile = Path.Combine(picFolder, $"{playerId}{ext}");
+                if (System.IO.File.Exists(existingFile) && existingFile != filePath)
+                {
+                    System.IO.File.Delete(existingFile);
+                }
+            }
+
+            // Save the file
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await photoFile.CopyToAsync(stream);
+            }
+
+            // Update player's photo URL
+            player.Photo = $"/pic/{fileName}";
+            await _userManager.UpdateAsync(player);
+
+            if (isAjax) return Json(new { success = true, message = "Photo uploaded", photoUrl = player.Photo });
+            return RedirectToAction(nameof(Player), new { id = leagueId, playerId = playerId });
+        }
+
         // POST: Leagues/AddRanking
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -837,7 +914,7 @@ namespace PlayerRatings.Controllers
                 RankingId = Guid.NewGuid(),
                 PlayerId = model.PlayerId,
                 Ranking = model.Ranking.ToUpper(),
-                Organization = model.Organization,
+                Organization = model.Organization == "Other" ? null : model.Organization,
                 RankingDate = model.RankingDate.HasValue 
                     ? new DateTimeOffset(model.RankingDate.Value, TimeSpan.Zero) 
                     : null,
@@ -883,7 +960,7 @@ namespace PlayerRatings.Controllers
             }
 
             ranking.Ranking = model.Ranking.ToUpper();
-            ranking.Organization = model.Organization;
+            ranking.Organization = model.Organization == "Other" ? null : model.Organization;
             ranking.RankingDate = model.RankingDate.HasValue 
                 ? new DateTimeOffset(model.RankingDate.Value, TimeSpan.Zero) 
                 : null;

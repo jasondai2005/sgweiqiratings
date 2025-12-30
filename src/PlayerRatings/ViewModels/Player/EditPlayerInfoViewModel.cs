@@ -27,7 +27,6 @@ namespace PlayerRatings.ViewModels.Player
         
         [Display(Name = "Photo URL")]
         [MaxLength(500)]
-        [Url(ErrorMessage = "Please enter a valid URL")]
         public string Photo { get; set; }
     }
 
@@ -43,7 +42,7 @@ namespace PlayerRatings.ViewModels.Player
         [Required(ErrorMessage = "Ranking is required")]
         [Display(Name = "Ranking")]
         [MaxLength(10)]
-        [RegularExpression(@"^\d{1,2}[DKP]$", ErrorMessage = "Invalid ranking format. Use formats like 1D, 2K, 9P")]
+        [RegularExpression(@"^\d{1,2}[DKP]\??$", ErrorMessage = "Invalid ranking format. Use formats like 1D, 2K, 9P, or 1D? for uncertain")]
         public string Ranking { get; set; }
         
         [Required(ErrorMessage = "Organization is required")]
@@ -66,9 +65,13 @@ namespace PlayerRatings.ViewModels.Player
         {
             "SWA",
             "TGA",
+            "MWA",
             "CWA",
+            "C. Taipei",
             "Nihon Kiin",
             "KBA",
+            "Thailand",
+            "Vietnam",
             "AGA",
             "EGF",
             "Other"

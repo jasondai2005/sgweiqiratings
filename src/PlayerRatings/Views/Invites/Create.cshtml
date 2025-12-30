@@ -37,8 +37,49 @@
     <div class="form-group">
         <label asp-for="Ranking" class="col-md-2 control-label">@LocString[nameof(LocalizationKey.Ranking)]</label>
         <div class="col-md-10">
-            <input asp-for="Ranking" class="form-control" />
+            <input asp-for="Ranking" class="form-control" placeholder="e.g. 1D, 2K, 9P" />
             <span asp-validation-for="Ranking" class="text-danger"></span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label asp-for="RankingOrganization" class="col-md-2 control-label">@LocString[nameof(LocalizationKey.Organization)]</label>
+        <div class="col-md-10">
+            <select asp-for="RankingOrganization" class="form-control">
+                <option value="">-- Select Organization --</option>
+                @foreach (var org in InviteViewModel.CommonOrganizations)
+                {
+                    <option value="@org">@org</option>
+                }
+            </select>
+            <span asp-validation-for="RankingOrganization" class="text-danger"></span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label asp-for="RankingDate" class="col-md-2 control-label">@LocString[nameof(LocalizationKey.RankedDate)]</label>
+        <div class="col-md-10">
+            <input asp-for="RankingDate" type="date" class="form-control" />
+            <span asp-validation-for="RankingDate" class="text-danger"></span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label asp-for="Residence" class="col-md-2 control-label">@LocString[nameof(LocalizationKey.Residence)]</label>
+        <div class="col-md-10">
+            <input asp-for="Residence" class="form-control" placeholder="e.g. Singapore, Malaysia, Foreign" />
+            <span asp-validation-for="Residence" class="text-danger"></span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label asp-for="BirthYearValue" class="col-md-2 control-label">@LocString[nameof(LocalizationKey.BirthYear)]</label>
+        <div class="col-md-10">
+            <input asp-for="BirthYearValue" type="number" class="form-control" placeholder="e.g. 1990" min="1900" max="2100" />
+            <span asp-validation-for="BirthYearValue" class="text-danger"></span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label asp-for="PhotoUrl" class="col-md-2 control-label">@LocString[nameof(LocalizationKey.PhotoUrl)]</label>
+        <div class="col-md-10">
+            <input asp-for="PhotoUrl" type="url" class="form-control" placeholder="https://example.com/photo.jpg" />
+            <span asp-validation-for="PhotoUrl" class="text-danger"></span>
         </div>
     </div>
     <div class="form-group">

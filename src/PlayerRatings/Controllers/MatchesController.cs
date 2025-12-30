@@ -441,7 +441,9 @@ namespace PlayerRatings.Controllers
 
             foreach (var email in emails)
             {
-                result[email] = await _invitesService.Invite(email, email, string.Empty, currentUser, league, Url);
+                result[email] = await _invitesService.Invite(email, email, string.Empty, 
+                    null, null, null, null, null,
+                    currentUser, league, Url);
             }
 
             return result;

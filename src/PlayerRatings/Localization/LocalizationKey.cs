@@ -329,6 +329,9 @@ namespace PlayerRatings.Localization
         public static readonly LocalizationKey BackToRating = new LocalizationKey("Back to Rating", "Back to Rating", "返回等级分");
         public static readonly LocalizationKey RatingHistoryChart = new LocalizationKey("Rating History Chart", "Rating History Chart", "等级分历史图表");
         public static readonly LocalizationKey PhotoUrl = new LocalizationKey("Photo URL", "Photo URL", "照片链接");
+        public static readonly LocalizationKey UploadPhoto = new LocalizationKey("Upload Photo", "Upload Photo", "上传照片");
+        public static readonly LocalizationKey SupportedFormats = new LocalizationKey("Supported Formats", "Supported Formats", "支持的格式");
+        public static readonly LocalizationKey Upload = new LocalizationKey("Upload", "Upload", "上传");
         public static readonly LocalizationKey ShowNonLocalPlayers = new LocalizationKey("Show Non-Local Players", "Show Non-Local Players", "显示非本地选手");
         public static readonly LocalizationKey NonLocalPlayers = new LocalizationKey("Non-Local Players", "Non-Local Players", "非本地选手");
 

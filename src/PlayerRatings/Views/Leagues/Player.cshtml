@@ -26,7 +26,7 @@
                     @if (!string.IsNullOrEmpty(Model.Player.Photo))
                     {
                     <div class="col-xs-3 col-sm-2" id="playerPhotoContainer">
-                        <img id="playerPhoto" src="@Model.Player.Photo" alt="@Model.Player.DisplayName" style="max-width: 120px; max-height: 120px; border-radius: 8px;" />
+                        <img id="playerPhoto" src="@(Model.Player.Photo)@(Model.Player.Photo.Contains("?") ? "&" : "?")v=@DateTime.UtcNow.Ticks" alt="@Model.Player.DisplayName" style="max-width: 120px; max-height: 120px; border-radius: 8px;" />
                     </div>
                     }
                     <div class="@(string.IsNullOrEmpty(Model.Player.Photo) ? "col-xs-12" : "col-xs-9 col-sm-10")" id="playerInfoContainer">
@@ -59,12 +59,29 @@
                         <div class="row">
                             <div class="col-md-6 form-group">
                                 <label>@LocString[nameof(LocalizationKey.PhotoUrl)]</label>
-                                <input type="url" class="form-control" name="Photo" value="@Model.Player.Photo" placeholder="https://..." />
+                                <input type="text" class="form-control" name="Photo" value="@Model.Player.Photo" placeholder="https://... or /pic/..." />
                             </div>
                         </div>
                         <div style="margin-top: 15px;">
                             <button type="submit" class="btn btn-primary btn-sm">@LocString[nameof(LocalizationKey.SaveChanges)]</button>
                             <button type="button" class="btn btn-default btn-sm" data-toggle="collapse" data-target="#editPlayerInfo">@LocString[nameof(LocalizationKey.Cancel)]</button>
+                        </div>
+                    </form>
+                    
+                    <!-- Photo Upload Form -->
+                    <hr />
+                    <form asp-action="UploadPlayerPhoto" method="post" enctype="multipart/form-data" id="photoUploadForm">
+                        <input type="hidden" name="PlayerId" value="@Model.Player.Id" />
+                        <input type="hidden" name="LeagueId" value="@Model.LeagueId" />
+                        <div class="row">
+                            <div class="col-md-6 form-group">
+                                <label>@LocString[nameof(LocalizationKey.UploadPhoto)]</label>
+                                <input type="file" class="form-control" name="photoFile" accept="image/*" required />
+                                <p class="help-block" style="font-size: 0.85em; color: #666;">@LocString[nameof(LocalizationKey.SupportedFormats)]: JPG, PNG, GIF, WebP</p>
+                            </div>
+                            <div class="col-md-6 form-group" style="padding-top: 25px;">
+                                <button type="submit" class="btn btn-primary btn-sm">@LocString[nameof(LocalizationKey.Upload)]</button>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -94,7 +111,7 @@
                             <div class="row">
                                 <div class="col-md-2 form-group">
                                     <label>@LocString[nameof(LocalizationKey.Ranking)]</label>
-                                    <input type="text" class="form-control" name="Ranking" placeholder="e.g., 1D" required pattern="^\d{1,2}[DKP]$" />
+                                    <input type="text" class="form-control" name="Ranking" placeholder="e.g., 1D, 2K?" required pattern="^\d{1,2}[DKP]\??$" />
                                 </div>
                                 <div class="col-md-3 form-group">
                                     <label>@LocString[nameof(LocalizationKey.Organization)]</label>
@@ -165,13 +182,15 @@
                                                 <input type="hidden" name="LeagueId" value="@Model.LeagueId" />
                                                 <div class="row">
                                                     <div class="col-md-2">
-                                                        <input type="text" class="form-control input-sm" name="Ranking" value="@ranking.Ranking" required pattern="^\d{1,2}[DKP]$" />
+                                                        <input type="text" class="form-control input-sm" name="Ranking" value="@ranking.Ranking" required pattern="^\d{1,2}[DKP]\??$" />
                                                     </div>
                                                     <div class="col-md-2">
                                                         <select class="form-control input-sm" name="Organization" required>
                                                             @foreach (var org in EditRankingViewModel.CommonOrganizations)
                                                             {
-                                                                if (ranking.Organization == org)
+                                                                var isSelected = ranking.Organization == org || 
+                                                                    (string.IsNullOrEmpty(ranking.Organization) && org == "Other");
+                                                                if (isSelected)
                                                                 {
                                                                     <option value="@org" selected>@org</option>
                                                                 }
@@ -208,16 +227,7 @@
 
 @{
     // Build ranking labels for each month - show ranking when it changes
-    // Include rankings with known dates
-    var rankingHistoryWithDates = Model.Player.RankingHistory
-        .Where(x => x.Key != "BY" && !string.IsNullOrEmpty(x.Key) && x.Value != DateTimeOffset.MinValue)
-        .OrderBy(x => x.Value)
-        .ToList();
-    
-    // Also get rankings without known dates (to show as "before first match")
-    var rankingHistoryWithoutDates = Model.Player.RankingHistory
-        .Where(x => x.Key != "BY" && !string.IsNullOrEmpty(x.Key) && x.Value == DateTimeOffset.MinValue)
-        .ToList();
+    // Use playerRankings from Rankings table directly
     
     // Get the first match date to identify early rankings
     var firstMatchDate = Model.MonthlyRatings.Any() 
@@ -225,37 +235,55 @@
         : DateTime.MaxValue;
     
     // Map each month to list of rankings with full date and sort date (multiple promotions per month supported)
-    var monthRankingLabels = new Dictionary<string, List<(string ranking, string date, DateTimeOffset sortDate)>>();
+    var monthRankingLabels = new Dictionary<string, List<(string ranking, string date, DateTimeOffset sortDate, string org)>>();
     
     // Rankings before first match (to show at bottom of table)
-    var earlyRankings = new List<(string ranking, string date, DateTimeOffset sortDate)>();
+    var earlyRankings = new List<(string ranking, string date, DateTimeOffset sortDate, string org)>();
     
-    // Add rankings without known dates first (they go to early rankings)
-    foreach (var entry in rankingHistoryWithoutDates)
+    // Process all rankings from the Rankings table
+    foreach (var ranking in playerRankings)
     {
-        earlyRankings.Add((entry.Key.ToUpper(), "", DateTimeOffset.MinValue));
-    }
-    
-    foreach (var entry in rankingHistoryWithDates)
-    {
-        // The ranking appears on the chart in the same month it was achieved
-        // (since ratings are now shown at the end of each month)
-        var effectiveMonth = new DateTime(entry.Value.Year, entry.Value.Month, 1);
-        var monthKey = effectiveMonth.ToString("MMM yyyy");
-        var fullDate = entry.Value.ToString("dd/MM/yyyy");
-        
-        // Check if this ranking is before the first match month
-        if (effectiveMonth < firstMatchDate)
+        if (string.IsNullOrEmpty(ranking.Ranking))
+            continue;
+            
+        // Format ranking with organization indicator
+        string displayRanking = ranking.Ranking.ToUpper();
+        if (ranking.Organization == "TGA")
+            displayRanking = $"({displayRanking})";
+        else if (ranking.Organization != "SWA")
         {
-            earlyRankings.Add((entry.Key.ToUpper(), fullDate, entry.Value));
+            if (!string.IsNullOrEmpty(ranking.Organization))
+                displayRanking = $"{ranking.Organization} {displayRanking}";
+            else
+                displayRanking = $"[{displayRanking}]";
+        }
+        
+        var rankingDate = ranking.RankingDate ?? DateTimeOffset.MinValue;
+        var fullDate = rankingDate != DateTimeOffset.MinValue ? rankingDate.ToString("dd/MM/yyyy") : "";
+        
+        if (rankingDate == DateTimeOffset.MinValue)
+        {
+            // Rankings without known dates go to early rankings
+            earlyRankings.Add((displayRanking, "", DateTimeOffset.MinValue, ranking.Organization ?? ""));
         }
         else
         {
-            if (!monthRankingLabels.ContainsKey(monthKey))
+            var effectiveMonth = new DateTime(rankingDate.Year, rankingDate.Month, 1);
+            var monthKey = effectiveMonth.ToString("MMM yyyy");
+            
+            // Check if this ranking is before the first match month
+            if (effectiveMonth < firstMatchDate)
             {
-                monthRankingLabels[monthKey] = new List<(string ranking, string date, DateTimeOffset sortDate)>();
+                earlyRankings.Add((displayRanking, fullDate, rankingDate, ranking.Organization ?? ""));
             }
-            monthRankingLabels[monthKey].Add((entry.Key.ToUpper(), fullDate, entry.Value));
+            else
+            {
+                if (!monthRankingLabels.ContainsKey(monthKey))
+                {
+                    monthRankingLabels[monthKey] = new List<(string ranking, string date, DateTimeOffset sortDate, string org)>();
+                }
+                monthRankingLabels[monthKey].Add((displayRanking, fullDate, rankingDate, ranking.Organization ?? ""));
+            }
         }
     }
     
@@ -701,6 +729,49 @@
                         }
                     },
                     error: function() { showMessage('Error deleting ranking', false); }
+                });
+            });
+            
+            // Handle photo upload
+            $('#photoUploadForm').on('submit', function(e) {
+                e.preventDefault();
+                var $form = $(this);
+                var $btn = $form.find('button[type="submit"]');
+                var formData = new FormData(this);
+                
+                $btn.prop('disabled', true).text('Uploading...');
+                
+                $.ajax({
+                    url: $form.attr('action'),
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    success: function(response) {
+                        if (response.success) {
+                            showMessage(response.message, true);
+                            // Update photo display
+                            var $photoContainer = $('#playerPhotoContainer');
+                            var $infoContainer = $('#playerInfoContainer');
+                            var photoUrl = response.photoUrl + '?t=' + Date.now();
+                            if ($photoContainer.length === 0) {
+                                // Create container if it doesn't exist - insert before info container
+                                $infoContainer.before('<div class="col-xs-3 col-sm-2" id="playerPhotoContainer"><img id="playerPhoto" src="' + photoUrl + '" style="max-width: 120px; max-height: 120px; border-radius: 8px;" /></div>');
+                                $infoContainer.removeClass('col-xs-12').addClass('col-xs-9 col-sm-10');
+                            } else {
+                                $('#playerPhoto').attr('src', photoUrl);
+                            }
+                            // Update the URL input
+                            $('input[name="Photo"]').val(response.photoUrl);
+                            // Clear the file input
+                            $form.find('input[type="file"]').val('');
+                        } else {
+                            showMessage(response.message || 'Error uploading', false);
+                        }
+                    },
+                    error: function() { showMessage('Error uploading photo', false); },
+                    complete: function() { $btn.prop('disabled', false).text('@LocString[nameof(LocalizationKey.Upload)]'); }
                 });
             });
         });
