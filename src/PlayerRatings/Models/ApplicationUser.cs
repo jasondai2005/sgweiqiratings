@@ -7,13 +7,14 @@ namespace PlayerRatings.Models
     public class ApplicationUser : IdentityUser
     {
         internal const string DATE_FORMAT = "dd/MM/yyyy";
-        // Rating Scale: 1 dan = 2100, difference between grades = 100
-        // Professional: 1p = 7d = 2700, difference between pro grades = 30
+        // Rating Scale: 1 dan = 2100, dan diff = 100, kyu diff = variable (25-50)
+        // Professional: 1P = 2740 (above 7D=2700), difference between pro grades = 40
         // Minimum rating = -900
         private const int ONE_D_RATING = 2100;
-        private const int ONE_P_RATING = 2700; // 1p = 7d
-        private const int GRADE_DIFF = 100;
-        private const int PRO_GRADE_DIFF = 30;
+        private const int ONE_P_RATING = 2740; // 1p > 7d (2700)
+        private const int GRADE_DIFF = 100;      // Dan grade difference
+        private const int PRO_GRADE_DIFF = 40;   // Pro grade difference
+        private const int DEFAULT_RATING = 1700; // Default for players without ranking
         private const int MIN_RATING = -900;
         private Dictionary<string, DateTimeOffset> _rankingHistory = null;
         private Dictionary<string, DateTimeOffset> _swaRankingHistory = null;
@@ -580,7 +581,7 @@ namespace PlayerRatings.Models
         public int GetRatingByRanking(PlayerRanking playerRanking, bool intl = false)
         {
             if (playerRanking == null || string.IsNullOrEmpty(playerRanking.Ranking))
-                return GetKyuRating(11); // Default to 11 kyu = 1000
+                return DEFAULT_RATING; // Default for players without ranking
 
             string rankingGrade = playerRanking.Ranking.ToUpper();
             string organization = playerRanking.Organization;
@@ -594,7 +595,7 @@ namespace PlayerRatings.Models
         public int GetRatingByRanking(string ranking, bool intl = false)
         {
             if (string.IsNullOrEmpty(ranking))
-                return GetKyuRating(11); // Default to 11 kyu = 1000
+                return DEFAULT_RATING; // Default for players without ranking
 
             ranking = GetEffectiveRanking(ranking);
 
@@ -644,25 +645,17 @@ namespace PlayerRatings.Models
                 if (isDan)
                 {
                     // Foreign dan ratings are 100 points lower than SWA (one level down)
-                    // except (1D) which is 2050 (to be higher than 1K=1900)
+                    // except (1D) which is 2075 (between SWA 1K=2050 and 1D=2100)
                     if (rankingNum == 1)
-                        delta = -50;  // (1D) = 2050
+                        delta = -25;  // (1D) = 2075
                     else
                         rankingNum -= 1;  // (2D) = 2100, (3D) = 2200, etc.
-                }
-                else if (isKyu && rankingNum <= 5)
-                {
-                    // Foreign kyu 1K-5K are adjusted down one level
-                    rankingNum += 1;
-                    // Foreign (5K) -> 1550 (between SWA 5K=1600 and 6K=1500)
-                    if (rankingNum == 6)
-                        delta = 50;
                 }
             }
 
             if (isPro)
             {
-                // 1p = 2700, 2p = 2730, ..., 9p = 2940
+                // 1P = 2740, 2P = 2780, ..., 9P = 3060
                 return GetProRating(Math.Min(rankingNum, 9));
             }
             else if (isDan)
@@ -672,12 +665,12 @@ namespace PlayerRatings.Models
             }
             else if (isKyu)
             {
-                // 1k = 2000, 2k = 1900, ..., 20k = 100
+                // 1K=2050, 5K=1950, 10K=1800, 20K=1400, 30K=900 (variable diff)
                 return GetKyuRating(Math.Min(rankingNum, 30)) + delta;
             }
             else
             {
-                return GetKyuRating(11); // Default to 11 kyu = 1000
+                return DEFAULT_RATING; // Default for players without ranking
             }
         }
 
@@ -698,7 +691,7 @@ namespace PlayerRatings.Models
 
         /// <summary>
         /// Gets rating for professional grade.
-        /// 1p = 2700, 2p = 2730, ..., 9p = 2940
+        /// 1P = 2740, 2P = 2780, ..., 9P = 3060
         /// </summary>
         private int GetProRating(int pro)
         {
@@ -707,7 +700,7 @@ namespace PlayerRatings.Models
 
         /// <summary>
         /// Gets rating for dan grade.
-        /// 1d = 2100, 2d = 2200, ..., 6d = 2600, 7d = 2700 (same as 1p)
+        /// 1D = 2100, 2D = 2200, ..., 6D = 2600, 7D = 2700
         /// </summary>
         private int GetDanRating(int dan)
         {
@@ -716,11 +709,32 @@ namespace PlayerRatings.Models
 
         /// <summary>
         /// Gets rating for kyu grade.
-        /// 1k = 2000, 2k = 1900, ..., 20k = 100
+        /// 1K=2050, 5K=1950, 10K=1800, 20K=1400, 30K=900
         /// </summary>
         private int GetKyuRating(int kyu)
         {
-            return Math.Max(ONE_D_RATING - kyu * GRADE_DIFF, MIN_RATING);
+            // Variable kyu differences:
+            // 1K: 50 points below 1D (1K = 2050)
+            // 2K-5K: 25 points per level (5K = 1950)
+            // 6K-10K: 30 points per level (10K = 1800)
+            // 11K-20K: 40 points per level (20K = 1400)
+            // 21K-30K: 50 points per level (30K = 900)
+            
+            int rating = ONE_D_RATING;
+            for (int k = 1; k <= kyu; k++)
+            {
+                if (k == 1)
+                    rating -= 50;  // 1K = 2050
+                else if (k <= 5)
+                    rating -= 25;  // 2K-5K
+                else if (k <= 10)
+                    rating -= 30;  // 6K-10K
+                else if (k <= 20)
+                    rating -= 40;  // 11K-20K
+                else
+                    rating -= 50;  // 21K-30K
+            }
+            return Math.Max(rating, MIN_RATING);
         }
 
         public string GetPosition(ref int postion, string leagueName = "")

@@ -531,7 +531,7 @@ namespace PlayerRatings.Controllers
             {
                 var latestRanking1 = ApplicationUser.GetEffectiveRanking(user1Ranking);
                 var latestRanking2 = ApplicationUser.GetEffectiveRanking(user2Ranking);
-                if (rankingRating1 <= 1500) // will not differenciate kyus certified by SWA or other
+                if (rankingRating1 <= 1800) // will not differentiate kyus (10K and below) certified by SWA or other
                 {
                     latestRanking1 = latestRanking1.Trim('(', ')');
                     latestRanking2 = latestRanking2.Trim('(', ')');
