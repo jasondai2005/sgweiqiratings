@@ -1,5 +1,5 @@
 ﻿using Microsoft.AspNetCore.Identity;
-using System.Text.RegularExpressions;
+using PlayerRatings.Engine.Rating;
 
 namespace PlayerRatings.Models
 {
@@ -7,15 +7,6 @@ namespace PlayerRatings.Models
     public class ApplicationUser : IdentityUser
     {
         internal const string DATE_FORMAT = "dd/MM/yyyy";
-        // Rating Scale: 1 dan = 2100, dan diff = 100, kyu diff = variable (25-50)
-        // Professional: 1P = 2740 (above 7D=2700), difference between pro grades = 40
-        // Minimum rating = -900
-        private const int ONE_D_RATING = 2100;
-        private const int ONE_P_RATING = 2740; // 1p > 7d (2700)
-        private const int GRADE_DIFF = 100;      // Dan grade difference
-        private const int PRO_GRADE_DIFF = 40;   // Pro grade difference
-        private const int DEFAULT_RATING = 1700; // Default for players without ranking
-        private const int MIN_RATING = -900;
         private Dictionary<string, DateTimeOffset> _rankingHistory = null;
         private Dictionary<string, DateTimeOffset> _swaRankingHistory = null;
 
@@ -356,26 +347,42 @@ namespace PlayerRatings.Models
         {
             get
             {
-                var curRanking = RankingBeforeCutoffDate;
-                string prevRanking;
-                if (League.CutoffDate.Year == 2023)
+                if (Rankings == null || !Rankings.Any())
+                    return string.Empty;
+
+                // Determine the promotion window based on cutoff date
+                // Current month of cutoff, or last month if cutoff is the 1st
+                var cutoff = League.CutoffDate;
+                DateTime windowStart;
+                if (cutoff.Day == 1)
                 {
-                    prevRanking = FirstMatch < League.CutoffDate ? InternalInitRanking : string.Empty;
+                    // First day of month - include last month
+                    windowStart = new DateTime(cutoff.Year, cutoff.Month, 1).AddMonths(-1);
                 }
                 else
                 {
-                    var prevMonth = new DateTimeOffset(League.CutoffDate.Year, League.CutoffDate.AddDays(-1).Month, 1, 0, 0, 0, TimeSpan.Zero).AddDays(-1);
-                    if (!RankingHistory.Any())
-                    {
-                        // No ranking history - no promotion to show
-                        return string.Empty;
-                    }
-                    var firstPromotionDate = RankingHistory.Last().Value;
-                    prevRanking = (firstPromotionDate > prevMonth && firstPromotionDate < League.CutoffDate) ? string.Empty : GetRankingBeforeDate(prevMonth);
+                    // Current month only
+                    windowStart = new DateTime(cutoff.Year, cutoff.Month, 1);
                 }
 
-                if (prevRanking != curRanking)
-                    return ((prevRanking.Contains('?') ? string.Empty : prevRanking) + "→" + curRanking).ToUpper();
+                // Find the most recent promotion within the window (before cutoff)
+                var recentPromotion = Rankings
+                    .Where(r => r.RankingDate.HasValue && 
+                           r.RankingDate.Value >= windowStart && 
+                           r.RankingDate.Value <= cutoff)
+                    .OrderByDescending(r => r.RankingDate)
+                    .FirstOrDefault();
+
+                if (recentPromotion == null)
+                    return string.Empty;
+
+                // Get combined rankings before and after the promotion
+                var promotionDate = recentPromotion.RankingDate.Value;
+                string prev = GetCombinedRankingBeforeDate(promotionDate);
+                string curr = GetCombinedRankingBeforeDate(promotionDate.AddDays(1));
+
+                if (!string.IsNullOrEmpty(prev) && prev != curr && !prev.Contains('?'))
+                    return (prev + "→" + curr).ToUpper();
 
                 return string.Empty;
             }
@@ -451,13 +458,21 @@ namespace PlayerRatings.Models
                 {
                     _swaRankingHistory = new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
                     
-                    foreach (var ranking in RankingHistory.Keys)
+                    // Directly query SWA rankings from the Rankings table
+                    if (Rankings != null && Rankings.Any())
                     {
-                        var swaRanking = GetSwaRanking(ranking);
-                        if (!string.IsNullOrEmpty(swaRanking))
+                        var swaRankings = Rankings
+                            .Where(r => r.Organization == "SWA" && !string.IsNullOrEmpty(r.Ranking) && !r.Ranking.Contains("K?"))
+                            .OrderByDescending(r => r.RankingDate ?? DateTimeOffset.MinValue)
+                            .ToList();
+
+                        foreach (var ranking in swaRankings)
                         {
-                            if (!_swaRankingHistory.ContainsKey(swaRanking) || _swaRankingHistory[swaRanking] > _rankingHistory[ranking])
-                                _swaRankingHistory[swaRanking] = _rankingHistory[ranking];
+                            string key = ranking.Ranking.ToUpper();
+                            DateTimeOffset date = ranking.RankingDate ?? DateTimeOffset.MinValue;
+                            
+                            if (!_swaRankingHistory.ContainsKey(key) || _swaRankingHistory[key] > date)
+                                _swaRankingHistory[key] = date;
                         }
                     }
                 }
@@ -561,14 +576,6 @@ namespace PlayerRatings.Models
             }
         }
 
-        private string GetSwaRanking(string ranking)
-        {
-            if (string.IsNullOrEmpty(ranking) || ranking.Contains("K?") || ranking.Contains('P'))
-                return string.Empty;
-
-            return ranking.Contains('[') || ranking.Contains('(') ? ranking.Remove(Math.Max(0, ranking.IndexOfAny(new char[] { '[', '(' }) - 1)) : ranking;
-        }
-
         public int GetRatingBeforeDate(DateTimeOffset date, bool intl = false)
         {
             var ranking = GetRankingBeforeDate(date);
@@ -581,12 +588,9 @@ namespace PlayerRatings.Models
         public int GetRatingByRanking(PlayerRanking playerRanking, bool intl = false)
         {
             if (playerRanking == null || string.IsNullOrEmpty(playerRanking.Ranking))
-                return DEFAULT_RATING; // Default for players without ranking
+                return RatingCalculator.DEFAULT_RATING;
 
-            string rankingGrade = playerRanking.Ranking.ToUpper();
-            string organization = playerRanking.Organization;
-
-            return CalculateRating(rankingGrade, organization, intl);
+            return RatingCalculator.CalculateRating(playerRanking.Ranking, playerRanking.Organization, intl);
         }
 
         /// <summary>
@@ -595,146 +599,15 @@ namespace PlayerRatings.Models
         public int GetRatingByRanking(string ranking, bool intl = false)
         {
             if (string.IsNullOrEmpty(ranking))
-                return DEFAULT_RATING; // Default for players without ranking
+                return RatingCalculator.DEFAULT_RATING;
 
-            ranking = GetEffectiveRanking(ranking);
-
-            // Determine organization from legacy format
-            string organization;
-            string rankingGrade;
-            
-            if (ranking.Contains('['))
-            {
-                // Foreign: [1D CWA] -> extract organization
-                organization = "Foreign"; // Treated as foreign for rating purposes
-                var match = Regex.Match(ranking, @"\[([^\s]+)\s*([^\]]*)\]");
-                rankingGrade = match.Success ? match.Groups[1].Value : ranking.Replace("[", "").Replace("]", "");
-            }
-            else if (ranking.Contains('('))
-            {
-                // TGA: (1D)
-                organization = "TGA";
-                rankingGrade = ranking.Replace("(", "").Replace(")", "");
-            }
-            else
-            {
-                // SWA: 1D
-                organization = "SWA";
-                rankingGrade = ranking;
-            }
-
-            return CalculateRating(rankingGrade, organization, intl);
-        }
-
-        /// <summary>
-        /// Core rating calculation based on ranking grade and organization.
-        /// </summary>
-        private int CalculateRating(string rankingGrade, string organization, bool intl)
-        {
-            rankingGrade = rankingGrade.ToUpper();
-            
-            bool isPro = rankingGrade.Contains('P');
-            bool isDan = rankingGrade.Contains('D');
-            bool isKyu = rankingGrade.Contains('K');
-            bool isSWA = organization == "SWA";
-            int.TryParse(Regex.Match(rankingGrade, @"\d+").Value, out int rankingNum);
-
-            int delta = 0;
-            if (!isSWA && !intl)
-            {
-                if (isDan)
-                {
-                    // Foreign dan ratings are 100 points lower than SWA (one level down)
-                    // except (1D) which is 2075 (between SWA 1K=2050 and 1D=2100)
-                    if (rankingNum == 1)
-                        delta = -25;  // (1D) = 2075
-                    else
-                        rankingNum -= 1;  // (2D) = 2100, (3D) = 2200, etc.
-                }
-            }
-
-            if (isPro)
-            {
-                // 1P = 2740, 2P = 2780, ..., 9P = 3060
-                return GetProRating(Math.Min(rankingNum, 9));
-            }
-            else if (isDan)
-            {
-                // 1d = 2100, 2d = 2200, ..., 6d = 2600, 7d+ = use dan rating
-                return GetDanRating(rankingNum) + delta;
-            }
-            else if (isKyu)
-            {
-                // 1K=2050, 5K=1950, 10K=1800, 20K=1400, 30K=900 (variable diff)
-                return GetKyuRating(Math.Min(rankingNum, 30)) + delta;
-            }
-            else
-            {
-                return DEFAULT_RATING; // Default for players without ranking
-            }
+            var (grade, organization) = RatingCalculator.ParseRankingString(ranking);
+            return RatingCalculator.CalculateRating(grade, organization, intl);
         }
 
         public static string GetEffectiveRanking(string ranking)
         {
-            ranking = ranking.ToUpper();
-            if (ranking.Contains(' '))
-            {
-                bool useSwaRanking = ranking.Contains('[') || ranking.Contains('(');
-                if (useSwaRanking)
-                    ranking = ranking.Substring(0, ranking.IndexOf(' '));
-                else
-                    ranking = ranking.Substring(ranking.IndexOf('('));
-            }
-
-            return ranking;
-        }
-
-        /// <summary>
-        /// Gets rating for professional grade.
-        /// 1P = 2740, 2P = 2780, ..., 9P = 3060
-        /// </summary>
-        private int GetProRating(int pro)
-        {
-            return ONE_P_RATING + (pro - 1) * PRO_GRADE_DIFF;
-        }
-
-        /// <summary>
-        /// Gets rating for dan grade.
-        /// 1D = 2100, 2D = 2200, ..., 6D = 2600, 7D = 2700
-        /// </summary>
-        private int GetDanRating(int dan)
-        {
-            return ONE_D_RATING + (dan - 1) * GRADE_DIFF;
-        }
-
-        /// <summary>
-        /// Gets rating for kyu grade.
-        /// 1K=2050, 5K=1950, 10K=1800, 20K=1400, 30K=900
-        /// </summary>
-        private int GetKyuRating(int kyu)
-        {
-            // Variable kyu differences:
-            // 1K: 50 points below 1D (1K = 2050)
-            // 2K-5K: 25 points per level (5K = 1950)
-            // 6K-10K: 30 points per level (10K = 1800)
-            // 11K-20K: 40 points per level (20K = 1400)
-            // 21K-30K: 50 points per level (30K = 900)
-            
-            int rating = ONE_D_RATING;
-            for (int k = 1; k <= kyu; k++)
-            {
-                if (k == 1)
-                    rating -= 50;  // 1K = 2050
-                else if (k <= 5)
-                    rating -= 25;  // 2K-5K
-                else if (k <= 10)
-                    rating -= 30;  // 6K-10K
-                else if (k <= 20)
-                    rating -= 40;  // 11K-20K
-                else
-                    rating -= 50;  // 21K-30K
-            }
-            return Math.Max(rating, MIN_RATING);
+            return RatingCalculator.GetEffectiveRanking(ranking);
         }
 
         public string GetPosition(ref int postion, string leagueName = "")

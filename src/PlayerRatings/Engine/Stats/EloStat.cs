@@ -211,23 +211,7 @@ namespace PlayerRatings.Engine.Stats
                     {
                         // This is a promotion - queue rating floor for end of day
                         // Rating floor is 50% of a single-rank difference below the new rank
-                        // Determine single-rank difference based on rating level:
-                        // 2D+ (>=2200): 100, 1D (>=2100): 50, 1K-4K (>1950): 25, 
-                        // 5K-9K (>1800): 30, 10K-19K (>1400): 40, 20K+ (<=1400): 50
-                        int singleRankDiff;
-                        if (currentRankingRating >= 2200)
-                            singleRankDiff = 100;
-                        else if (currentRankingRating >= 2100)
-                            singleRankDiff = 50;
-                        else if (currentRankingRating > 1950)
-                            singleRankDiff = 25;
-                        else if (currentRankingRating > 1800)
-                            singleRankDiff = 30;
-                        else if (currentRankingRating > 1400)
-                            singleRankDiff = 40;
-                        else
-                            singleRankDiff = 50;
-                        
+                        int singleRankDiff = Rating.RatingCalculator.GetSingleRankDifference(currentRankingRating);
                         double ratingFloor = currentRankingRating - singleRankDiff * 0.5;
                         // Track if previous ranking was kyu - only kyu players should stop performance tracking
                         bool wasKyuPlayer = previousRanking.Ranking?.Contains('K', StringComparison.OrdinalIgnoreCase) ?? true;
@@ -368,7 +352,7 @@ namespace PlayerRatings.Engine.Stats
         private static double CalculatePerformanceRating(List<(double opponentRating, double score)> games)
         {
             if (games.Count == 0)
-                return 1700; // Default rating for players without ranking
+                return Rating.RatingCalculator.DEFAULT_RATING;
 
             // Find the strongest opponent beaten and weakest opponent lost to
             double strongestWin = double.MinValue;
