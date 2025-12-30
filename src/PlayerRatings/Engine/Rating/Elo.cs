@@ -4,37 +4,28 @@ namespace PlayerRatings.Engine.Rating
 {
     public class Elo
     {
+        private const double Denominator = 400;
+        
         internal readonly double OldRatingPlayerA;
         internal readonly double OldRatingPlayerB;
 
         public static bool SwaRankedPlayersOnly = false;
 
         /// <summary>
-        /// Calculates the β (beta) mapping function for ratings.
-        /// β(r) = -7 * ln(3300 - r)
-        /// </summary>
-        private static double Beta(double rating)
-        {
-            return -7 * Math.Log(3300 - rating);
-        }
-
-        /// <summary>
-        /// Calculates the expected score (Se) using the Bradley-Terry formula.
-        /// Se = 1 / (1 + exp(β(r2) - β(r1)))
-        /// where r1 is the player's rating and r2 is the opponent's rating.
+        /// Calculates the expected score (Se)
         /// </summary>
         private static double ExpectedScore(double playerRating, double opponentRating)
         {
-            return 1 / (1 + Math.Exp(Beta(opponentRating) - Beta(playerRating)));
+            return 1 / (1 + Math.Pow(10, (opponentRating - playerRating) / Denominator));
         }
 
         /// <summary>
         /// Calculates the con factor (volatility) for a player, similar to K in regular Elo.
-        /// con = ((3300 - r) / 200)^1.6
+        /// con = ((3500 - r) / 200)^1.6
         /// </summary>
         public static double GetK(double rating)
         {
-            return Math.Pow((3300 - rating) / 200, 1.6);
+            return Math.Pow((3500 - rating) / 200, 1.6);
         }
 
         /// <summary>

@@ -760,7 +760,7 @@ namespace PlayerRatings.Controllers
                 // Get opponent ranking at time of match
                 // Use just the date (midnight) to exclude same-day promotions
                 // since promotions happen at the end of the day after all matches
-                var opponentRanking = opponent.GetRankingBeforeDate(match.Date.Date);
+                var opponentRanking = opponent.GetCombinedRankingBeforeDate(match.Date.Date);
                 
                 gameRecords.Add(new GameRecord
                 {

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -62,6 +63,24 @@ namespace PlayerRatings.Models
         /// </summary>
         [NotMapped]
         public bool IsForeignRanking => !IsLocalRanking;
+
+        /// <summary>
+        /// Organizations whose rankings are trusted.
+        /// Trusted rankings are eligible for promotion bonus and kyu players can skip performance estimation.
+        /// Includes local (SWA, TGA) and trusted foreign associations.
+        /// </summary>
+        private static readonly HashSet<string> TrustedOrganizations = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "SWA", "TGA", "MWA", "KBA", "Thailand", "Vietnam", "EGF"
+        };
+
+        /// <summary>
+        /// Determines if this ranking is from a trusted organization.
+        /// Trusted rankings: eligible for promotion bonus, kyu players can skip performance estimation.
+        /// Organizations: SWA, TGA, MWA, KBA, Thailand, Vietnam, EGF
+        /// </summary>
+        [NotMapped]
+        public bool IsTrustedOrganization => !string.IsNullOrEmpty(Organization) && TrustedOrganizations.Contains(Organization);
     }
 }
 

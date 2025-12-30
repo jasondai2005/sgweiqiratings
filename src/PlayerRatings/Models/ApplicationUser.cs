@@ -121,7 +121,8 @@ namespace PlayerRatings.Models
             {
                 if (m_initRanking == null)
                 {
-                    m_initRanking = GetRankingBeforeDate(FirstMatch.Date);
+                    // Use combined ranking to show effective ranking (trusted kyu can override SWA kyu)
+                    m_initRanking = GetCombinedRankingBeforeDate(FirstMatch.Date);
                 }
 
                 return m_initRanking;
@@ -134,6 +135,7 @@ namespace PlayerRatings.Models
         /// <summary>
         /// Determines if this is a player with an unknown/foreign ranking at the time of their first match.
         /// Foreign rankings are indicated by IsForeignRanking in the PlayerRanking structure.
+        /// Kyu players from trusted organizations (SWA, TGA, MWA, KBA, Thailand, Vietnam, EGF) can enter directly.
         /// </summary>
         public bool IsUnknownRankedPlayer
         {
@@ -145,12 +147,20 @@ namespace PlayerRatings.Models
                 // Get the ranking at the time of first match (or earliest if no match yet)
                 var initialRanking = GetPlayerRankingBeforeDate(FirstMatch);
                 
-                if (initialRanking != null && initialRanking.IsForeignRanking && !initialRanking.Ranking.Contains("P"))
-                {
-                    return true;
-                }
+                if (initialRanking == null)
+                    return false;
                 
-                return false;
+                // Pro players are never unknown
+                if (initialRanking.Ranking.Contains("P", StringComparison.OrdinalIgnoreCase))
+                    return false;
+                
+                // Kyu players from trusted organizations can enter directly without estimation
+                bool isKyu = initialRanking.Ranking.Contains("K", StringComparison.OrdinalIgnoreCase);
+                if (isKyu && initialRanking.IsTrustedOrganization)
+                    return false;
+                
+                // Foreign dan or untrusted rankings need performance estimation
+                return initialRanking.IsForeignRanking;
             }
         }
         
@@ -296,8 +306,9 @@ namespace PlayerRatings.Models
 
         /// <summary>
         /// Gets combined ranking string before a specific date.
-        /// Shows SWA ranking plus highest other ranking (TGA or foreign) only if it's higher than SWA.
-        /// Examples: "1D (2D)" for SWA 1D + TGA 2D (2D > 1D), "3D" for SWA 3D + TGA 1D (1D < 3D)
+        /// For dan rankings: shows other ranking if >= SWA (equal means higher rank due to foreign dan penalty)
+        /// For kyu rankings: shows other ranking only if > SWA (foreign kyu has same rating as SWA kyu)
+        /// Examples: "1D (2D)" for SWA 1D + TGA 2D, "3K" for SWA 3K + TGA 3K (not shown because equal)
         /// </summary>
         public string GetCombinedRankingBeforeDate(DateTimeOffset date)
         {
@@ -325,13 +336,18 @@ namespace PlayerRatings.Models
             int swaRating = latestSwa != null ? GetRatingByRanking(latestSwa) : 0;
             int otherRating = highestOther != null ? GetRatingByRanking(highestOther) : 0;
 
-            // Only show other ranking if it's higher than or equal to SWA rating (equal rating means higher rank)
-            if (highestOther != null && otherRating >= swaRating)
+            // For dan rankings: show other if >= (equal rating means higher rank due to foreign dan penalty)
+            // For kyu rankings: show only if > (SWA takes priority when equal, foreign kyu has same rating)
+            bool isKyuRanking = result.Contains("K", StringComparison.OrdinalIgnoreCase);
+            bool shouldShowOther = isKyuRanking ? (otherRating > swaRating) : (otherRating >= swaRating);
+            
+            if (highestOther != null && shouldShowOther)
             {
                 string otherFormatted = FormatRankingForDisplay(highestOther);
                 if (!string.IsNullOrEmpty(result))
                 {
-                    if (highestOther.Ranking.Contains("P") || (result.Contains("K") && highestOther.IsLocalRanking))
+                    // Trusted org kyu can replace SWA kyu (same as Pro and local rankings)
+                    if (highestOther.Ranking.Contains("P") || (result.Contains("K") && highestOther.IsTrustedOrganization))
                         result = otherFormatted;
                     else
                         result += " " + otherFormatted;
@@ -549,6 +565,7 @@ namespace PlayerRatings.Models
 
         /// <summary>
         /// Formats a PlayerRanking for display (e.g., "1D" for SWA, "(1D)" for TGA, "[1D]" for foreign)
+        /// When SwaOnly mode is enabled, TGA rankings are shown as "[1D]" like foreign rankings.
         /// </summary>
         public static string FormatRankingForDisplay(PlayerRanking playerRanking)
         {
@@ -560,7 +577,8 @@ namespace PlayerRatings.Models
 
             if (org == "SWA" || ranking.Contains("P"))
                 return ranking;
-            if (org == "TGA")
+            // When SwaOnly is enabled, show TGA as [] like foreign rankings
+            if (org == "TGA" && !Engine.Stats.EloStat.SwaOnly)
                 return $"({ranking})";
             return $"[{ranking}]";
         }
@@ -578,7 +596,8 @@ namespace PlayerRatings.Models
 
         public int GetRatingBeforeDate(DateTimeOffset date, bool intl = false)
         {
-            var ranking = GetRankingBeforeDate(date);
+            // Use combined ranking to get the effective ranking (trusted kyu can override SWA kyu)
+            var ranking = GetCombinedRankingBeforeDate(date);
             return GetRatingByRanking(ranking, intl);
         }
 

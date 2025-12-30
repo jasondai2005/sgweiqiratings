@@ -23,7 +23,8 @@ namespace PlayerRatings.Engine.Stats
         // Static setting to control whether promotion bonus is enabled
         public static bool PromotionBonusEnabled { get; set; } = true;
 
-        // Static setting to control SWA Only mode (skips TGA promotions)
+        // Static setting to control SWA Only mode (shows TGA as foreign rankings)
+        // TGA promotions still trigger promotion bonus even in SWA Only mode
         public static bool SwaOnly { get; set; } = false;
 
         public void AddMatch(Match match)
@@ -159,13 +160,6 @@ namespace PlayerRatings.Engine.Stats
                 return;
             }
 
-            // Skip TGA promotions when SWA Only is enabled
-            if (SwaOnly && currentRanking.Organization == "TGA")
-            {
-                // Don't track TGA rankings when SWA Only is enabled
-                return;
-            }
-
             // Check if ranking changed (promotion detected)
             PlayerRanking previousRanking;
             if (!_lastKnownRanking.TryGetValue(player.Id, out previousRanking))
@@ -190,9 +184,9 @@ namespace PlayerRatings.Engine.Stats
 
             if (previousRanking != null && !IsSameRanking(previousRanking, currentRanking))
             {
-                // Only local promotions (SWA/TGA) can trigger promotion bonus
-                // Foreign rankings are not officially verified by local associations
-                if (!currentRanking.IsLocalRanking)
+                // Only promotions from trusted organizations can trigger promotion bonus
+                // Trusted: SWA, TGA, MWA, KBA, Thailand, Vietnam, EGF
+                if (!currentRanking.IsTrustedOrganization)
                 {
                     _lastKnownRanking[player.Id] = currentRanking;
                     return;

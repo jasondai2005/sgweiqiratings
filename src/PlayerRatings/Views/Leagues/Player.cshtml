@@ -226,36 +226,36 @@
 </div>
 
 @{
+
     // Build ranking labels for each month - show ranking when it changes
     // Use playerRankings from Rankings table directly
-    
+
     // Get the first match date to identify early rankings
     var firstMatchDate = Model.MonthlyRatings.Any() 
         ? Model.MonthlyRatings.Min(r => r.Month) 
         : DateTime.MaxValue;
-    
+
     // Map each month to list of rankings with full date and sort date (multiple promotions per month supported)
     var monthRankingLabels = new Dictionary<string, List<(string ranking, string date, DateTimeOffset sortDate, string org)>>();
-    
+
     // Rankings before first match (to show at bottom of table)
     var earlyRankings = new List<(string ranking, string date, DateTimeOffset sortDate, string org)>();
-    
+
     // Process all rankings from the Rankings table
     foreach (var ranking in playerRankings)
     {
         if (string.IsNullOrEmpty(ranking.Ranking))
             continue;
-            
+
         // Format ranking with organization indicator
+        // When SwaOnly is enabled, TGA rankings are shown as [] like foreign rankings
+        // Trusted foreign orgs (MWA, KBA, Thailand, Vietnam, EGF) are shown as [] too
         string displayRanking = ranking.Ranking.ToUpper();
-        if (ranking.Organization == "TGA")
+        if (ranking.Organization == "TGA" && !Model.SwaOnly)
             displayRanking = $"({displayRanking})";
         else if (ranking.Organization != "SWA")
         {
-            if (!string.IsNullOrEmpty(ranking.Organization))
-                displayRanking = $"{ranking.Organization} {displayRanking}";
-            else
-                displayRanking = $"[{displayRanking}]";
+            displayRanking = $"[{displayRanking}]";
         }
         
         var rankingDate = ranking.RankingDate ?? DateTimeOffset.MinValue;
