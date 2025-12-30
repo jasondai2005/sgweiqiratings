@@ -10,10 +10,6 @@ namespace PlayerRatings.Models
         private Dictionary<string, DateTimeOffset> _rankingHistory = null;
         private Dictionary<string, DateTimeOffset> _swaRankingHistory = null;
 
-        public static List<string> InvisiblePlayers = new List<string>
-        {
-            "mok.jj@sw.org"
-        };
 
         public string DisplayName { get; set; }
 
@@ -187,7 +183,11 @@ namespace PlayerRatings.Models
             }
         }
         
-        public bool IsHiddenPlayer => (InvisiblePlayers.Contains(Email, StringComparer.OrdinalIgnoreCase) || IsNewKyuPlayer || IsNewUnknownRankdedPlayer);
+        /// <summary>
+        /// Players in monitoring period (new kyu or unknown ranked players).
+        /// Note: PlayerStatus.Hidden in LeaguePlayer handles admin-hidden players separately.
+        /// </summary>
+        public bool IsHiddenPlayer => IsNewKyuPlayer || IsNewUnknownRankdedPlayer;
 
         // Number of games to monitor for local dan players and returning players
         private const int LOCAL_PLAYER_GAMES_THRESHOLD = 6;

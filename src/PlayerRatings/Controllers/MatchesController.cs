@@ -87,8 +87,13 @@ namespace PlayerRatings.Controllers
 
         private Dictionary<ApplicationUser, IEnumerable<Guid>> GetUsers(IEnumerable<Guid> leagueIds)
         {
-            return _context.LeaguePlayers.Where(lp => leagueIds.Contains(lp.LeagueId) && !lp.IsBlocked).Include(lp => lp.User).ToList()
-                .GroupBy(lp => lp.User).ToDictionary(g => g.Key, g => g.Select(lp => lp.LeagueId).ToList().AsEnumerable());
+            // Exclude only Blocked players from match entry
+            return _context.LeaguePlayers
+                .Where(lp => leagueIds.Contains(lp.LeagueId) && lp.Status != Models.PlayerStatus.Blocked)
+                .Include(lp => lp.User)
+                .ToList()
+                .GroupBy(lp => lp.User)
+                .ToDictionary(g => g.Key, g => g.Select(lp => lp.LeagueId).ToList().AsEnumerable());
         }
 
         // GET: /<controller>/

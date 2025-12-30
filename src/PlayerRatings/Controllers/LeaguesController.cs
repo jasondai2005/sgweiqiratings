@@ -128,12 +128,17 @@ namespace PlayerRatings.Controllers
             }
             
             players.Sort(CompareByRankingAndName);
+            
+            // Check if current user is admin for this league
+            var isAdmin = _leaguesRepository.GetAdminAuthorizedLeague(currentUser, id) != null;
+            
             return View(new LeagueDetailsViewModel
             {
                 League = league,
                 Players = players,
                 NonLocalPlayers = nonLocalPlayers,
-                SwaRankedPlayersOnly = Elo.SwaRankedPlayersOnly
+                SwaRankedPlayersOnly = Elo.SwaRankedPlayersOnly,
+                IsAdmin = isAdmin
             });
         }
 
@@ -274,6 +279,14 @@ namespace PlayerRatings.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> SetBlocked(Guid playerId, bool block)
         {
+            // Legacy support - redirect to SetPlayerStatus
+            return await SetPlayerStatus(playerId, block ? PlayerStatus.Blocked : PlayerStatus.Normal);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SetPlayerStatus(Guid playerId, PlayerStatus status)
+        {
             var currentUser = await User.GetApplicationUser(_userManager);
 
             var player = _context.LeaguePlayers.SingleOrDefault(lp => lp.Id == playerId);
@@ -289,7 +302,7 @@ namespace PlayerRatings.Controllers
                 return NotFound();
             }
 
-            player.IsBlocked = block;
+            player.Status = status;
 
             _context.SaveChanges();
 
@@ -334,10 +347,14 @@ namespace PlayerRatings.Controllers
                     .ThenInclude(p => p.Rankings)
                     .Single(m => m.Id == id);
 
-            var notBlockedUserIds =
-                new HashSet<string>(
-                    _context.LeaguePlayers.Where(lp => lp.LeagueId == league.Id && !lp.IsBlocked)
-                        .Select(lp => lp.UserId));
+            // Get player statuses for filtering
+            var leaguePlayers = _context.LeaguePlayers.Where(lp => lp.LeagueId == league.Id).ToList();
+            var notBlockedUserIds = new HashSet<string>(
+                leaguePlayers.Where(lp => lp.Status != PlayerStatus.Blocked).Select(lp => lp.UserId));
+            var hiddenUserIds = new HashSet<string>(
+                leaguePlayers.Where(lp => lp.Status == PlayerStatus.Hidden).Select(lp => lp.UserId));
+            var alwaysShownUserIds = new HashSet<string>(
+                leaguePlayers.Where(lp => lp.Status == PlayerStatus.AlwaysShown).Select(lp => lp.UserId));
             var activeUsers = new HashSet<ApplicationUser>();
             elo = new EloStat();
             var stats = new List<IStat>
@@ -401,10 +418,27 @@ namespace PlayerRatings.Controllers
 
             var lastMatches = matches.Where(m=> m.Date > date.AddMonths(-1));
             // Players in monitoring period shouldn't impact existing players' positions
-            var users = activeUsers.Where(x => league.Name.Contains("Intl.") || (!x.IsHiddenPlayer)).ToList();
+            // Also exclude hidden players (Status == Hidden) from display
+            var users = activeUsers
+                .Where(x => league.Name.Contains("Intl.") || (!x.IsHiddenPlayer))
+                .Where(x => !hiddenUserIds.Contains(x.Id))
+                .ToList();
             
             // Separate inactive users (not virtual, not pro)
             var inactiveUsers = users.Where(x => !x.Active && !x.IsVirtualPlayer && !x.IsProPlayer).ToList();
+            
+            // Add AlwaysShown users who may not have played any matches
+            var activeUserIds = new HashSet<string>(activeUsers.Select(u => u.Id));
+            var missingAlwaysShownIds = alwaysShownUserIds.Where(id => !activeUserIds.Contains(id)).ToList();
+            if (missingAlwaysShownIds.Any())
+            {
+                var alwaysShownUsers = await _context.Users
+                    .Include(u => u.Rankings)
+                    .Where(u => missingAlwaysShownIds.Contains(u.Id))
+                    .ToListAsync();
+                inactiveUsers.AddRange(alwaysShownUsers);
+            }
+            
             inactiveUsers.Sort(CompareByRatingAndName);
             users = users.Where(x => x.Active || x.IsVirtualPlayer || x.IsProPlayer).ToList();
             
@@ -420,7 +454,10 @@ namespace PlayerRatings.Controllers
             
             users.Sort(CompareByRatingAndName);
 
-            var promotedPlayers = activeUsers.Where(x => (date.Year > 2023 || x.IsHiddenPlayer) && x.Promotion.Contains('→')).ToList();
+            var promotedPlayers = activeUsers
+                .Where(x => !hiddenUserIds.Contains(x.Id)) // Don't show hidden players in promotions
+                .Where(x => (date.Year > 2023 || x.IsHiddenPlayer) && x.Promotion.Contains('→'))
+                .ToList();
             promotedPlayers.Sort(CompareByRankingRatingAndName);
 
             return View(new RatingViewModel(stats, users, promotedPlayers, lastMatches, forecast, id.Value, byDate, swaOnly, isIntlLeague, promotionBonus, nonLocalUsers, showNonLocal, inactiveUsers));
@@ -495,8 +532,14 @@ namespace PlayerRatings.Controllers
 
         private int CompareRatings(ApplicationUser x, ApplicationUser y, string ranking1, string ranking2)
         {
-            double rating1 = double.Parse(elo.GetResult(x));
-            double rating2 = double.Parse(elo.GetResult(y));
+            var result1 = elo.GetResult(x);
+            var result2 = elo.GetResult(y);
+            
+            // Handle users with no rating (empty string from GetResult) - use their ranking rating instead
+            if (!double.TryParse(result1, out double rating1))
+                rating1 = x.GetRatingByRanking(ranking1);
+            if (!double.TryParse(result2, out double rating2))
+                rating2 = y.GetRatingByRanking(ranking2);
             
             if (rating1 == rating2) // the same rating
             {

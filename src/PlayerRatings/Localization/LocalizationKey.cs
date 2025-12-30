@@ -282,6 +282,7 @@ namespace PlayerRatings.Localization
 
         public static readonly LocalizationKey SelectOne = new LocalizationKey("Please select one", "Выберите игрока", "请选择");
         public static readonly LocalizationKey SetPassword = new LocalizationKey("Set Password", "Установить пароль", "设置密码");
+        public static readonly LocalizationKey Status = new LocalizationKey("Status", "Статус", "状态");
         public static readonly LocalizationKey Submit = new LocalizationKey("Submit", "Отправить", "提交");
         public static readonly LocalizationKey Support = new LocalizationKey("Support", "Поддержка", "支持");
 
