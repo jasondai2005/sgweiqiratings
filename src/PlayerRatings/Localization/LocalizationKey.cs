@@ -335,6 +335,7 @@ namespace PlayerRatings.Localization
         public static readonly LocalizationKey Upload = new LocalizationKey("Upload", "Upload", "上传");
         public static readonly LocalizationKey ShowNonLocalPlayers = new LocalizationKey("Show Non-Local Players", "Show Non-Local Players", "显示非本地选手");
         public static readonly LocalizationKey NonLocalPlayers = new LocalizationKey("Non-Local Players", "Non-Local Players", "非本地选手");
+        public static readonly LocalizationKey InactivePlayers = new LocalizationKey("Inactive Players", "Inactive Players", "不活跃选手");
 
         public static readonly LocalizationKey YouCanInviteNewPlayer =
             new LocalizationKey("You can invite new player to the league", "Вы можете добавить нового игрока в лигу", "您可以邀请新选手加入联赛");

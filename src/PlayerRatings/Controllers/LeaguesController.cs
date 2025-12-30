@@ -403,6 +403,11 @@ namespace PlayerRatings.Controllers
             // Players in monitoring period shouldn't impact existing players' positions
             var users = activeUsers.Where(x => league.Name.Contains("Intl.") || (!x.IsHiddenPlayer)).ToList();
             
+            // Separate inactive users (not virtual, not pro)
+            var inactiveUsers = users.Where(x => !x.Active && !x.IsVirtualPlayer && !x.IsProPlayer).ToList();
+            inactiveUsers.Sort(CompareByRatingAndName);
+            users = users.Where(x => x.Active || x.IsVirtualPlayer || x.IsProPlayer).ToList();
+            
             // For Singapore Weiqi league, separate local and non-local players
             bool isSgLeague = league.Name?.Contains("Singapore Weiqi") ?? false;
             List<ApplicationUser> nonLocalUsers = new List<ApplicationUser>();
@@ -418,7 +423,7 @@ namespace PlayerRatings.Controllers
             var promotedPlayers = activeUsers.Where(x => (date.Year > 2023 || x.IsHiddenPlayer) && x.Promotion.Contains('→')).ToList();
             promotedPlayers.Sort(CompareByRankingRatingAndName);
 
-            return View(new RatingViewModel(stats, users, promotedPlayers, lastMatches, forecast, id.Value, byDate, swaOnly, isIntlLeague, promotionBonus, nonLocalUsers, showNonLocal));
+            return View(new RatingViewModel(stats, users, promotedPlayers, lastMatches, forecast, id.Value, byDate, swaOnly, isIntlLeague, promotionBonus, nonLocalUsers, showNonLocal, inactiveUsers));
         }
 
         private static void AddUser(HashSet<ApplicationUser> activeUsers, Match match, ApplicationUser player)

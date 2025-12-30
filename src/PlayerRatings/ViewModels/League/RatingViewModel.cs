@@ -10,7 +10,8 @@ namespace PlayerRatings.ViewModels.League
         public RatingViewModel(IEnumerable<IStat> stats, IEnumerable<ApplicationUser> users, IEnumerable<ApplicationUser> promotedPlayers,
             IEnumerable<Models.Match> lastMatches, Dictionary<string, Dictionary<string, string>> forecast,
             Guid leagueId, string byDate = null, bool swaOnly = false, bool isIntlLeague = false, bool promotionBonus = true,
-            IEnumerable<ApplicationUser> nonLocalUsers = null, bool showNonLocal = false)
+            IEnumerable<ApplicationUser> nonLocalUsers = null, bool showNonLocal = false,
+            IEnumerable<ApplicationUser> inactiveUsers = null)
         {
             Stats = stats;
             Users = users;
@@ -24,6 +25,7 @@ namespace PlayerRatings.ViewModels.League
             PromotionBonus = promotionBonus;
             NonLocalUsers = nonLocalUsers ?? new List<ApplicationUser>();
             ShowNonLocal = showNonLocal;
+            InactiveUsers = inactiveUsers ?? new List<ApplicationUser>();
         }
 
         public IEnumerable<IStat> Stats { get; private set; }
@@ -33,6 +35,8 @@ namespace PlayerRatings.ViewModels.League
         public IEnumerable<ApplicationUser> PromotedPlayers { get; private set; }
 
         public IEnumerable<ApplicationUser> NonLocalUsers { get; private set; }
+
+        public IEnumerable<ApplicationUser> InactiveUsers { get; private set; }
 
         public Dictionary<string, Dictionary<string, string>> Forecast { get; private set; }
 

@@ -130,7 +130,7 @@
             @foreach (var item in Model.NonLocalUsers)
             {
             <tr style="background-color: #fafafa;">
-                <td style="color: #888;">intl</td>
+                <td style="color: #888;">fn</td>
                 <td>
                     <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = item.Id, swaOnly = Model.SwaOnly, promotionBonus = Model.PromotionBonus })">@item.DisplayName</a>
                 </td>
@@ -139,6 +139,30 @@
                 @foreach (var res in Model.Stats)
                 {
                     <td>@res.GetResult(item)</td>
+                }
+                @if (Model.Stats.Count() > 2)
+                {
+                    <td>@item.InitRanking</td>
+                }
+            </tr>
+            }
+        }
+
+        @if (Model.InactiveUsers.Any())
+        {
+            <tr><td colspan="10" style="background-color: #f5f5f5; font-weight: bold; padding: 8px;">@LocString[nameof(LocalizationKey.InactivePlayers)]</td></tr>
+            @foreach (var item in Model.InactiveUsers)
+            {
+            <tr style="background-color: #fafafa;">
+                <td style="color: #999;">-</td>
+                <td>
+                    <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = item.Id, swaOnly = Model.SwaOnly, promotionBonus = Model.PromotionBonus })">@item.DisplayName</a>
+                </td>
+                <td>@item.BirthYearU18</td>
+                <td>@item.RankingBeforeCutoffDate.ToUpper()</td>
+                @foreach (var res in Model.Stats)
+                {
+                    <td style="color: #999;">@res.GetResult(item)</td>
                 }
                 @if (Model.Stats.Count() > 2)
                 {
