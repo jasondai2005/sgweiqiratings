@@ -505,15 +505,15 @@ namespace PlayerRatings.Controllers
             if (x.Active && !y.Active)
                 return -1;
 
-            var ranking1 = x.GetRankingBeforeDate(League.CutoffDate);
-            var ranking2 = y.GetRankingBeforeDate(League.CutoffDate);
+            var ranking1 = x.GetCombinedRankingBeforeDate(League.CutoffDate);
+            var ranking2 = y.GetCombinedRankingBeforeDate(League.CutoffDate);
             return CompareRatings(x, y, ranking1, ranking2);
         }
 
         private int CompareByRankingRatingAndName(ApplicationUser x, ApplicationUser y)
         {
-            var ranking1 = x.GetRankingBeforeDate(League.CutoffDate);
-            var ranking2 = y.GetRankingBeforeDate(League.CutoffDate);
+            var ranking1 = x.GetCombinedRankingBeforeDate(League.CutoffDate);
+            var ranking2 = y.GetCombinedRankingBeforeDate(League.CutoffDate);
             var rankingRating1 = x.GetRatingByRanking(ranking1);
             var rankingRating2 = y.GetRatingByRanking(ranking2);
 
@@ -832,8 +832,8 @@ namespace PlayerRatings.Controllers
                 if (result == 0)
                 {
                     // Same rating - compare by ranking then name (same as Rating page)
-                    var ranking1 = x.GetRankingBeforeDate(League.CutoffDate);
-                    var ranking2 = y.GetRankingBeforeDate(League.CutoffDate);
+                    var ranking1 = x.GetCombinedRankingBeforeDate(League.CutoffDate);
+                    var ranking2 = y.GetCombinedRankingBeforeDate(League.CutoffDate);
                     if (ranking1 != ranking2)
                         return string.Compare(ranking1, ranking2, StringComparison.OrdinalIgnoreCase);
                     return string.Compare(x.DisplayName, y.DisplayName, StringComparison.OrdinalIgnoreCase);

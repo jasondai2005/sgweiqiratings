@@ -93,10 +93,7 @@ namespace PlayerRatings.Models
         {
             get
             {
-                var rankingChangeDeadline = League.CutoffDate.AddMonths(-6);
-                return IsVirtualPlayer || League.CutoffDate.AddYears(-2) < LastMatch ||
-                    (RankingBeforeCutoffDate?.Contains('K', StringComparison.InvariantCultureIgnoreCase) == true &&
-                    RankingBeforeCutoffDate != GetRankingBeforeDate(rankingChangeDeadline));
+                return IsVirtualPlayer || League.CutoffDate.AddYears(-2) < LastMatch;
             }
         }
 
@@ -139,10 +136,10 @@ namespace PlayerRatings.Models
             {
                 if (IsUnknownPlayer)
                     return true;
-                
+
                 // Get the ranking at the time of first match (or earliest if no match yet)
-                var initialRanking = GetPlayerRankingBeforeDate(FirstMatch);
-                
+                GetCombinedRankingBeforeDate(FirstMatch, out PlayerRanking initialRanking);
+
                 if (initialRanking == null)
                     return false;
                 
@@ -219,7 +216,7 @@ namespace PlayerRatings.Models
                 if (FirstMatch == DateTimeOffset.MinValue || FirstMatch.Year < 2025)
                     return false;
                 
-                var initialRanking = GetPlayerRankingBeforeDate(FirstMatch);
+                GetCombinedRankingBeforeDate(FirstMatch, out PlayerRanking initialRanking);
                 if (initialRanking == null)
                     return false;
 
@@ -312,8 +309,14 @@ namespace PlayerRatings.Models
         /// </summary>
         public string GetCombinedRankingBeforeDate(DateTimeOffset date)
         {
+            return GetCombinedRankingBeforeDate(date, out _);
+        }
+
+        public string GetCombinedRankingBeforeDate(DateTimeOffset date, out PlayerRanking effectiveRanking)
+        {
+            effectiveRanking = null;
             if (Rankings == null || !Rankings.Any())
-                return GetRankingBeforeDate(date);
+                return string.Empty;
 
             // Get latest SWA ranking before date
             var latestSwa = Rankings
@@ -322,6 +325,7 @@ namespace PlayerRatings.Models
                 .OrderByDescending(r => r.RankingDate ?? DateTimeOffset.MinValue)
                 .ThenByDescending(r => GetRatingByRanking(r))
                 .FirstOrDefault();
+            effectiveRanking = latestSwa;
 
             // Get highest ranking from any other organization before date
             var highestOther = Rankings
@@ -348,15 +352,26 @@ namespace PlayerRatings.Models
                 {
                     // Trusted org kyu can replace SWA kyu (same as Pro and local rankings)
                     if (highestOther.Ranking.Contains("P") || (result.Contains("K") && highestOther.IsTrustedOrganization))
+                    {
+                        effectiveRanking = highestOther;
                         result = otherFormatted;
+                    }
                     else
+                    {
+                        if (highestOther.IsTrustedOrganization)
+                            effectiveRanking = highestOther;
+
                         result += " " + otherFormatted;
+                    }
                 }
                 else
+                {
+                    effectiveRanking = highestOther;
                     result = otherFormatted;
+                }
             }
 
-            return string.IsNullOrEmpty(result) ? GetRankingBeforeDate(date) : result;
+            return result;
         }
 
         public string Promotion
@@ -521,46 +536,6 @@ namespace PlayerRatings.Models
             else
                 rankingHistory = rankingHistory.Take(noOfRecords);
             return string.Join(". ", rankingHistory.Select(x => x.Value == DateTimeOffset.MinValue ? x.Key : string.Join(":", x.Key, x.Value.ToString(DATE_FORMAT))));
-        }
-
-        /// <summary>
-        /// Gets the player's PlayerRanking object before a specific date.
-        /// Returns null if no ranking is found.
-        /// Rankings without dates are treated as the earliest (assumed to be initial rankings).
-        /// </summary>
-        public PlayerRanking GetPlayerRankingBeforeDate(DateTimeOffset date)
-        {
-            if (Rankings == null || !Rankings.Any())
-                return null;
-
-            // Get rankings ordered by date descending (latest first)
-            // Rankings without dates are treated as very early (MinValue)
-            var orderedRankings = Rankings
-                .OrderByDescending(r => r.RankingDate ?? DateTimeOffset.MinValue)
-                .ToList();
-            
-            // Find the first ranking that was achieved before the date
-            // Rankings without dates (MinValue) are always considered "before" any real date
-            var ranking = orderedRankings.FirstOrDefault(r => (r.RankingDate ?? DateTimeOffset.MinValue) < date);
-            
-            if (ranking != null)
-                return ranking;
-            
-            // If no ranking before the date, return the earliest known ranking
-            // Rankings without dates are considered the earliest
-            return Rankings
-                .OrderBy(r => r.RankingDate ?? DateTimeOffset.MinValue)
-                .FirstOrDefault();
-        }
-
-        /// <summary>
-        /// Gets the player's ranking string before a specific date (for display purposes).
-        /// Returns the ranking grade with organization indicator.
-        /// </summary>
-        public string GetRankingBeforeDate(DateTimeOffset date)
-        {
-            var playerRanking = GetPlayerRankingBeforeDate(date);
-            return FormatRankingForDisplay(playerRanking);
         }
 
         /// <summary>

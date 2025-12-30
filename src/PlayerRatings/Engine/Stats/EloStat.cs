@@ -148,15 +148,13 @@ namespace PlayerRatings.Engine.Stats
             }
 
             // Get current ranking at match date
-            var currentRanking = player.GetPlayerRankingBeforeDate(matchDate);
+            player.GetCombinedRankingBeforeDate(matchDate, out PlayerRanking currentRanking);
             if (currentRanking == null || string.IsNullOrEmpty(currentRanking.Ranking))
                 return;
 
             // Skip if promotion bonus is disabled
             if (!PromotionBonusEnabled)
             {
-                // Still track the ranking for when it's re-enabled
-                _lastKnownRanking[player.Id] = currentRanking;
                 return;
             }
 
@@ -445,7 +443,7 @@ namespace PlayerRatings.Engine.Stats
                 return rating.ToString("F1");
             
             // Show ranking rating for users with no matches
-            var rankingRating = user.GetRatingByRanking(user.GetRankingBeforeDate(League.CutoffDate));
+            var rankingRating = user.GetRatingByRanking(user.GetCombinedRankingBeforeDate(League.CutoffDate));
             return rankingRating.ToString("F1");
         }
 

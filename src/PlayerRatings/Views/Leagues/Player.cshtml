@@ -388,7 +388,7 @@
                     : Model.Player.LatestRanking;
                 // For players with no matches, show their current ranking rating
                 var preEntryRating = !Model.MonthlyRatings.Any() && Model.Player.Rankings != null && Model.Player.Rankings.Any()
-                    ? Model.Player.GetRatingByRanking(Model.Player.Rankings.OrderByDescending(r => r.RankingDate ?? DateTimeOffset.MinValue).First()).ToString()
+                    ? Model.Player.GetRatingBeforeDate(DateTimeOffset.MaxValue).ToString()
                     : "-";
             }
             <tr style="background-color: #f8f9fa;">
