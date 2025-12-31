@@ -687,159 +687,142 @@ namespace PlayerRatings.Controllers
                 player.FirstMatch = firstMatchDate;
 
             // For new players with foreign/unknown ranking, start from when rating is corrected (after 12 games)
-            // This is because early ratings are unreliable during the estimation period
             bool isNewForeignPlayer = player.IsUnknownRankedPlayer;
             
             DateTimeOffset startDate = firstMatchDate;
             if (isNewForeignPlayer && playerMatches.Count >= 12)
             {
-                // Start from the month after the 12th game (when correction is applied)
                 startDate = playerMatches[11].Date; // 12th game (0-indexed)
             }
             
-            var monthlyRatings = new List<MonthlyRating>();
-
-            // Calculate rating at the end of each month (last day, inclusive)
-            var currentMonth = new DateTime(startDate.Year, startDate.Month, 1);
-            var endMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
-
-            while (currentMonth <= endMonth)
-            {
-                // Calculate rating up to and including the last day of this month
-                var lastDayOfMonth = currentMonth.AddMonths(1).AddDays(-1);
-                League.CutoffDate = new DateTimeOffset(lastDayOfMonth.AddDays(1)); // Next day for inclusive filtering
-                var eloStat = new EloStat();
-
-                // includeDate: false means < CutoffDate, so we set CutoffDate to first day of next month
-                // This effectively includes all matches up to and including the last day of currentMonth
-                var matchesUpToDate = FilterMatches(league.Matches, League.CutoffDate, swaOnly, includeDate: false, isIntlLeague: isIntlLeague).ToList();
-
-                // Check if player has any matches up to the end of this month
-                var playerMatchesUpToDate = matchesUpToDate
-                    .Where(m => m.FirstPlayerId == playerId || m.SecondPlayerId == playerId)
-                    .ToList();
-                bool playerHasMatches = playerMatchesUpToDate.Any();
-                
-                // For new foreign players, only show rating after 12 games (when correction is applied)
-                if (isNewForeignPlayer && playerMatchesUpToDate.Count < 12)
-                {
-                    playerHasMatches = false;
-                }
-                
-                int matchesInMonth = 0;
-                var matchNamesInMonth = new List<string>();
-                foreach (var match in matchesUpToDate)
-                {
-                    // Track player's first match for proper initialization
-                    if (match.FirstPlayer.FirstMatch == DateTimeOffset.MinValue)
-                        match.FirstPlayer.FirstMatch = match.Date;
-                    if (match.SecondPlayer.FirstMatch == DateTimeOffset.MinValue)
-                        match.SecondPlayer.FirstMatch = match.Date;
-
-                    match.FirstPlayer.MatchCount++;
-                    match.SecondPlayer.MatchCount++;
-
-                    eloStat.AddMatch(match);
-
-                    // Collect matches in this month for this player
-                    if ((match.FirstPlayerId == playerId || match.SecondPlayerId == playerId) &&
-                        match.Date.Year == currentMonth.Year && match.Date.Month == currentMonth.Month)
-                    {
-                        matchesInMonth++;
-                        if (!matchNamesInMonth.Contains(match.MatchName))
-                        {
-                            matchNamesInMonth.Add(match.MatchName);
-                        }
-                    }
-                }
-
-                // Check promotion for this player at the end of this month
-                // This ensures promotions are applied even if the player hasn't played recently
-                eloStat.CheckPlayerPromotion(player, new DateTimeOffset(lastDayOfMonth), isIntlLeague);
-
-                // Finalize any pending operations (e.g., promotion rating floors)
-                eloStat.FinalizeProcessing();
-
-                // Only add rating if player has played matches up to this date
-                if (playerHasMatches)
-                {
-                    // Get the player's rating - safe now because player has matches
-                    double rating = eloStat[player];
-
-                    // Reverse to show latest matches first
-                    matchNamesInMonth.Reverse();
-                    
-                    monthlyRatings.Add(new MonthlyRating
-                    {
-                        Month = currentMonth,
-                        Rating = rating,
-                        MatchesInMonth = matchesInMonth,
-                        MatchNames = matchNamesInMonth
-                    });
-                }
-
-                // Reset match counts for next iteration
-                foreach (var match in matchesUpToDate)
-                {
-                    match.FirstPlayer.MatchCount = 0;
-                    match.FirstPlayer.FirstMatch = DateTimeOffset.MinValue;
-                    match.FirstPlayer.LastMatch = DateTimeOffset.MinValue;
-                    match.FirstPlayer.PreviousMatchDate = DateTimeOffset.MinValue;
-                    match.FirstPlayer.MatchesSinceReturn = 0;
-                    match.SecondPlayer.MatchCount = 0;
-                    match.SecondPlayer.FirstMatch = DateTimeOffset.MinValue;
-                    match.SecondPlayer.LastMatch = DateTimeOffset.MinValue;
-                    match.SecondPlayer.PreviousMatchDate = DateTimeOffset.MinValue;
-                    match.SecondPlayer.MatchesSinceReturn = 0;
-                }
-
-                currentMonth = currentMonth.AddMonths(1);
-            }
-
-            // Calculate player's current position using the same logic as Rating page
-            int position = 0;
-            int totalPlayers = 0;
+            // ===== OPTIMIZED: Single pass through all matches =====
+            // Instead of recalculating from scratch for each month, we process matches once
+            // and capture snapshots at month boundaries.
             
-            // Run one more calculation at current date to get all players' final ratings
+            var monthlyRatings = new List<MonthlyRating>();
+            var activeUsers = new HashSet<ApplicationUser>();
+            var eloStat = new EloStat();
+            
+            // Get all matches up to current date, sorted chronologically
             League.CutoffDate = DateTimeOffset.Now;
-            var finalEloStat = new EloStat();
-            var positionActiveUsers = new HashSet<ApplicationUser>();
             var allMatches = FilterMatches(league.Matches, League.CutoffDate, swaOnly, includeDate: false, isIntlLeague: isIntlLeague).ToList();
             
+            // Track monthly data as we process
+            var startMonth = new DateTime(startDate.Year, startDate.Month, 1);
+            var currentProcessingMonth = new DateTime(1900, 1, 1); // Will be set on first match
+            int playerMatchCount = 0;
+            int matchesInCurrentMonth = 0;
+            var matchNamesInCurrentMonth = new List<string>();
+            
+            // Helper to capture monthly snapshot
+            void CaptureMonthlySnapshot(DateTime monthToCapture)
+            {
+                // Only capture if we've reached the start month and player has enough games
+                if (monthToCapture < startMonth)
+                    return;
+                    
+                bool hasEnoughGames = !isNewForeignPlayer || playerMatchCount >= 12;
+                if (playerMatchCount > 0 && hasEnoughGames)
+                {
+                    // Check promotion at end of this month
+                    var lastDayOfMonth = monthToCapture.AddMonths(1).AddDays(-1);
+                    eloStat.CheckPlayerPromotion(player, new DateTimeOffset(lastDayOfMonth), isIntlLeague);
+                    eloStat.FinalizeProcessing();
+                    
+                    matchNamesInCurrentMonth.Reverse();
+                    monthlyRatings.Add(new MonthlyRating
+                    {
+                        Month = monthToCapture,
+                        Rating = eloStat[player],
+                        MatchesInMonth = matchesInCurrentMonth,
+                        MatchNames = new List<string>(matchNamesInCurrentMonth)
+                    });
+                }
+            }
+            
+            // Process all matches in chronological order (single pass)
             foreach (var match in allMatches)
             {
-                // AddUser handles FirstMatch, LastMatch, MatchCount, etc.
-                AddUser(positionActiveUsers, match, match.FirstPlayer);
-                AddUser(positionActiveUsers, match, match.SecondPlayer);
-                finalEloStat.AddMatch(match);
+                var matchMonth = new DateTime(match.Date.Year, match.Date.Month, 1);
+                
+                // When month changes, capture snapshot of previous month
+                if (matchMonth > currentProcessingMonth && currentProcessingMonth.Year > 1900)
+                {
+                    CaptureMonthlySnapshot(currentProcessingMonth);
+                    
+                    // Fill in any skipped months (player inactive)
+                    var nextMonth = currentProcessingMonth.AddMonths(1);
+                    while (nextMonth < matchMonth)
+                    {
+                        CaptureMonthlySnapshot(nextMonth);
+                        nextMonth = nextMonth.AddMonths(1);
+                    }
+                    
+                    // Reset monthly counters
+                    matchesInCurrentMonth = 0;
+                    matchNamesInCurrentMonth.Clear();
+                }
+                currentProcessingMonth = matchMonth;
+                
+                // Track user activity (same as AddUser in Rating page)
+                AddUser(activeUsers, match, match.FirstPlayer);
+                AddUser(activeUsers, match, match.SecondPlayer);
+                
+                // Add match to ELO calculation
+                eloStat.AddMatch(match);
+                
+                // Track this player's monthly stats
+                if (match.FirstPlayerId == playerId || match.SecondPlayerId == playerId)
+                {
+                    playerMatchCount++;
+                    matchesInCurrentMonth++;
+                    if (!matchNamesInCurrentMonth.Contains(match.MatchName))
+                    {
+                        matchNamesInCurrentMonth.Add(match.MatchName);
+                    }
+                }
             }
             
-            // Check promotions for all active users (same as Rating page)
-            foreach (var user in positionActiveUsers)
+            // Capture final month and any remaining months up to current
+            if (currentProcessingMonth.Year > 1900)
             {
-                finalEloStat.CheckPlayerPromotion(user, League.CutoffDate, isIntlLeague);
+                CaptureMonthlySnapshot(currentProcessingMonth);
+                
+                // Fill in months up to current month
+                var endMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+                var nextMonth = currentProcessingMonth.AddMonths(1);
+                while (nextMonth <= endMonth)
+                {
+                    matchesInCurrentMonth = 0;
+                    matchNamesInCurrentMonth.Clear();
+                    CaptureMonthlySnapshot(nextMonth);
+                    nextMonth = nextMonth.AddMonths(1);
+                }
             }
-            finalEloStat.FinalizeProcessing();
             
-            // Filter to get ranked players (same as Rating page)
-            // Exclude: virtual players, inactive players, pro players, hidden players (for non-intl), non-local (for SG league)
+            // Check promotions for all active users at current date
+            foreach (var user in activeUsers)
+            {
+                eloStat.CheckPlayerPromotion(user, League.CutoffDate, isIntlLeague);
+            }
+            eloStat.FinalizeProcessing();
+            
+            // Calculate position from the same EloStat (no need to recalculate)
             bool isSgLeague = league.Name?.Contains("Singapore Weiqi") ?? false;
-            var rankedUsers = positionActiveUsers
+            var rankedUsers = activeUsers
                 .Where(x => x.Active)
                 .Where(x => !x.IsProPlayer)
                 .Where(x => isIntlLeague || !x.IsHiddenPlayer)
                 .Where(x => !isSgLeague || x.IsLocalPlayer)
                 .ToList();
             
-            // Sort by rating (descending) - virtual/inactive/pro already filtered out
             rankedUsers.Sort((x, y) =>
             {
-                double ratingX = finalEloStat[x];
-                double ratingY = finalEloStat[y];
-                int result = ratingY.CompareTo(ratingX); // Descending
+                double ratingX = eloStat[x];
+                double ratingY = eloStat[y];
+                int result = ratingY.CompareTo(ratingX);
                 if (result == 0)
                 {
-                    // Same rating - compare by ranking then name (same as Rating page)
                     var ranking1 = x.GetCombinedRankingBeforeDate(League.CutoffDate);
                     var ranking2 = y.GetCombinedRankingBeforeDate(League.CutoffDate);
                     if (ranking1 != ranking2)
@@ -849,8 +832,8 @@ namespace PlayerRatings.Controllers
                 return result;
             });
             
-            totalPlayers = rankedUsers.Count;
-            position = rankedUsers.FindIndex(u => u.Id == playerId) + 1; // 1-based, 0 if not found
+            int totalPlayers = rankedUsers.Count;
+            int position = rankedUsers.FindIndex(u => u.Id == playerId) + 1;
             
             // Reset player data for consistency
             foreach (var match in allMatches)
