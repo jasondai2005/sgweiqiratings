@@ -52,6 +52,9 @@ else
                 №
             </th>
             <th>
+                @LocString[nameof(LocalizationKey.Username)]
+            </th>
+            <th>
                 @LocString[nameof(LocalizationKey.DisplayName)]
             </th>
             <th>
@@ -79,6 +82,9 @@ else
             <tr>
                 <td>
                     @(number++)
+                </td>
+                <td>
+                    <small class="text-muted">@player.User.UserName</small>
                 </td>
                 <td>
                     <a href="@Url.Action("Player", new { id = Model.League.Id, playerId = player.User.Id })">@player.User.DisplayName</a>
@@ -130,6 +136,7 @@ else
         <table class="table">
             <tr>
                 <th>№</th>
+                <th>@LocString[nameof(LocalizationKey.Username)]</th>
                 <th>@LocString[nameof(LocalizationKey.DisplayName)]</th>
                 <th>@LocString[nameof(LocalizationKey.Residence)]</th>
                 <th>@LocString[nameof(LocalizationKey.Ranking)]</th>
@@ -144,6 +151,7 @@ else
             {
                 <tr>
                     <td>@(nonLocalNumber++)</td>
+                    <td><small class="text-muted">@player.User.UserName</small></td>
                     <td>
                         <a href="@Url.Action("Player", new { id = Model.League.Id, playerId = player.User.Id })">@player.User.DisplayName</a>
                     </td>

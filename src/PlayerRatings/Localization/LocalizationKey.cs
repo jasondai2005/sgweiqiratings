@@ -83,6 +83,7 @@ namespace PlayerRatings.Localization
         public static readonly LocalizationKey Details = new LocalizationKey("Details", "Подробности", "详细信息");
 
         public static readonly LocalizationKey DisplayName = new LocalizationKey("Display name", "Имя", "名字");
+        public static readonly LocalizationKey Username = new LocalizationKey("Username", "Логин", "用户名");
         public static readonly LocalizationKey BirthYear = new LocalizationKey("Birth Year", "Birth Year", "生年");
         public static readonly LocalizationKey Ranking = new LocalizationKey("Ranking", "Ranking", "段/级位");
         public static readonly LocalizationKey RankedDate = new LocalizationKey("Ranked Date", "Ranked Date", "升段/级时间");
