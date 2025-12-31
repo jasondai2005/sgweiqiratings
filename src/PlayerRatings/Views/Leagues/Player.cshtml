@@ -51,36 +51,36 @@
                 </div>
                 <div class="row" style="margin-top: 8px;">
                     <div class="col-sm-4">
-                        <span style="color: #666;">@LocString[nameof(LocalizationKey.Overall)]:</span>
-                        <span style="margin-left: 5px;">
+                        <div style="color: #666;">@LocString[nameof(LocalizationKey.Overall)]:</div>
+                        <div>
                             <strong>@Model.TotalGames</strong> @LocString[nameof(LocalizationKey.Games)]
                             <span style="color: #5cb85c; margin-left: 8px;">@Model.TotalWins W</span>
                             <span style="color: #d9534f; margin-left: 4px;">@Model.TotalLosses L</span>
                             <span style="margin-left: 8px; font-weight: bold;">(@Model.OverallWinRate.ToString("F1")%)</span>
-                        </span>
+                        </div>
                     </div>
                     @if (Model.CurrentYearGames > 0)
                     {
                     <div class="col-sm-4">
-                        <span style="color: #666;">@LocString[nameof(LocalizationKey.ThisYear)] (@DateTime.Now.Year):</span>
-                        <span style="margin-left: 5px;">
+                        <div style="color: #666;">@LocString[nameof(LocalizationKey.ThisYear)] (@DateTime.Now.Year):</div>
+                        <div>
                             <strong>@Model.CurrentYearGames</strong> @LocString[nameof(LocalizationKey.Games)]
                             <span style="color: #5cb85c; margin-left: 8px;">@Model.CurrentYearWins W</span>
                             <span style="color: #d9534f; margin-left: 4px;">@Model.CurrentYearLosses L</span>
                             <span style="margin-left: 8px; font-weight: bold;">(@Model.CurrentYearWinRate.ToString("F1")%)</span>
-                        </span>
+                        </div>
                     </div>
                     }
                     @if (Model.LastYearGames > 0)
                     {
                     <div class="col-sm-4">
-                        <span style="color: #666;">@LocString[nameof(LocalizationKey.LastYear)] (@(DateTime.Now.Year - 1)):</span>
-                        <span style="margin-left: 5px;">
+                        <div style="color: #666;">@LocString[nameof(LocalizationKey.LastYear)] (@(DateTime.Now.Year - 1)):</div>
+                        <div>
                             <strong>@Model.LastYearGames</strong> @LocString[nameof(LocalizationKey.Games)]
                             <span style="color: #5cb85c; margin-left: 8px;">@Model.LastYearWins W</span>
                             <span style="color: #d9534f; margin-left: 4px;">@Model.LastYearLosses L</span>
                             <span style="margin-left: 8px; font-weight: bold;">(@Model.LastYearWinRate.ToString("F1")%)</span>
-                        </span>
+                        </div>
                     </div>
                     }
                 </div>
@@ -381,6 +381,7 @@
         <thead>
             <tr>
                 <th>@LocString[nameof(LocalizationKey.Month)]</th>
+                <th>№</th>
                 <th>@LocString[nameof(LocalizationKey.Rating)]</th>
                 <th>@LocString[nameof(LocalizationKey.Matches)]</th>
                 <th>@LocString[nameof(LocalizationKey.Ranking)]</th>
@@ -397,6 +398,7 @@
                 }
                 <tr>
                     <td>@item.MonthDisplay</td>
+                    <td>@if (item.Position > 0) { <span>@item.Position<span style="color: #999; font-size: 0.85em;">/@item.TotalPlayers</span></span> } else { <span>-</span> }</td>
                     <td>@item.RatingDisplay</td>
                     <td>
                         @if (item.MatchNames.Any())
@@ -437,6 +439,7 @@
             }
             <tr style="background-color: #f8f9fa;">
                 <td style="color: #666; font-style: italic;">@LocString[nameof(LocalizationKey.PreEntry)]</td>
+                <td>-</td>
                 <td>@preEntryRating</td>
                 <td>-</td>
                 <td>
@@ -520,6 +523,8 @@
         // All months for continuous axis
         const labels = [@Html.Raw(string.Join(",", sortedRatings.Select(r => $"'{r.MonthDisplay}'")))];
         const ratings = [@Html.Raw(string.Join(",", sortedRatings.Select(r => r.Rating.ToString("F1", System.Globalization.CultureInfo.InvariantCulture))))];
+        const positions = [@Html.Raw(string.Join(",", sortedRatings.Select(r => r.Position > 0 ? r.Position.ToString() : "null")))];
+        const totalPlayers = [@Html.Raw(string.Join(",", sortedRatings.Select(r => r.TotalPlayers > 0 ? r.TotalPlayers.ToString() : "null")))];
         
         // Track which months have activity (matches or ranking changes)
         const hasActivity = [@Html.Raw(string.Join(",", sortedRatings.Select(r => (r.MatchesInMonth > 0 || monthRankingLabels.ContainsKey(r.MonthDisplay)).ToString().ToLower())))];
@@ -535,6 +540,11 @@
         const maxRating = Math.max(...ratings);
         const padding = (maxRating - minRating) * 0.1 || 50;
         
+        // Calculate position axis range (inverted - lower position number = better)
+        const validPositions = positions.filter(p => p !== null);
+        const maxPosition = validPositions.length > 0 ? Math.max(...validPositions) : 100;
+        const minPosition = validPositions.length > 0 ? Math.min(...validPositions) : 1;
+        
         // Register the datalabels plugin
         Chart.register(ChartDataLabels);
         
@@ -549,6 +559,7 @@
                     backgroundColor: 'rgba(54, 162, 235, 0.1)',
                     fill: true,
                     tension: 0,
+                    yAxisID: 'y',
                     pointRadius: function(context) {
                         const idx = context.dataIndex;
                         if (!hasActivity[idx]) return 0; // Hide point for inactive months
@@ -564,24 +575,59 @@
                         return rankingLabels[label] ? 'rgb(255, 99, 132)' : 'rgb(54, 162, 235)';
                     },
                     pointHoverRadius: 8
+                },
+                {
+                    label: 'Position',
+                    data: positions,
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                    borderDash: [5, 5],
+                    fill: false,
+                    tension: 0,
+                    spanGaps: true,
+                    yAxisID: 'y1',
+                    pointRadius: function(context) {
+                        const idx = context.dataIndex;
+                        if (!hasActivity[idx] || positions[idx] === null) return 0;
+                        return 4;
+                    },
+                    pointBackgroundColor: 'rgb(75, 192, 192)',
+                    pointBorderColor: 'rgb(75, 192, 192)',
+                    pointHoverRadius: 6
                 }]
             },
             options: {
                 responsive: true,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
                 plugins: {
                     legend: {
-                        display: false
+                        display: true,
+                        position: 'top'
                     },
                     tooltip: {
                         callbacks: {
                             label: function(context) {
-                                const label = labels[context.dataIndex];
-                                const rankingInfo = rankingLabels[label];
-                                let result = 'Rating: ' + context.parsed.y.toFixed(1);
-                                if (rankingInfo) {
-                                    result += ' (Promoted to ' + rankingInfo.ranking + ' on ' + rankingInfo.date + ')';
+                                const idx = context.dataIndex;
+                                const label = labels[idx];
+                                if (context.dataset.label === 'Rating') {
+                                    const rankingInfo = rankingLabels[label];
+                                    let result = 'Rating: ' + context.parsed.y.toFixed(1);
+                                    if (rankingInfo) {
+                                        result += ' (Promoted to ' + rankingInfo.ranking + ' on ' + rankingInfo.date + ')';
+                                    }
+                                    return result;
+                                } else if (context.dataset.label === 'Position') {
+                                    const pos = positions[idx];
+                                    const total = totalPlayers[idx];
+                                    if (pos !== null && total !== null) {
+                                        return 'Position: №' + pos + ' / ' + total;
+                                    }
+                                    return null;
                                 }
-                                return result;
+                                return context.parsed.y;
                             }
                         }
                     },
@@ -595,6 +641,8 @@
                         },
                         color: 'rgb(255, 99, 132)',
                         formatter: function(value, context) {
+                            // Only show ranking labels for the Rating dataset
+                            if (context.dataset.label !== 'Rating') return null;
                             const label = labels[context.dataIndex];
                             const rankingInfo = rankingLabels[label];
                             if (rankingInfo) {
@@ -603,6 +651,7 @@
                             return null;
                         },
                         display: function(context) {
+                            if (context.dataset.label !== 'Rating') return false;
                             const label = labels[context.dataIndex];
                             return !!rankingLabels[label];
                         },
@@ -611,11 +660,27 @@
                 },
                 scales: {
                     y: {
+                        type: 'linear',
+                        position: 'left',
                         min: Math.floor(minRating - padding),
                         max: Math.ceil(maxRating + padding),
                         title: {
                             display: true,
                             text: 'Rating'
+                        }
+                    },
+                    y1: {
+                        type: 'linear',
+                        position: 'right',
+                        reverse: true, // Lower position number = better, so at top
+                        min: Math.max(1, minPosition - 5),
+                        max: maxPosition + 5,
+                        title: {
+                            display: true,
+                            text: 'Position (№)'
+                        },
+                        grid: {
+                            drawOnChartArea: false // Don't show grid lines for this axis
                         }
                     },
                     x: {

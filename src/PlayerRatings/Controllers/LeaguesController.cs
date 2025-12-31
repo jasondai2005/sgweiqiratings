@@ -872,11 +872,23 @@ namespace PlayerRatings.Controllers
             var matchNamesInCurrentMonth = new List<string>();
             EloStat currentEloStat = null;
             
+            // Track all players' last match dates for position calculation
+            var playerLastMatchDates = new Dictionary<string, DateTimeOffset>();
+            var allPlayersInMatches = new Dictionary<string, ApplicationUser>();
+            
             // Callback to capture monthly snapshots during processing
             void OnMatchProcessed(Match match, EloStat elo)
             {
                 currentEloStat = elo;
                 var matchMonth = new DateTime(match.Date.Year, match.Date.Month, 1);
+                
+                // Track all players for position calculation
+                if (!allPlayersInMatches.ContainsKey(match.FirstPlayerId))
+                    allPlayersInMatches[match.FirstPlayerId] = match.FirstPlayer;
+                if (!allPlayersInMatches.ContainsKey(match.SecondPlayerId))
+                    allPlayersInMatches[match.SecondPlayerId] = match.SecondPlayer;
+                playerLastMatchDates[match.FirstPlayerId] = match.Date;
+                playerLastMatchDates[match.SecondPlayerId] = match.Date;
                 
                 // When month changes, capture snapshot of previous month
                 if (matchMonth > currentProcessingMonth && currentProcessingMonth.Year > 1900)
@@ -918,12 +930,49 @@ namespace PlayerRatings.Controllers
                 {
                     var reversed = new List<string>(matchNamesInCurrentMonth);
                     reversed.Reverse();
+                    
+                    // Calculate position at end of this month
+                    var monthEnd = new DateTimeOffset(monthToCapture.Year, monthToCapture.Month, 1, 0, 0, 0, TimeSpan.Zero).AddMonths(1).AddSeconds(-1);
+                    var twoYearsAgo = monthEnd.AddYears(-2);
+                    
+                    // Filter to active, rankable players at this month
+                    var rankableAtMonth = allPlayersInMatches.Values
+                        .Where(u => notBlockedUserIds.Contains(u.Id)
+                            && playerLastMatchDates.TryGetValue(u.Id, out var lastMatch) && lastMatch > twoYearsAgo
+                            && !u.IsProPlayer
+                            && (!isSgLeague || !u.IsHiddenPlayer)
+                            && (hiddenUserIds == null || !hiddenUserIds.Contains(u.Id))
+                            && (!isSgLeague || u.IsLocalPlayerAt(monthEnd)))
+                        .ToList();
+                    
+                    // Sort by rating (descending), then ranking, then name
+                    rankableAtMonth.Sort((x, y) =>
+                    {
+                        double ratingX = currentEloStat[x];
+                        double ratingY = currentEloStat[y];
+                        int result = ratingY.CompareTo(ratingX);
+                        if (result == 0)
+                        {
+                            var ranking1 = x.GetCombinedRankingBeforeDate(monthEnd);
+                            var ranking2 = y.GetCombinedRankingBeforeDate(monthEnd);
+                            if (ranking1 != ranking2)
+                                return string.Compare(ranking1, ranking2, StringComparison.OrdinalIgnoreCase);
+                            return string.Compare(x.DisplayName, y.DisplayName, StringComparison.OrdinalIgnoreCase);
+                        }
+                        return result;
+                    });
+                    
+                    int monthPosition = rankableAtMonth.FindIndex(u => u.Id == playerId) + 1;
+                    int monthTotalPlayers = rankableAtMonth.Count;
+                    
                     monthlyRatings.Add(new MonthlyRating
                     {
                         Month = monthToCapture,
                         Rating = currentEloStat[player],
                         MatchesInMonth = matchesInCurrentMonth,
-                        MatchNames = reversed
+                        MatchNames = reversed,
+                        Position = monthPosition,
+                        TotalPlayers = monthTotalPlayers
                     });
                 }
             }

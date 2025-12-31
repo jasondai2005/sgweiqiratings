@@ -100,6 +100,21 @@ namespace PlayerRatings.ViewModels.Player
         public string RatingDisplay => Rating.ToString("F1");
         public int MatchesInMonth { get; set; }
         public List<string> MatchNames { get; set; } = new List<string>();
+        
+        /// <summary>
+        /// Player's position in the ranking at the end of this month (1-based). 0 means not ranked.
+        /// </summary>
+        public int Position { get; set; }
+        
+        /// <summary>
+        /// Total number of ranked players at the end of this month.
+        /// </summary>
+        public int TotalPlayers { get; set; }
+        
+        /// <summary>
+        /// Position display string (e.g., "№3" or "-" if not ranked).
+        /// </summary>
+        public string PositionDisplay => Position > 0 ? $"№{Position}" : "-";
     }
 
     public class GameRecord
