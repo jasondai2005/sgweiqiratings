@@ -59,7 +59,7 @@ namespace PlayerRatings.Engine.Stats
                     factor1 = CalculateUncertaintyFactor(match.FirstPlayer.MatchCount);
                     
                     // Reduce impact on established players when playing against uncertain players
-                    if (!player2NeedsDynamic && !match.SecondPlayer.IsVirtualPlayer)
+                    if (!player2NeedsDynamic)
                     {
                         factor2 = 0.5; // Half K for established player
                     }
@@ -70,7 +70,7 @@ namespace PlayerRatings.Engine.Stats
                     factor2 = CalculateUncertaintyFactor(match.SecondPlayer.MatchCount);
                     
                     // Reduce impact on established players when playing against uncertain players
-                    if (!player1NeedsDynamic && !match.FirstPlayer.IsVirtualPlayer)
+                    if (!player1NeedsDynamic)
                     {
                         factor1 = 0.5; // Half K for established player
                     }
@@ -137,9 +137,6 @@ namespace PlayerRatings.Engine.Stats
         /// </summary>
         private void CheckForPromotion(ApplicationUser player, DateTimeOffset matchDate, bool isIntlLeague)
         {
-            if (player.IsVirtualPlayer)
-                return;
-
             // Apply any pending promotion floors from previous days
             if (matchDate.Date > _currentProcessingDate)
             {
@@ -287,10 +284,6 @@ namespace PlayerRatings.Engine.Stats
                 _performanceTracker.Remove(player.Id);
                 return;
             }
-
-            // Skip virtual players (aggregated player pools like [China 5D])
-            if (player.IsVirtualPlayer)
-                return;
 
             // Initialize tracking list if needed and add game result
             if (!_performanceTracker.TryGetValue(player.Id, out var games))
@@ -464,17 +457,5 @@ namespace PlayerRatings.Engine.Stats
             }
             set => _dict[user.Id] = value;
         }
-    }
-
-    public class EloStatChange : EloStat
-    {
-        public override string GetResult(ApplicationUser user)
-        {
-            return _dict.TryGetValue(user.Id, out var rating) ? (rating - user.GetRatingBeforeDate(League.CutoffDate)).ToString("F1") : "";
-        }
-
-        public override string NameLocalizationKey => nameof(LocalizationKey.Delta);
-
-        public override double this[ApplicationUser user] => _dict.TryGetValue(user.Id, out var rating) ? rating : 0;
     }
 }

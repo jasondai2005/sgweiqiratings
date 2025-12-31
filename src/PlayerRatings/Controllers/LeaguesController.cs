@@ -369,8 +369,6 @@ namespace PlayerRatings.Controllers
                 elo,
                 new WinRateStat()
             };
-            if (byDate != null && date.Year < 2024)
-                stats.Add(new EloStatChange());
 
             // Check if this is an international league (all matches count, no filtering)
             bool isIntlLeague = league.Name?.Contains("Intl.") ?? false;
@@ -431,8 +429,8 @@ namespace PlayerRatings.Controllers
                 .Where(x => !hiddenUserIds.Contains(x.Id))
                 .ToList();
             
-            // Separate inactive users (not virtual, not pro)
-            var inactiveUsers = users.Where(x => !x.Active && !x.IsVirtualPlayer && !x.IsProPlayer).ToList();
+            // Separate inactive users (not pro)
+            var inactiveUsers = users.Where(x => !x.Active && !x.IsProPlayer).ToList();
             
             // Add AlwaysShown users who may not have played any matches
             var activeUserIds = new HashSet<string>(activeUsers.Select(u => u.Id));
@@ -448,7 +446,7 @@ namespace PlayerRatings.Controllers
             }
             
             inactiveUsers.Sort(CompareByRatingAndName);
-            users = users.Where(x => x.Active || x.IsVirtualPlayer || x.IsProPlayer).ToList();
+            users = users.Where(x => x.Active || x.IsProPlayer).ToList();
             
             // For Singapore Weiqi league, separate local and non-local players
             bool isSgLeague = league.Name?.Contains("Singapore Weiqi") ?? false;
@@ -503,11 +501,6 @@ namespace PlayerRatings.Controllers
 
         private int CompareByRatingAndName(ApplicationUser x, ApplicationUser y)
         {
-            if (x.IsVirtualPlayer && !y.IsVirtualPlayer)
-                return 1;
-            if (!x.IsVirtualPlayer && y.IsVirtualPlayer)
-                return -1;
-
             if (!x.Active && y.Active)
                 return 1;
             if (x.Active && !y.Active)
@@ -832,7 +825,6 @@ namespace PlayerRatings.Controllers
             // Exclude: virtual players, inactive players, pro players, hidden players (for non-intl), non-local (for SG league)
             bool isSgLeague = league.Name?.Contains("Singapore Weiqi") ?? false;
             var rankedUsers = positionActiveUsers
-                .Where(x => !x.IsVirtualPlayer)
                 .Where(x => x.Active)
                 .Where(x => !x.IsProPlayer)
                 .Where(x => isIntlLeague || !x.IsHiddenPlayer)

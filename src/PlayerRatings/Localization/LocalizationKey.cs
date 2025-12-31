@@ -89,7 +89,6 @@ namespace PlayerRatings.Localization
         public static readonly LocalizationKey OriRanking = new LocalizationKey("Original Ranking", "Original Ranking", "原段位");
         public static readonly LocalizationKey Edit = new LocalizationKey("Edit", "Редактировать", "编辑");
         public static readonly LocalizationKey Elo = new LocalizationKey("Elo", "Elo", "等级分");
-        public static readonly LocalizationKey Delta = new LocalizationKey("Delta", "Delta", "积分变化");
         public static readonly LocalizationKey Email = new LocalizationKey("Email", "Email", "邮箱");
         public static readonly LocalizationKey ShiftRating = new LocalizationKey("Shift Rating", "Shift Rating", "等级分值");
         public static readonly LocalizationKey RankingHistory = new LocalizationKey("Ranking History", "Ranking History", "升段/级纪录");

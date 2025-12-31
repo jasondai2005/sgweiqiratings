@@ -93,22 +93,12 @@ namespace PlayerRatings.Models
         {
             get
             {
-                return IsVirtualPlayer || League.CutoffDate.AddYears(-2) < LastMatch;
-            }
-        }
-
-        public string InitRanking
-        {
-            get
-            {
-                return InternalInitRanking == RankingBeforeCutoffDate?.ToUpper() ?
-                    string.Empty :
-                    (string.IsNullOrEmpty(InternalInitRanking) ? "unkwn" : InternalInitRanking);
+                return League.CutoffDate.AddYears(-2) < LastMatch;
             }
         }
 
         private string m_initRanking = null;
-        internal string InternalInitRanking
+        internal string InitRanking
         {
             get
             {
@@ -122,8 +112,7 @@ namespace PlayerRatings.Models
             }
         }
 
-        public bool IsVirtualPlayer => DisplayName?.Contains('[') ?? false;
-        public bool IsUnknownPlayer => string.IsNullOrEmpty(InternalInitRanking) || InternalInitRanking.Contains("K?");
+        public bool IsUnknownPlayer => string.IsNullOrEmpty(InitRanking) || InitRanking.Contains("K?");
         
         /// <summary>
         /// Determines if this is a player with an unknown/foreign ranking at the time of their first match.
@@ -172,10 +161,10 @@ namespace PlayerRatings.Models
         {
             get
             {
-                if (MatchCount > 12 || IsProPlayer || IsVirtualPlayer)
+                if (MatchCount > 12 || IsProPlayer)
                     return false;
                     
-                var ranking = InternalInitRanking ?? string.Empty;
+                var ranking = InitRanking ?? string.Empty;
                 return !ranking.Contains('D', StringComparison.OrdinalIgnoreCase);
             }
         }
@@ -209,7 +198,7 @@ namespace PlayerRatings.Models
         {
             get
             {
-                if (MatchCount > LOCAL_PLAYER_GAMES_THRESHOLD || IsVirtualPlayer || IsProPlayer)
+                if (MatchCount > LOCAL_PLAYER_GAMES_THRESHOLD || IsProPlayer)
                     return false;
                 
                 // Must have first match in 2025 or later
@@ -235,9 +224,6 @@ namespace PlayerRatings.Models
         {
             get
             {
-                if (IsVirtualPlayer)
-                    return false;
-                
                 // Check if we detected a 2+ year gap (MatchesSinceReturn > 0 means gap was detected)
                 // and they haven't played enough games since returning
                 return MatchesSinceReturn > 0 && MatchesSinceReturn <= LOCAL_PLAYER_GAMES_THRESHOLD;
@@ -606,8 +592,6 @@ namespace PlayerRatings.Models
 
         public string GetPosition(ref int postion, string leagueName = "")
         {
-            if (IsVirtualPlayer)
-                return "Intl.";
             if (!Active)
                 return "Inact";
 

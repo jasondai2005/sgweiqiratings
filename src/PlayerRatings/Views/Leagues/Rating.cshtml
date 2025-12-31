@@ -86,12 +86,6 @@
                     @LocString[item.NameLocalizationKey]
                 </th>
             }
-            @if (Model.Stats.Count() > 2)
-            {
-                <th>
-                    @LocString[nameof(LocalizationKey.OriRanking)]
-                </th>
-            }
         </tr>
 
         @foreach (var item in Model.Users)
@@ -115,12 +109,6 @@
                         @res.GetResult(item)
                     </td>
                 }
-                @if (Model.Stats.Count() > 2)
-                {
-                    <td>
-                        @item.InitRanking
-                    </td>
-                }
             </tr>
         }
 
@@ -139,10 +127,6 @@
                 @foreach (var res in Model.Stats)
                 {
                     <td>@res.GetResult(item)</td>
-                }
-                @if (Model.Stats.Count() > 2)
-                {
-                    <td>@item.InitRanking</td>
                 }
             </tr>
             }
@@ -163,10 +147,6 @@
                 @foreach (var res in Model.Stats)
                 {
                     <td style="color: #999;">@res.GetResult(item)</td>
-                }
-                @if (Model.Stats.Count() > 2)
-                {
-                    <td>@item.InitRanking</td>
                 }
             </tr>
             }
