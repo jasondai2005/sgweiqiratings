@@ -340,6 +340,10 @@ namespace PlayerRatings.Localization
         public static readonly LocalizationKey Games = new LocalizationKey("Games", "Игры", "对局数");
         public static readonly LocalizationKey Wins = new LocalizationKey("Wins", "Победы", "胜");
         public static readonly LocalizationKey Losses = new LocalizationKey("Losses", "Поражения", "负");
+        public static readonly LocalizationKey New = new LocalizationKey("NEW", "NEW", "进榜");
+        public static readonly LocalizationKey Returning = new LocalizationKey("RET", "RET", "复归");
+        public static readonly LocalizationKey Go = new LocalizationKey("Go", "Go", "查看");
+        public static readonly LocalizationKey Today = new LocalizationKey("Today", "Today", "今天");
 
         public static readonly LocalizationKey YouCanInviteNewPlayer =
             new LocalizationKey("You can invite new player to the league", "Вы можете добавить нового игрока в лигу", "您可以邀请新选手加入联赛");

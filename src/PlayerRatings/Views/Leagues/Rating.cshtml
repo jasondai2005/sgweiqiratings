@@ -17,6 +17,40 @@
     var nextMonthStr = nextMonth.ToString("dd/MM/yyyy");
     var currentDateStr = currentDate.ToString("dd/MM/yyyy");
     var isViewingToday = currentDate.Date == DateTime.Now.Date;
+    
+    // Check if we have comparison data
+    var hasComparison = Model.ComparisonDate.HasValue && Model.PreviousRatings.Any();
+    var comparisonDateStr = Model.ComparisonDate?.ToString("dd/MM") ?? "";
+    
+    // Localized strings for NEW and RET
+    var newLabel = @LocString[nameof(LocalizationKey.New)].Value;
+    var retLabel = @LocString[nameof(LocalizationKey.Returning)].Value;
+    
+    // Helper to format position change (NEW for new players, RET for returning, arrows for changes, empty for no change)
+    string FormatPositionChange(int currentPos, int? prevPos, bool hasPlayedBefore)
+    {
+        if (!prevPos.HasValue)
+        {
+            // Player not in previous rankings - either NEW or RET
+            if (hasPlayedBefore)
+                return $"<span style=\"color: #fd7e14; font-size: 0.85em;\">{retLabel}</span>";
+            return $"<span style=\"color: #17a2b8; font-size: 0.85em;\">{newLabel}</span>";
+        }
+        var diff = prevPos.Value - currentPos; // positive = moved up
+        if (diff > 0) return $"<span style=\"color: #28a745;\">↑{diff}</span>";
+        if (diff < 0) return $"<span style=\"color: #dc3545;\">↓{Math.Abs(diff)}</span>";
+        return ""; // No change - show empty
+    }
+    
+    // Helper to format rating change (empty if no change or very small change)
+    string FormatRatingChange(double currentRating, double? prevRating)
+    {
+        if (!prevRating.HasValue) return "";
+        var diff = currentRating - prevRating.Value;
+        if (Math.Abs(diff) < 0.1) return ""; // No significant change - show empty
+        if (diff > 0) return $"<span style=\"color: #28a745;\">+{diff:F1}</span>";
+        return $"<span style=\"color: #dc3545;\">{diff:F1}</span>";
+    }
 }
 
 <h3>@ViewData["Title"]</h3>
@@ -25,20 +59,20 @@
     <input type="hidden" name="id" value="@Model.LeagueId" />
     <input type="hidden" id="swaOnlyHidden" name="swaOnly" value="@(Model.SwaOnly ? "true" : "false")" />
     <div style="display: inline-flex; flex-wrap: nowrap; gap: 4px; align-items: center;">
-        <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = prevMonthStr, swaOnly = Model.SwaOnly })" class="btn btn-outline-primary">◀ @prevMonth.ToString("MMM")</a>
+        <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = prevMonthStr, swaOnly = Model.SwaOnly })" class="btn btn-outline-primary">◀ @prevMonth.ToString("MMM", System.Globalization.CultureInfo.CurrentUICulture)</a>
         <input type="text" name="byDate" value="@currentDateStr" class="form-control text-center" style="width: 110px;" placeholder="dd/MM/yyyy" />
-        <button type="submit" class="btn btn-primary">Go</button>
+        <button type="submit" class="btn btn-primary">@LocString[nameof(LocalizationKey.Go)]</button>
         @if (nextMonth <= DateTime.Now)
         {
-            <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = nextMonthStr, swaOnly = Model.SwaOnly })" class="btn btn-outline-primary">@nextMonth.ToString("MMM") ▶</a>
+            <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = nextMonthStr, swaOnly = Model.SwaOnly })" class="btn btn-outline-primary">@nextMonth.ToString("MMM", System.Globalization.CultureInfo.CurrentUICulture) ▶</a>
         }
         else
         {
-            <span class="btn btn-outline-secondary disabled">@nextMonth.ToString("MMM") ▶</span>
+            <span class="btn btn-outline-secondary disabled">@nextMonth.ToString("MMM", System.Globalization.CultureInfo.CurrentUICulture) ▶</span>
         }
         @if (!isViewingToday)
         {
-            <a href="@Url.Action("Rating", new { id = Model.LeagueId, swaOnly = Model.SwaOnly })" class="btn btn-success">Today</a>
+            <a href="@Url.Action("Rating", new { id = Model.LeagueId, swaOnly = Model.SwaOnly })" class="btn btn-success">@LocString[nameof(LocalizationKey.Today)]</a>
         }
         <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = Model.ByDate, swaOnly = Model.SwaOnly, refresh = true })" class="btn btn-outline-secondary" title="Reload data from database">⟳</a>
     </div>
@@ -56,9 +90,13 @@
 <div class="table-responsive">
     <table class="table table-striped">
         <tr>
-            <th>
+            <th style="@(hasComparison ? "padding-right: 2px;" : "")">
                 №
             </th>
+            @if (hasComparison)
+            {
+                <th title="Position change since @comparisonDateStr" style="text-align: center; padding-left: 2px;">↑↓</th>
+            }
             <th>
                 @LocString[nameof(LocalizationKey.DisplayName)]
             </th>
@@ -68,21 +106,39 @@
             <th>
                 @LocString[nameof(LocalizationKey.Ranking)]
             </th>
+            @{ var statIndex = 0; }
             @foreach (var item in Model.Stats)
             {
-                <th>
+                <th style="@(hasComparison && statIndex == 0 ? "padding-right: 2px;" : "")">
                     @LocString[item.NameLocalizationKey]
                 </th>
+                @if (hasComparison && statIndex == 0)
+                {
+                    <th title="Rating change since @comparisonDateStr" style="text-align: center; padding-left: 2px;">+/-</th>
+                }
+                statIndex++;
             }
         </tr>
 
+        @{ var currentPosition = 0; }
         @foreach (var item in Model.Users)
         {
+            currentPosition++;
             var isFemale = item.DisplayName?.Contains("♀") ?? false;
+            var prevRating = Model.PreviousRatings.TryGetValue(item.Id, out var pr) ? (double?)pr : null;
+            var prevPosition = Model.PreviousPositions.TryGetValue(item.Id, out var pp) ? (int?)pp : null;
+            var currentRating = double.TryParse(Model.Stats.First().GetResult(item), out var cr) ? cr : 0;
+            var hasPlayedBefore = prevRating.HasValue; // If they had a rating before, they're returning, not new
             <tr>
-                <td>
+                <td style="@(hasComparison ? "padding-right: 2px;" : "")">
                     @item.GetPosition(ref number, leagueName)
                 </td>
+                @if (hasComparison)
+                {
+                    <td style="text-align: center; white-space: nowrap; font-size: 0.9em; padding-left: 2px;">
+                        @Html.Raw(FormatPositionChange(currentPosition, prevPosition, hasPlayedBefore))
+                    </td>
+                }
                 <td>
                     <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = item.Id, swaOnly = Model.SwaOnly, })" style="@(isFemale ? "color: #d63384;" : "")">@item.DisplayName</a>
                 </td>
@@ -92,31 +148,53 @@
                 <td>
                     @item.RankingBeforeCutoffDate.ToUpper()
                 </td>
+                @{ var userStatIndex = 0; }
                 @foreach (var res in Model.Stats)
                 {
-                    <td>
+                    <td style="@(hasComparison && userStatIndex == 0 ? "padding-right: 2px;" : "")">
                         @res.GetResult(item)
                     </td>
+                    @if (hasComparison && userStatIndex == 0)
+                    {
+                        <td style="text-align: center; white-space: nowrap; font-size: 0.9em; padding-left: 2px;">
+                            @Html.Raw(FormatRatingChange(currentRating, prevRating))
+                        </td>
+                    }
+                    userStatIndex++;
                 }
             </tr>
         }
 
         @if (Model.NonLocalUsers.Any())
         {
-            <tr><td colspan="10" style="background-color: #f0f0f0; font-weight: bold; padding: 8px;">@LocString[nameof(LocalizationKey.NonLocalPlayers)]</td></tr>
+            <tr><td colspan="@(hasComparison ? 12 : 10)" style="background-color: #f0f0f0; font-weight: bold; padding: 8px;">@LocString[nameof(LocalizationKey.NonLocalPlayers)]</td></tr>
             @foreach (var item in Model.NonLocalUsers)
             {
             var isFemale = item.DisplayName?.Contains("♀") ?? false;
+            var prevRating = Model.PreviousRatings.TryGetValue(item.Id, out var pr) ? (double?)pr : null;
+            var currentRating = double.TryParse(Model.Stats.First().GetResult(item), out var cr) ? cr : 0;
             <tr style="background-color: #fafafa;">
-                <td style="color: #888;">-</td>
+                <td style="color: #888; @(hasComparison ? "padding-right: 2px;" : "")">-</td>
+                @if (hasComparison)
+                {
+                    <td style="padding-left: 2px;"></td>
+                }
                 <td>
                     <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = item.Id, swaOnly = Model.SwaOnly, })" style="@(isFemale ? "color: #d63384;" : "")">@item.DisplayName</a>
                 </td>
                 <td>@item.BirthYearU18</td>
                 <td>@item.RankingBeforeCutoffDate.ToUpper()</td>
+                @{ var nlStatIndex = 0; }
                 @foreach (var res in Model.Stats)
                 {
-                    <td>@res.GetResult(item)</td>
+                    <td style="@(hasComparison && nlStatIndex == 0 ? "padding-right: 2px;" : "")">@res.GetResult(item)</td>
+                    @if (hasComparison && nlStatIndex == 0)
+                    {
+                        <td style="text-align: center; white-space: nowrap; font-size: 0.9em; padding-left: 2px;">
+                            @Html.Raw(FormatRatingChange(currentRating, prevRating))
+                        </td>
+                    }
+                    nlStatIndex++;
                 }
             </tr>
             }
@@ -124,20 +202,34 @@
 
         @if (Model.InactiveUsers.Any())
         {
-            <tr><td colspan="10" style="background-color: #f5f5f5; font-weight: bold; padding: 8px;">@LocString[nameof(LocalizationKey.InactivePlayers)]</td></tr>
+            <tr><td colspan="@(hasComparison ? 12 : 10)" style="background-color: #f5f5f5; font-weight: bold; padding: 8px;">@LocString[nameof(LocalizationKey.InactivePlayers)]</td></tr>
             @foreach (var item in Model.InactiveUsers)
             {
             var isFemale = item.DisplayName?.Contains("♀") ?? false;
+            var prevRating = Model.PreviousRatings.TryGetValue(item.Id, out var pr) ? (double?)pr : null;
+            var currentRating = double.TryParse(Model.Stats.First().GetResult(item), out var cr) ? cr : 0;
             <tr style="background-color: #fafafa;">
-                <td style="color: #999;">-</td>
+                <td style="color: #999; @(hasComparison ? "padding-right: 2px;" : "")">-</td>
+                @if (hasComparison)
+                {
+                    <td style="padding-left: 2px;"></td>
+                }
                 <td>
                     <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = item.Id, swaOnly = Model.SwaOnly, })" style="@(isFemale ? "color: #d63384;" : "")">@item.DisplayName</a>
                 </td>
                 <td>@item.BirthYearU18</td>
                 <td>@item.RankingBeforeCutoffDate.ToUpper()</td>
+                @{ var inStatIndex = 0; }
                 @foreach (var res in Model.Stats)
                 {
-                    <td style="color: #999;">@res.GetResult(item)</td>
+                    <td style="color: #999; @(hasComparison && inStatIndex == 0 ? "padding-right: 2px;" : "")">@res.GetResult(item)</td>
+                    @if (hasComparison && inStatIndex == 0)
+                    {
+                        <td style="text-align: center; white-space: nowrap; font-size: 0.9em; padding-left: 2px;">
+                            @Html.Raw(FormatRatingChange(currentRating, prevRating))
+                        </td>
+                    }
+                    inStatIndex++;
                 }
             </tr>
             }

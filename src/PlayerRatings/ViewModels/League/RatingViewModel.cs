@@ -11,7 +11,10 @@ namespace PlayerRatings.ViewModels.League
             IEnumerable<Models.Match> lastMatches, Dictionary<string, Dictionary<string, string>> forecast,
             Guid leagueId, string byDate = null, bool swaOnly = false, bool isSgLeague = true,
             IEnumerable<ApplicationUser> nonLocalUsers = null,
-            IEnumerable<ApplicationUser> inactiveUsers = null)
+            IEnumerable<ApplicationUser> inactiveUsers = null,
+            Dictionary<string, double> previousRatings = null,
+            Dictionary<string, int> previousPositions = null,
+            DateTimeOffset? comparisonDate = null)
         {
             Stats = stats;
             Users = users;
@@ -24,6 +27,9 @@ namespace PlayerRatings.ViewModels.League
             IsSgLeague = isSgLeague;
             NonLocalUsers = nonLocalUsers ?? new List<ApplicationUser>();
             InactiveUsers = inactiveUsers ?? new List<ApplicationUser>();
+            PreviousRatings = previousRatings ?? new Dictionary<string, double>();
+            PreviousPositions = previousPositions ?? new Dictionary<string, int>();
+            ComparisonDate = comparisonDate;
         }
 
         public IEnumerable<IStat> Stats { get; private set; }
@@ -47,5 +53,20 @@ namespace PlayerRatings.ViewModels.League
         public bool SwaOnly { get; private set; }
 
         public bool IsSgLeague { get; private set; }
+        
+        /// <summary>
+        /// Previous ratings by user ID (at comparison date).
+        /// </summary>
+        public Dictionary<string, double> PreviousRatings { get; private set; }
+        
+        /// <summary>
+        /// Previous positions by user ID (at comparison date, 1-based).
+        /// </summary>
+        public Dictionary<string, int> PreviousPositions { get; private set; }
+        
+        /// <summary>
+        /// The date used for comparison (first day of current/previous month).
+        /// </summary>
+        public DateTimeOffset? ComparisonDate { get; private set; }
     }
 }

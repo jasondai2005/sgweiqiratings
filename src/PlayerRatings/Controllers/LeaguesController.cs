@@ -459,7 +459,62 @@ namespace PlayerRatings.Controllers
                 .ToList();
             promotedPlayers.Sort(CompareByRankingRatingAndName);
 
-            return View(new RatingViewModel(stats, users, promotedPlayers, recentMatches, forecast, id.Value, byDate, swaOnly, isSgLeague, nonLocalUsers, inactiveUsers));
+            // Calculate comparison data (first day of selected month, or previous month if already 1st)
+            var previousRatings = new Dictionary<string, double>();
+            var previousPositions = new Dictionary<string, int>();
+            DateTimeOffset? comparisonDate = null;
+            
+            // If it's the 1st of the month, compare to the 1st of previous month
+            // Otherwise, compare to the 1st of current month
+            comparisonDate = date.Day == 1 
+                ? new DateTimeOffset(date.Year, date.Month, 1, 0, 0, 0, date.Offset).AddMonths(-1)
+                : new DateTimeOffset(date.Year, date.Month, 1, 0, 0, 0, date.Offset);
+            
+            // Run calculation for comparison date
+            var (prevEloStat, prevActiveUsers, _) = CalculateRatings(
+                league, comparisonDate.Value, swaOnly,
+                allowedUserIds: notBlockedUserIds);
+            
+            // Build previous ratings dictionary
+            foreach (var user in prevActiveUsers)
+            {
+                previousRatings[user.Id] = prevEloStat[user];
+            }
+            
+            // Build previous positions (same filtering as current)
+            var prevUsers = prevActiveUsers
+                .Where(x => (!isSgLeague || !x.IsHiddenPlayer) && !hiddenUserIds.Contains(x.Id))
+                .Where(x => x.Active || x.IsProPlayer)
+                .ToList();
+            
+            if (isSgLeague)
+            {
+                prevUsers = prevUsers.Where(x => x.IsLocalPlayerAt(comparisonDate.Value)).ToList();
+            }
+            
+            // Sort by rating descending
+            prevUsers.Sort((x, y) =>
+            {
+                double ratingX = prevEloStat[x];
+                double ratingY = prevEloStat[y];
+                int result = ratingY.CompareTo(ratingX);
+                if (result == 0)
+                {
+                    var ranking1 = x.GetCombinedRankingBeforeDate(comparisonDate.Value);
+                    var ranking2 = y.GetCombinedRankingBeforeDate(comparisonDate.Value);
+                    if (ranking1 != ranking2)
+                        return string.Compare(ranking1, ranking2, StringComparison.OrdinalIgnoreCase);
+                    return string.Compare(x.DisplayName, y.DisplayName, StringComparison.OrdinalIgnoreCase);
+                }
+                return result;
+            });
+            
+            for (int i = 0; i < prevUsers.Count; i++)
+            {
+                previousPositions[prevUsers[i].Id] = i + 1;
+            }
+
+            return View(new RatingViewModel(stats, users, promotedPlayers, recentMatches, forecast, id.Value, byDate, swaOnly, isSgLeague, nonLocalUsers, inactiveUsers, previousRatings, previousPositions, comparisonDate));
         }
 
         private static void AddUser(HashSet<ApplicationUser> activeUsers, Match match, ApplicationUser player)
