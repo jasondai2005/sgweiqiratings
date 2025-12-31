@@ -4,17 +4,19 @@
 @{
     ViewData["Title"] = LocString[nameof(LocalizationKey.Rating)];
 
-    var number = 1;
     var leagueName = Model.LastMatches.FirstOrDefault()?.League?.Name ?? string.Empty;
 
     // Calculate current date, previous month and next month for navigation
+    // Use last day of month for monthly navigation (aligns with Player page rating history)
     var currentDate = string.IsNullOrEmpty(Model.ByDate) 
         ? DateTime.Now 
         : DateTime.ParseExact(Model.ByDate, "dd/MM/yyyy", null);
-    var prevMonth = new DateTime(currentDate.Year, currentDate.Month, 1).AddMonths(-1);
-    var nextMonth = new DateTime(currentDate.Year, currentDate.Month, 1).AddMonths(1);
-    var prevMonthStr = prevMonth.ToString("dd/MM/yyyy");
-    var nextMonthStr = nextMonth.ToString("dd/MM/yyyy");
+    // Last day of previous month
+    var prevMonthLastDay = new DateTime(currentDate.Year, currentDate.Month, 1).AddDays(-1);
+    // Last day of next month
+    var nextMonthLastDay = new DateTime(currentDate.Year, currentDate.Month, 1).AddMonths(2).AddDays(-1);
+    var prevMonthStr = prevMonthLastDay.ToString("dd/MM/yyyy");
+    var nextMonthStr = nextMonthLastDay.ToString("dd/MM/yyyy");
     var currentDateStr = currentDate.ToString("dd/MM/yyyy");
     var isViewingToday = currentDate.Date == DateTime.Now.Date;
     
@@ -26,13 +28,15 @@
     var newLabel = @LocString[nameof(LocalizationKey.New)].Value;
     var retLabel = @LocString[nameof(LocalizationKey.Returning)].Value;
     
-    // Helper to format position change (NEW for new players, RET for returning, arrows for changes, empty for no change)
-    string FormatPositionChange(int currentPos, int? prevPos, bool hasPlayedBefore)
+    // Helper to format position change (NEW for new players, RET for returning after inactivity, arrows for changes, empty for no change)
+    string FormatPositionChange(int currentPos, int? prevPos, bool wasRankedBefore)
     {
         if (!prevPos.HasValue)
         {
-            // Player not in previous rankings - either NEW or RET
-            if (hasPlayedBefore)
+            // Player not in previous rankings
+            // - NEW: First time being ranked (including after completing performance estimation)
+            // - RET: Was ranked before but dropped off due to inactivity, now returning
+            if (wasRankedBefore)
                 return $"<span style=\"color: #fd7e14; font-size: 0.85em;\">{retLabel}</span>";
             return $"<span style=\"color: #17a2b8; font-size: 0.85em;\">{newLabel}</span>";
         }
@@ -59,16 +63,16 @@
     <input type="hidden" name="id" value="@Model.LeagueId" />
     <input type="hidden" id="swaOnlyHidden" name="swaOnly" value="@(Model.SwaOnly ? "true" : "false")" />
     <div style="display: inline-flex; flex-wrap: nowrap; gap: 4px; align-items: center;">
-        <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = prevMonthStr, swaOnly = Model.SwaOnly })" class="btn btn-outline-primary">◀ @prevMonth.ToString("MMM", System.Globalization.CultureInfo.CurrentUICulture)</a>
+        <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = prevMonthStr, swaOnly = Model.SwaOnly })" class="btn btn-outline-primary">◀ @prevMonthLastDay.ToString("MMM", System.Globalization.CultureInfo.CurrentUICulture)</a>
         <input type="text" name="byDate" value="@currentDateStr" class="form-control text-center" style="width: 110px;" placeholder="dd/MM/yyyy" />
         <button type="submit" class="btn btn-primary">@LocString[nameof(LocalizationKey.Go)]</button>
-        @if (nextMonth <= DateTime.Now)
+        @if (nextMonthLastDay <= DateTime.Now)
         {
-            <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = nextMonthStr, swaOnly = Model.SwaOnly })" class="btn btn-outline-primary">@nextMonth.ToString("MMM", System.Globalization.CultureInfo.CurrentUICulture) ▶</a>
+            <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = nextMonthStr, swaOnly = Model.SwaOnly })" class="btn btn-outline-primary">@nextMonthLastDay.ToString("MMM", System.Globalization.CultureInfo.CurrentUICulture) ▶</a>
         }
         else
         {
-            <span class="btn btn-outline-secondary disabled">@nextMonth.ToString("MMM", System.Globalization.CultureInfo.CurrentUICulture) ▶</span>
+            <span class="btn btn-outline-secondary disabled">@nextMonthLastDay.ToString("MMM", System.Globalization.CultureInfo.CurrentUICulture) ▶</span>
         }
         @if (!isViewingToday)
         {
@@ -123,20 +127,36 @@
         @{ var currentPosition = 0; }
         @foreach (var item in Model.Users)
         {
-            currentPosition++;
             var isFemale = item.DisplayName?.Contains("♀") ?? false;
             var prevRating = Model.PreviousRatings.TryGetValue(item.Id, out var pr) ? (double?)pr : null;
             var prevPosition = Model.PreviousPositions.TryGetValue(item.Id, out var pp) ? (int?)pp : null;
             var currentRating = double.TryParse(Model.Stats.First().GetResult(item), out var cr) ? cr : 0;
-            var hasPlayedBefore = prevRating.HasValue; // If they had a rating before, they're returning, not new
+            // Player is "returning" only if they were previously ranked (had a position) but dropped off
+            // Players completing performance estimation have ratings but no previous position - they're NEW
+            var wasRankedBefore = prevPosition.HasValue;
+            var isProPlayer = item.IsProPlayer;
+            // Pro players show "Pro", others get sequential position numbers
+            string positionDisplay;
+            if (isProPlayer)
+            {
+                positionDisplay = "Pro";
+            }
+            else
+            {
+                currentPosition++;
+                positionDisplay = currentPosition.ToString();
+            }
             <tr>
                 <td style="@(hasComparison ? "padding-right: 2px;" : "")">
-                    @item.GetPosition(ref number, leagueName)
+                    @positionDisplay
                 </td>
                 @if (hasComparison)
                 {
                     <td style="text-align: center; white-space: nowrap; font-size: 0.9em; padding-left: 2px;">
-                        @Html.Raw(FormatPositionChange(currentPosition, prevPosition, hasPlayedBefore))
+                        @if (!isProPlayer)
+                        {
+                            @Html.Raw(FormatPositionChange(currentPosition, prevPosition, wasRankedBefore))
+                        }
                     </td>
                 }
                 <td>
@@ -157,7 +177,10 @@
                     @if (hasComparison && userStatIndex == 0)
                     {
                         <td style="text-align: center; white-space: nowrap; font-size: 0.9em; padding-left: 2px;">
-                            @Html.Raw(FormatRatingChange(currentRating, prevRating))
+                            @if (wasRankedBefore)
+                            {
+                                @Html.Raw(FormatRatingChange(currentRating, prevRating))
+                            }
                         </td>
                     }
                     userStatIndex++;

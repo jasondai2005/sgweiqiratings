@@ -195,7 +195,8 @@ namespace PlayerRatings.Engine.Stats
                 if (currentRankingRating > previousRankingRating)
                 {
                     // Pro players and foreign players directly use their new ranking rating
-                    if (player.IsProPlayer || (!player.IsLocalPlayer && !currentRanking.IsLocalRanking))
+                    // Use IsLocalPlayerAt(matchDate) for correct historical processing
+                    if (player.IsProPlayer || (!player.IsLocalPlayerAt(matchDate) && !currentRanking.IsLocalRanking))
                     {
                         _pendingPromotionFloors[player.Id] = (currentRankingRating, isSgLeague, false);
                     }

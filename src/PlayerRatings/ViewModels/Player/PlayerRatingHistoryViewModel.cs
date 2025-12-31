@@ -70,6 +70,26 @@ namespace PlayerRatings.ViewModels.Player
         /// Win rate for the current calendar year as a percentage (0-100).
         /// </summary>
         public double CurrentYearWinRate => CurrentYearGames > 0 ? (double)CurrentYearWins / CurrentYearGames * 100 : 0;
+        
+        /// <summary>
+        /// Games played in the previous calendar year.
+        /// </summary>
+        public int LastYearGames => GameRecords?.Count(g => g.Date.Year == DateTime.Now.Year - 1) ?? 0;
+        
+        /// <summary>
+        /// Wins in the previous calendar year.
+        /// </summary>
+        public int LastYearWins => GameRecords?.Count(g => g.Date.Year == DateTime.Now.Year - 1 && g.Result == "Win") ?? 0;
+        
+        /// <summary>
+        /// Losses in the previous calendar year.
+        /// </summary>
+        public int LastYearLosses => GameRecords?.Count(g => g.Date.Year == DateTime.Now.Year - 1 && g.Result == "Loss") ?? 0;
+        
+        /// <summary>
+        /// Win rate for the previous calendar year as a percentage (0-100).
+        /// </summary>
+        public double LastYearWinRate => LastYearGames > 0 ? (double)LastYearWins / LastYearGames * 100 : 0;
     }
 
     public class MonthlyRating

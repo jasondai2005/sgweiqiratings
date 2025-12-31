@@ -50,7 +50,7 @@
                     </div>
                 </div>
                 <div class="row" style="margin-top: 8px;">
-                    <div class="col-sm-6">
+                    <div class="col-sm-4">
                         <span style="color: #666;">@LocString[nameof(LocalizationKey.Overall)]:</span>
                         <span style="margin-left: 5px;">
                             <strong>@Model.TotalGames</strong> @LocString[nameof(LocalizationKey.Games)]
@@ -61,13 +61,25 @@
                     </div>
                     @if (Model.CurrentYearGames > 0)
                     {
-                    <div class="col-sm-6">
+                    <div class="col-sm-4">
                         <span style="color: #666;">@LocString[nameof(LocalizationKey.ThisYear)] (@DateTime.Now.Year):</span>
                         <span style="margin-left: 5px;">
                             <strong>@Model.CurrentYearGames</strong> @LocString[nameof(LocalizationKey.Games)]
                             <span style="color: #5cb85c; margin-left: 8px;">@Model.CurrentYearWins W</span>
                             <span style="color: #d9534f; margin-left: 4px;">@Model.CurrentYearLosses L</span>
                             <span style="margin-left: 8px; font-weight: bold;">(@Model.CurrentYearWinRate.ToString("F1")%)</span>
+                        </span>
+                    </div>
+                    }
+                    @if (Model.LastYearGames > 0)
+                    {
+                    <div class="col-sm-4">
+                        <span style="color: #666;">@LocString[nameof(LocalizationKey.LastYear)] (@(DateTime.Now.Year - 1)):</span>
+                        <span style="margin-left: 5px;">
+                            <strong>@Model.LastYearGames</strong> @LocString[nameof(LocalizationKey.Games)]
+                            <span style="color: #5cb85c; margin-left: 8px;">@Model.LastYearWins W</span>
+                            <span style="color: #d9534f; margin-left: 4px;">@Model.LastYearLosses L</span>
+                            <span style="margin-left: 8px; font-weight: bold;">(@Model.LastYearWinRate.ToString("F1")%)</span>
                         </span>
                     </div>
                     }

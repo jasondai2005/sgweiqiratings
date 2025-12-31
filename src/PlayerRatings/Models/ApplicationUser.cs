@@ -668,16 +668,5 @@ namespace PlayerRatings.Models
         {
             return RatingCalculator.GetEffectiveRanking(ranking);
         }
-
-        public string GetPosition(ref int postion, string leagueName = "")
-        {
-            if (IsProPlayer)
-                return "Pro";
-
-            if (IsHiddenPlayer)
-                return postion.ToString();
-
-            return postion++.ToString();
-        }
     }
 }

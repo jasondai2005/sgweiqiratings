@@ -369,7 +369,10 @@ namespace PlayerRatings.Controllers
             {
                 return NotFound();
             }
-            var date = byDate == null ? DateTimeOffset.Now : DateTimeOffset.ParseExact(byDate, "dd/MM/yyyy", null);
+            // When a date is specified, use end of day (23:59:59) to include all matches on that day
+            var date = byDate == null 
+                ? DateTimeOffset.Now 
+                : DateTimeOffset.ParseExact(byDate, "dd/MM/yyyy", null).AddDays(1).AddSeconds(-1);
             League.CutoffDate = date;
             var currentUser = await User.GetApplicationUser(_userManager);
 
@@ -459,16 +462,15 @@ namespace PlayerRatings.Controllers
                 .ToList();
             promotedPlayers.Sort(CompareByRankingRatingAndName);
 
-            // Calculate comparison data (first day of selected month, or previous month if already 1st)
+            // Calculate comparison data (last day of previous month)
             var previousRatings = new Dictionary<string, double>();
             var previousPositions = new Dictionary<string, int>();
             DateTimeOffset? comparisonDate = null;
             
-            // If it's the 1st of the month, compare to the 1st of previous month
-            // Otherwise, compare to the 1st of current month
-            comparisonDate = date.Day == 1 
-                ? new DateTimeOffset(date.Year, date.Month, 1, 0, 0, 0, date.Offset).AddMonths(-1)
-                : new DateTimeOffset(date.Year, date.Month, 1, 0, 0, 0, date.Offset);
+            // Compare to the last day of the previous month (end of day)
+            // This aligns with how monthly ratings are displayed in the Player page
+            var firstDayOfCurrentMonth = new DateTimeOffset(date.Year, date.Month, 1, 0, 0, 0, date.Offset);
+            comparisonDate = firstDayOfCurrentMonth.AddSeconds(-1); // Last second of previous month
             
             // Run calculation for comparison date
             var (prevEloStat, prevActiveUsers, _) = CalculateRatings(
@@ -481,10 +483,11 @@ namespace PlayerRatings.Controllers
                 previousRatings[user.Id] = prevEloStat[user];
             }
             
-            // Build previous positions (same filtering as current)
+            // Build previous positions (same filtering as current display)
+            // Exclude pro players as they show "Pro" instead of position number
             var prevUsers = prevActiveUsers
                 .Where(x => (!isSgLeague || !x.IsHiddenPlayer) && !hiddenUserIds.Contains(x.Id))
-                .Where(x => x.Active || x.IsProPlayer)
+                .Where(x => x.Active && !x.IsProPlayer)
                 .ToList();
             
             if (isSgLeague)
@@ -513,6 +516,9 @@ namespace PlayerRatings.Controllers
             {
                 previousPositions[prevUsers[i].Id] = i + 1;
             }
+
+            // Restore cutoff date for view rendering (Promotion property uses League.CutoffDate)
+            League.CutoffDate = date;
 
             return View(new RatingViewModel(stats, users, promotedPlayers, recentMatches, forecast, id.Value, byDate, swaOnly, isSgLeague, nonLocalUsers, inactiveUsers, previousRatings, previousPositions, comparisonDate));
         }
