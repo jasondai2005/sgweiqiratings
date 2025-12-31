@@ -912,11 +912,12 @@ namespace PlayerRatings.Controllers
                     matchNamesInCurrentMonth.Clear();
                     
                     // Fill in any skipped months (with empty match names)
-                    var nextMonth = currentProcessingMonth.AddMonths(1);
+                    // Use GetEndOfMonth to ensure consistent end-of-month DateTime values
+                    var nextMonth = GetEndOfMonth(currentProcessingMonth.AddMonths(1));
                     while (nextMonth < matchMonth)
                     {
                         CaptureSnapshot(nextMonth);
-                        nextMonth = nextMonth.AddMonths(1);
+                        nextMonth = GetEndOfMonth(nextMonth.AddMonths(1));
                     }
                 }
                 currentProcessingMonth = matchMonth;
@@ -1009,13 +1010,14 @@ namespace PlayerRatings.Controllers
                 CaptureSnapshot(currentProcessingMonth);
                 
                 var endMonth = GetEndOfMonth(DateTime.Now);
-                var nextMonth = currentProcessingMonth.AddMonths(1);
+                // Use GetEndOfMonth to ensure consistent end-of-month DateTime values
+                var nextMonth = GetEndOfMonth(currentProcessingMonth.AddMonths(1));
                 while (nextMonth <= endMonth)
                 {
                     matchesInCurrentMonth = 0;
                     matchNamesInCurrentMonth.Clear();
                     CaptureSnapshot(nextMonth);
-                    nextMonth = nextMonth.AddMonths(1);
+                    nextMonth = GetEndOfMonth(nextMonth.AddMonths(1));
                 }
             }
             
