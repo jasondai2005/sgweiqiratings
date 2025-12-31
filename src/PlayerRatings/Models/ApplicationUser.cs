@@ -382,19 +382,24 @@ namespace PlayerRatings.Models
             if (Rankings == null || !Rankings.Any())
                 return string.Empty;
 
-            // Get latest SWA ranking before date
+            // Helper: RankingDate is treated as end of that day (23:59:59)
+            // A ranking dated Jan 15 takes effect at Jan 15 23:59:59
+            bool IsRankingEffective(PlayerRanking r) => 
+                r.RankingDate == null || r.RankingDate.Value.Date.AddDays(1).AddSeconds(-1) <= date;
+
+            // Get latest SWA ranking effective at date
             var latestSwa = Rankings
                 .Where(r => r.Organization == "SWA" && !string.IsNullOrEmpty(r.Ranking))
-                .Where(r => r.RankingDate == null || r.RankingDate < date)
+                .Where(IsRankingEffective)
                 .OrderByDescending(r => r.RankingDate ?? DateTimeOffset.MinValue)
                 .ThenByDescending(r => GetRatingByRanking(r))
                 .FirstOrDefault();
             effectiveRanking = latestSwa;
 
-            // Get highest ranking from any other organization before date
+            // Get highest ranking from any other organization effective at date
             var highestOther = Rankings
                 .Where(r => r.Organization != "SWA" && !string.IsNullOrEmpty(r.Ranking))
-                .Where(r => r.RankingDate == null || r.RankingDate < date)
+                .Where(IsRankingEffective)
                 .OrderByDescending(r => GetRatingByRanking(r))
                 .ThenByDescending(r => r.RankingDate ?? DateTimeOffset.MinValue)
                 .FirstOrDefault();

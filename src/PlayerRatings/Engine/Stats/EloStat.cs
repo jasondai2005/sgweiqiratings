@@ -96,9 +96,10 @@ namespace PlayerRatings.Engine.Stats
             _dict[match.FirstPlayer.Id] = rating.NewRatingAPlayer;
             _dict[match.SecondPlayer.Id] = specialRating.NewRatingBPlayer;
 
-            // Check for promotions and queue rating floor adjustments (applied after all matches on that day)
-            CheckForPromotion(match.FirstPlayer, match.Date, isSgLeague);
-            CheckForPromotion(match.SecondPlayer, match.Date, isSgLeague);
+            // Check for promotions and apply rating floor immediately
+            // (RankingDate is treated as end-of-day, so promotions only visible after effective time)
+            CheckPlayerPromotion(match.FirstPlayer, match.Date, isSgLeague);
+            CheckPlayerPromotion(match.SecondPlayer, match.Date, isSgLeague);
 
             match.ShiftRating = rating.ShiftRatingAPlayer.ToString("F1");
             var player2ShiftRating = (secondPlayerRating - _dict[match.SecondPlayer.Id]).ToString("F1");
@@ -116,53 +117,27 @@ namespace PlayerRatings.Engine.Stats
         // Track the last known ranking for each player to detect promotions
         private readonly Dictionary<string, PlayerRanking> _lastKnownRanking = new Dictionary<string, PlayerRanking>();
 
-        // Track pending promotion rating floors: player Id -> (rating floor, isSgLeague, wasKyuPlayer)
-        private readonly Dictionary<string, (double ratingFloor, bool isSgLeague, bool wasKyuPlayer)> _pendingPromotionFloors 
-            = new Dictionary<string, (double, bool, bool)>();
-
-        // Track the current date being processed
-        private DateTime _currentProcessingDate = DateTime.MinValue;
-
         /// <summary>
-        /// Public method to check and apply promotion for a player at a specific date.
-        /// Called when a player is first encountered to apply any promotions that may have happened.
+        /// Checks and applies promotion bonus for a player at a specific date.
+        /// Since RankingDate is treated as end-of-day (23:59:59), promotions are only
+        /// visible after their effective time, so we can apply the bonus immediately.
         /// </summary>
         public void CheckPlayerPromotion(ApplicationUser player, DateTimeOffset date, bool isSgLeague)
         {
-            CheckForPromotion(player, date, isSgLeague);
-        }
-
-        /// <summary>
-        /// Checks if a player was promoted and queues a rating floor adjustment.
-        /// The adjustment is applied after all matches on that day complete.
-        /// </summary>
-        private void CheckForPromotion(ApplicationUser player, DateTimeOffset matchDate, bool isSgLeague)
-        {
-            // Apply any pending promotion floors from previous days
-            if (matchDate.Date > _currentProcessingDate)
-            {
-                ApplyPendingPromotionFloors();
-                _currentProcessingDate = matchDate.Date;
-            }
-
-            // Get current ranking at match date
-            player.GetCombinedRankingBeforeDate(matchDate, out PlayerRanking currentRanking);
+            // Get current ranking at date (rankings only visible after their end-of-day effective time)
+            player.GetCombinedRankingBeforeDate(date, out PlayerRanking currentRanking);
             if (currentRanking == null || string.IsNullOrEmpty(currentRanking.Ranking))
                 return;
 
             // Skip if promotion bonus is disabled
             if (!PromotionBonusEnabled)
-            {
                 return;
-            }
 
             // Check if ranking changed (promotion detected)
-            PlayerRanking previousRanking;
-            if (!_lastKnownRanking.TryGetValue(player.Id, out previousRanking))
+            if (!_lastKnownRanking.TryGetValue(player.Id, out PlayerRanking previousRanking))
             {
                 // First time seeing this player - initialize with their earliest known ranking
                 // so we can detect promotions from their initial rank
-                // Rankings without dates are treated as earliest (MinValue)
                 if (player.Rankings != null && player.Rankings.Any())
                 {
                     var earliest = player.Rankings
@@ -181,7 +156,6 @@ namespace PlayerRatings.Engine.Stats
             if (previousRanking != null && !IsSameRanking(previousRanking, currentRanking))
             {
                 // Only promotions from trusted organizations can trigger promotion bonus
-                // Trusted: SWA, TGA, MWA, KBA, Thailand, Vietnam, EGF
                 if (!currentRanking.IsTrustedOrganization)
                 {
                     _lastKnownRanking[player.Id] = currentRanking;
@@ -194,30 +168,57 @@ namespace PlayerRatings.Engine.Stats
 
                 if (currentRankingRating > previousRankingRating)
                 {
-                    // Pro players and foreign players directly use their new ranking rating
-                    // Use IsLocalPlayerAt(matchDate) for correct historical processing
-                    if (player.IsProPlayer || (!player.IsLocalPlayerAt(matchDate) && !currentRanking.IsLocalRanking))
-                    {
-                        _pendingPromotionFloors[player.Id] = (currentRankingRating, isSgLeague, false);
-                    }
-                    // Only apply promotion bonus for 4D and lower promotions
-                    // 5D and above (rating >= 2500) are considered strong enough and don't need the bonus
-                    // Note: TGA (5D) = 2400 still gets bonus as it's equivalent to SWA 4D in strength
-                    else if (currentRankingRating < 2500)
-                    {
-                        // This is a promotion - queue rating floor for end of day
-                        // Rating floor is 50% of a single-rank difference below the new rank
-                        int singleRankDiff = Rating.RatingCalculator.GetSingleRankDifference(currentRankingRating);
-                        double ratingFloor = currentRankingRating - singleRankDiff * 0.5;
-                        // Track if previous ranking was kyu - only kyu players should stop performance tracking
-                        bool wasKyuPlayer = previousRanking.Ranking?.Contains('K', StringComparison.OrdinalIgnoreCase) ?? true;
-                        _pendingPromotionFloors[player.Id] = (ratingFloor, isSgLeague, wasKyuPlayer);
-                    }
+                    // Calculate and apply rating floor immediately
+                    // (promotion is already effective since ranking is now visible)
+                    ApplyPromotionFloor(player, previousRanking, currentRanking, currentRankingRating, date, isSgLeague);
                 }
             }
 
             // Update last known ranking
             _lastKnownRanking[player.Id] = currentRanking;
+        }
+
+        /// <summary>
+        /// Applies promotion rating floor immediately for a player.
+        /// </summary>
+        private void ApplyPromotionFloor(ApplicationUser player, PlayerRanking previousRanking, 
+            PlayerRanking currentRanking, int currentRankingRating, DateTimeOffset date, bool isSgLeague)
+        {
+            double ratingFloor;
+            bool wasKyuPlayer = previousRanking.Ranking?.Contains('K', StringComparison.OrdinalIgnoreCase) ?? true;
+
+            // Pro players and foreign players directly use their new ranking rating
+            if (player.IsProPlayer || (!player.IsLocalPlayerAt(date) && !currentRanking.IsLocalRanking))
+            {
+                ratingFloor = currentRankingRating;
+                wasKyuPlayer = false;
+            }
+            // Only apply promotion bonus for 4D and lower promotions
+            // 5D and above (rating >= 2500) are considered strong enough and don't need the bonus
+            else if (currentRankingRating < 2500)
+            {
+                // Rating floor is 50% of a single-rank difference below the new rank
+                int singleRankDiff = Rating.RatingCalculator.GetSingleRankDifference(currentRankingRating);
+                ratingFloor = currentRankingRating - singleRankDiff * 0.5;
+            }
+            else
+            {
+                return; // No bonus for 5D and above
+            }
+
+            // Apply floor if current rating is lower
+            double currentRating = _dict.TryGetValue(player.Id, out var cached) ? cached : 0;
+            if (currentRating < ratingFloor)
+            {
+                _dict[player.Id] = ratingFloor;
+                
+                // Only stop performance estimation for kyu players
+                // Foreign dan players could be stronger than the promoted dan level
+                if (wasKyuPlayer)
+                {
+                    _performanceTracker.Remove(player.Id);
+                }
+            }
         }
 
         /// <summary>
@@ -232,49 +233,17 @@ namespace PlayerRatings.Engine.Stats
         }
 
         /// <summary>
-        /// Applies all pending promotion rating floors.
-        /// Called when the processing date changes or at the end of match processing.
-        /// Also stops performance estimation tracking for kyu players who receive the bonus.
-        /// Foreign dan players continue tracking as they could be stronger than the promoted level.
+        /// Checks and applies promotions for all given players up to the specified date.
+        /// This ensures players who got promoted but had no match get their bonus applied.
+        /// Should be called before taking monthly snapshots.
         /// </summary>
-        private void ApplyPendingPromotionFloors()
+        public void ApplyPromotionsUpToDate(IEnumerable<ApplicationUser> players, DateTimeOffset upToDate, bool isSgLeague)
         {
-            foreach (var pending in _pendingPromotionFloors)
+            // Simply check each player - promotions are applied immediately when detected
+            foreach (var player in players)
             {
-                string playerId = pending.Key;
-                double ratingFloor = pending.Value.ratingFloor;
-                bool wasKyuPlayer = pending.Value.wasKyuPlayer;
-
-                // Get current rating - either from _dict or initialize with rating floor
-                double currentRating;
-                if (!_dict.TryGetValue(playerId, out currentRating))
-                {
-                    // Player not in _dict yet - initialize with the rating floor
-                    currentRating = 0;
-                }
-
-                if (currentRating < ratingFloor)
-                {
-                    _dict[playerId] = ratingFloor;
-                    
-                    // Only stop performance estimation for kyu players
-                    // Foreign dan players could be stronger than the promoted dan level
-                    if (wasKyuPlayer)
-                    {
-                        _performanceTracker.Remove(playerId);
-                    }
-                }
+                CheckPlayerPromotion(player, upToDate, isSgLeague);
             }
-
-            _pendingPromotionFloors.Clear();
-        }
-
-        /// <summary>
-        /// Finalizes any pending operations. Should be called after all matches are processed.
-        /// </summary>
-        public void FinalizeProcessing()
-        {
-            ApplyPendingPromotionFloors();
         }
 
         /// <summary>

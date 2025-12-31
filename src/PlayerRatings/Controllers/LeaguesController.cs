@@ -33,6 +33,19 @@ namespace PlayerRatings.Controllers
         // Minimum date for rating calculations (matches before this date are not included in ratings)
         private static readonly DateTimeOffset RATING_START_DATE = new DateTimeOffset(2023, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
+        /// <summary>
+        /// Gets the last second of the month for the given date.
+        /// E.g., Jan 15, 2024 → Jan 31, 2024 23:59:59
+        /// </summary>
+        private static DateTime GetEndOfMonth(DateTime date)
+            => new DateTime(date.Year, date.Month, 1).AddMonths(1).AddSeconds(-1);
+
+        /// <summary>
+        /// Gets the last second of the month for the given date as DateTimeOffset.
+        /// </summary>
+        private static DateTimeOffset GetEndOfMonth(DateTimeOffset date)
+            => new DateTimeOffset(date.Year, date.Month, 1, 0, 0, 0, date.Offset).AddMonths(1).AddSeconds(-1);
+
         // Cache duration for league data (5 minutes)
         private static readonly TimeSpan LeagueCacheDuration = TimeSpan.FromMinutes(5);
 
@@ -622,7 +635,6 @@ namespace PlayerRatings.Controllers
             {
                 eloStat.CheckPlayerPromotion(user, cutoffDate, isSgLeague);
             }
-            eloStat.FinalizeProcessing();
 
             return (eloStat, activeUsers, isSgLeague);
         }
@@ -865,7 +877,7 @@ namespace PlayerRatings.Controllers
             
             // ===== Use shared calculation with monthly snapshot callback =====
             var monthlyRatings = new List<MonthlyRating>();
-            var startMonth = new DateTime(startDate.Year, startDate.Month, 1);
+            var startMonth = GetEndOfMonth(startDate.DateTime);
             var currentProcessingMonth = new DateTime(1900, 1, 1);
             int playerMatchCount = 0;
             int matchesInCurrentMonth = 0;
@@ -880,7 +892,7 @@ namespace PlayerRatings.Controllers
             void OnMatchProcessed(Match match, EloStat elo)
             {
                 currentEloStat = elo;
-                var matchMonth = new DateTime(match.Date.Year, match.Date.Month, 1);
+                var matchMonth = GetEndOfMonth(match.Date.DateTime);
                 
                 // Track all players for position calculation
                 if (!allPlayersInMatches.ContainsKey(match.FirstPlayerId))
@@ -932,8 +944,12 @@ namespace PlayerRatings.Controllers
                     var reversed = new List<string>(matchNamesInCurrentMonth);
                     reversed.Reverse();
                     
-                    // Calculate position at end of this month
-                    var monthEnd = new DateTimeOffset(monthToCapture.Year, monthToCapture.Month, 1, 0, 0, 0, TimeSpan.Zero).AddMonths(1).AddSeconds(-1);
+                    // monthToCapture is already end-of-month, just convert to DateTimeOffset
+                    var monthEnd = new DateTimeOffset(monthToCapture, TimeSpan.Zero);
+                    
+                    // Apply promotions for all tracked players up to this month's end
+                    // This ensures players who got promoted but had no match get their bonus
+                    currentEloStat.ApplyPromotionsUpToDate(allPlayersInMatches.Values, monthEnd, isSgLeague);
                     var twoYearsAgo = monthEnd.AddYears(-2);
                     
                     // Filter to active, rankable players at this month
@@ -992,7 +1008,7 @@ namespace PlayerRatings.Controllers
             {
                 CaptureSnapshot(currentProcessingMonth);
                 
-                var endMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+                var endMonth = GetEndOfMonth(DateTime.Now);
                 var nextMonth = currentProcessingMonth.AddMonths(1);
                 while (nextMonth <= endMonth)
                 {

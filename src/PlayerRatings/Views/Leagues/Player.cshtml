@@ -311,11 +311,13 @@
         }
         else
         {
-            var effectiveMonth = new DateTime(rankingDate.Year, rankingDate.Month, 1);
+            // Use end of month to match with MonthlyRatings.Month format
+            var effectiveMonth = new DateTime(rankingDate.Year, rankingDate.Month, 1).AddMonths(1).AddSeconds(-1);
             var monthKey = effectiveMonth.ToString("MMM yyyy");
             
-            // Check if this ranking is before the first match month
-            if (effectiveMonth < firstMatchDate)
+            // Check if this ranking is before the first match month (compare same month by using the month key)
+            var firstMatchMonthKey = firstMatchDate.ToString("MMM yyyy");
+            if (effectiveMonth < firstMatchDate && monthKey != firstMatchMonthKey)
             {
                 earlyRankings.Add((displayRanking, fullDate, rankingDate, ranking.Organization ?? ""));
             }
