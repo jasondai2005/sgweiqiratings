@@ -36,10 +36,8 @@ namespace PlayerRatings.Controllers
             _leaguesRepository = leaguesRepository;
         }
 
-        public async Task<IActionResult> Index(Guid leagueId, int page = 0)
+        public async Task<IActionResult> Index(Guid leagueId, int? year = null, int? month = null)
         {
-            const int pageSize = 30;
-
             var currentUser = await User.GetApplicationUser(_userManager);
 
             var league = _leaguesRepository.GetUserAuthorizedLeague(currentUser, leagueId);
@@ -49,27 +47,53 @@ namespace PlayerRatings.Controllers
                 return NotFound();
             }
 
-            var matchesCount = _context.Match.Count(m => m.LeagueId == leagueId);
-            var pagesCount = (int)Math.Ceiling((double)matchesCount / pageSize);
+            // Get all available months for this league
+            var availableMonths = _context.Match
+                .AsNoTracking()
+                .Where(m => m.LeagueId == leagueId)
+                .Select(m => m.Date)
+                .ToList()
+                .Select(d => new DateTime(d.Year, d.Month, 1))
+                .Distinct()
+                .OrderByDescending(m => m)
+                .ToList();
 
-            if (page >= pagesCount && page != 0)
+            if (!availableMonths.Any())
             {
-                return NotFound();
+                return View(new MatchesViewModel(new List<Models.Match>(), leagueId, DateTime.Now, availableMonths));
             }
+
+            // Determine current month to display
+            DateTime currentMonth;
+            if (year.HasValue && month.HasValue)
+            {
+                currentMonth = new DateTime(year.Value, month.Value, 1);
+                if (!availableMonths.Contains(currentMonth))
+                {
+                    // If the requested month has no matches, redirect to the latest month
+                    currentMonth = availableMonths.First();
+                }
+            }
+            else
+            {
+                // Default to the most recent month with matches
+                currentMonth = availableMonths.First();
+            }
+
+            var monthStart = new DateTimeOffset(currentMonth, TimeSpan.Zero);
+            var monthEnd = new DateTimeOffset(currentMonth.AddMonths(1), TimeSpan.Zero);
 
             var matches =
                 _context.Match
                     .AsNoTracking()
-                    .Where(m => m.LeagueId == leagueId)
+                    .Where(m => m.LeagueId == leagueId && m.Date >= monthStart && m.Date < monthEnd)
                     .OrderByDescending(m => m.Date)
-                    .Skip(pageSize*page)
-                    .Take(pageSize)
                     .Include(m => m.FirstPlayer).ThenInclude(p => p.Rankings)
                     .Include(m => m.SecondPlayer).ThenInclude(p => p.Rankings)
                     .Include(m => m.League)
                     .ToList();
 
-            return View(new MatchesViewModel(matches, leagueId, pagesCount, page));
+            return View(new MatchesViewModel(matches, leagueId, currentMonth, availableMonths));
         }
 
         private ICollection<League> GetLeagues(ApplicationUser currentUser, Guid? leagueId)

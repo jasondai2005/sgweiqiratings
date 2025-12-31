@@ -895,16 +895,17 @@ namespace PlayerRatings.Controllers
                 {
                     CaptureSnapshot(currentProcessingMonth);
                     
-                    // Fill in any skipped months
+                    // Clear match data before filling skipped months (they have no matches)
+                    matchesInCurrentMonth = 0;
+                    matchNamesInCurrentMonth.Clear();
+                    
+                    // Fill in any skipped months (with empty match names)
                     var nextMonth = currentProcessingMonth.AddMonths(1);
                     while (nextMonth < matchMonth)
                     {
                         CaptureSnapshot(nextMonth);
                         nextMonth = nextMonth.AddMonths(1);
                     }
-                    
-                    matchesInCurrentMonth = 0;
-                    matchNamesInCurrentMonth.Clear();
                 }
                 currentProcessingMonth = matchMonth;
                 

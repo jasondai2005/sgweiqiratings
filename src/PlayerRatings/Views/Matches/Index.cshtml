@@ -9,17 +9,78 @@
 @{
     ViewData["Title"] = LocString[nameof(LocalizationKey.Matches)];
     var appUser = await User.GetApplicationUser(UserManager);
-    var active = "active";
 }
 
 <h2>@ViewData["Title"]</h2>
 
-<table class="table">
+<!-- Month Navigation -->
+<div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
+    @if (Model.PreviousMonth.HasValue)
+    {
+        <a asp-action="Index" asp-route-leagueid="@Model.LeagueId" asp-route-year="@Model.PreviousMonth.Value.Year" asp-route-month="@Model.PreviousMonth.Value.Month" class="btn btn-default btn-sm">
+            ← @Model.PreviousMonth.Value.ToString("MMM yyyy")
+        </a>
+    }
+    else
+    {
+        <span class="btn btn-default btn-sm disabled">← Prev</span>
+    }
+
+    <div class="dropdown">
+        <button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">
+            <strong>@Model.CurrentMonthDisplay</strong> <span class="caret"></span>
+        </button>
+        <ul class="dropdown-menu" style="max-height: 300px; overflow-y: auto;">
+            @foreach (var month in Model.AvailableMonths)
+            {
+                var isActive = month == Model.CurrentMonth;
+                <li class="@(isActive ? "active" : "")">
+                    <a asp-action="Index" asp-route-leagueid="@Model.LeagueId" asp-route-year="@month.Year" asp-route-month="@month.Month">
+                        @month.ToString("MMM yyyy")
+                    </a>
+                </li>
+            }
+        </ul>
+    </div>
+
+    @if (Model.NextMonth.HasValue)
+    {
+        <a asp-action="Index" asp-route-leagueid="@Model.LeagueId" asp-route-year="@Model.NextMonth.Value.Year" asp-route-month="@Model.NextMonth.Value.Month" class="btn btn-default btn-sm">
+            @Model.NextMonth.Value.ToString("MMM yyyy") →
+        </a>
+    }
+    else
+    {
+        <span class="btn btn-default btn-sm disabled">Next →</span>
+    }
+
+    <span style="color: #666; margin-left: 10px;">(@Model.Matches.Count() @LocString[nameof(LocalizationKey.Matches)])</span>
+</div>
+
+@if (Model.Matches.Any())
+{
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>@LocString[nameof(LocalizationKey.Match)]</th>
+            <th>Score</th>
+            <th>Tournament</th>
+            <th>@LocString[nameof(LocalizationKey.Date)]</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
     @foreach (var item in Model.Matches)
     {
+        var player1Ranking = item.FirstPlayer.GetCombinedRankingBeforeDate(item.Date);
+        var player2Ranking = item.SecondPlayer.GetCombinedRankingBeforeDate(item.Date);
         <tr>
             <td>
-                @item.GetDescription()
+                <a asp-controller="Leagues" asp-action="Player" asp-route-id="@Model.LeagueId" asp-route-playerId="@item.FirstPlayerId">@item.FirstPlayer.DisplayName</a>
+                <span style="color: #999; font-size: 0.85em;">@player1Ranking</span>
+                <span style="margin: 0 5px;">vs</span>
+                <a asp-controller="Leagues" asp-action="Player" asp-route-id="@Model.LeagueId" asp-route-playerId="@item.SecondPlayerId">@item.SecondPlayer.DisplayName</a>
+                <span style="color: #999; font-size: 0.85em;">@player2Ranking</span>
             </td>
             <td>
                 @item.GetScore()
@@ -28,7 +89,7 @@
                 @item.MatchName
             </td>
             <td>
-                @item.Date
+                @item.Date.ToString("dd/MM/yyyy")
             </td>
             <td>
                 @if (item.CreatedByUserId == appUser.Id || item.League.CreatedByUserId == appUser.Id)
@@ -40,13 +101,10 @@
             </td>
         </tr>
     }
+    </tbody>
 </table>
-
-<ul class="pagination">
-    @for (var i = 0; i < Model.PagesCount; i++)
-    {
-        <li class="@(Model.CurrentPage == i ? active : string.Empty)">
-            <a asp-action="Index" asp-route-leagueid="@Model.LeagueId" asp-route-page="@i">@(i+1)</a>
-        </li>
-    }
-</ul>
+}
+else
+{
+    <p class="text-muted">No matches found for this month.</p>
+}

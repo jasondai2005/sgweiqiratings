@@ -1,4 +1,5 @@
 @using PlayerRatings.Localization
+@using PlayerRatings.Models
 @using PlayerRatings.ViewModels.Player
 @model PlayerRatings.ViewModels.Player.PlayerRatingHistoryViewModel
 
@@ -6,12 +7,12 @@
     ViewData["Title"] = Model.Player.DisplayName + " - Rating History";
     var sortedRatings = Model.MonthlyRatings.OrderBy(r => r.Month).ToList();
     var playerRankings = Model.Player.Rankings?.OrderByDescending(r => r.RankingDate ?? DateTimeOffset.MinValue).ToList() 
-        ?? new List<PlayerRatings.Models.PlayerRanking>();
+        ?? new List<PlayerRanking>();
 }
 
 <div class="row">
     <div class="col-md-8">
-        <h3 id="playerDisplayName">@Model.Player.DisplayName</h3>
+        <h3 id="playerDisplayName">@Model.Player.DisplayName <span style="font-size: 0.6em; color: #999; font-weight: normal;">@Model.Player.UserName</span></h3>
         
         <!-- Player Info Section -->
         <div class="panel panel-default" style="margin-bottom: 15px;">
@@ -26,7 +27,7 @@
                     @if (!string.IsNullOrEmpty(Model.Player.Photo))
                     {
                     <div class="col-xs-3 col-sm-2" id="playerPhotoContainer">
-                        <img id="playerPhoto" src="@(Model.Player.Photo)@(Model.Player.Photo.Contains("?") ? "&" : "?")v=@DateTime.UtcNow.Ticks" alt="@Model.Player.DisplayName" style="max-width: 120px; max-height: 120px; border-radius: 8px;" />
+                        <img id="playerPhoto" src="@(Model.Player.Photo)@(Model.Player.Photo.Contains("?") ? "&" : "?")v=@DateTime.UtcNow.Ticks" alt="@Model.Player.DisplayName" style="max-width: 120px; max-height: 120px; border-radius: 8px; cursor: pointer;" onclick="showPhotoModal(this.src)" title="Click to enlarge" />
                     </div>
                     }
                     <div class="@(string.IsNullOrEmpty(Model.Player.Photo) ? "col-xs-12" : "col-xs-9 col-sm-10")" id="playerInfoContainer">
@@ -297,16 +298,8 @@
         if (string.IsNullOrEmpty(ranking.Ranking))
             continue;
 
-        // Format ranking with organization indicator
-        // When SwaOnly is enabled, TGA rankings are shown as [] like foreign rankings
-        // Trusted foreign orgs (MWA, KBA, Thailand, Vietnam, EGF) are shown as [] too
-        string displayRanking = ranking.Ranking.ToUpper();
-        if (ranking.Organization == "TGA" && !Model.SwaOnly)
-            displayRanking = $"({displayRanking})";
-        else if (ranking.Organization != "SWA")
-        {
-            displayRanking = $"[{displayRanking}]";
-        }
+        // Format ranking with organization indicator using the centralized method
+        string displayRanking = ApplicationUser.FormatRankingForDisplay(ranking);
         
         var rankingDate = ranking.RankingDate ?? DateTimeOffset.MinValue;
         var fullDate = rankingDate != DateTimeOffset.MinValue ? rankingDate.ToString("dd/MM/yyyy") : "";
@@ -388,6 +381,9 @@
             </tr>
         </thead>
         <tbody>
+            @{
+                var positionCutoffDate = new DateTime(2024, 1, 1);
+            }
             @foreach (var item in Model.MonthlyRatings.OrderByDescending(r => r.Month))
             {
                 var hasRankings = monthRankingLabels.TryGetValue(item.MonthDisplay, out var rankingList);
@@ -396,9 +392,10 @@
                 {
                     continue;
                 }
+                var showPosition = item.Month >= positionCutoffDate && item.Position > 0;
                 <tr>
                     <td>@item.MonthDisplay</td>
-                    <td>@if (item.Position > 0) { <span>@item.Position<span style="color: #999; font-size: 0.85em;">/@item.TotalPlayers</span></span> } else { <span>-</span> }</td>
+                    <td>@if (showPosition) { <span>@item.Position<span style="color: #999; font-size: 0.85em;">/@item.TotalPlayers</span></span> } else { <span>-</span> }</td>
                     <td>@item.RatingDisplay</td>
                     <td>
                         @if (item.MatchNames.Any())
@@ -521,10 +518,12 @@
         const ctx = document.getElementById('ratingChart').getContext('2d');
         
         // All months for continuous axis
+        // Position data only shown from Jan 2024 onwards (too few players before that)
+        const positionCutoff = new Date(2024, 0, 1);
         const labels = [@Html.Raw(string.Join(",", sortedRatings.Select(r => $"'{r.MonthDisplay}'")))];
         const ratings = [@Html.Raw(string.Join(",", sortedRatings.Select(r => r.Rating.ToString("F1", System.Globalization.CultureInfo.InvariantCulture))))];
-        const positions = [@Html.Raw(string.Join(",", sortedRatings.Select(r => r.Position > 0 ? r.Position.ToString() : "null")))];
-        const totalPlayers = [@Html.Raw(string.Join(",", sortedRatings.Select(r => r.TotalPlayers > 0 ? r.TotalPlayers.ToString() : "null")))];
+        const positions = [@Html.Raw(string.Join(",", sortedRatings.Select(r => r.Month >= new DateTime(2024, 1, 1) && r.Position > 0 ? r.Position.ToString() : "null")))];
+        const totalPlayers = [@Html.Raw(string.Join(",", sortedRatings.Select(r => r.Month >= new DateTime(2024, 1, 1) && r.TotalPlayers > 0 ? r.TotalPlayers.ToString() : "null")))];
         
         // Track which months have activity (matches or ranking changes)
         const hasActivity = [@Html.Raw(string.Join(",", sortedRatings.Select(r => (r.MatchesInMonth > 0 || monthRankingLabels.ContainsKey(r.MonthDisplay)).ToString().ToLower())))];
@@ -673,7 +672,7 @@
                         type: 'linear',
                         position: 'right',
                         reverse: true, // Lower position number = better, so at top
-                        min: Math.max(1, minPosition - 5),
+                        min: Math.max(0.7, minPosition - 5), // Start from 0.7 or below min position for spacing
                         max: maxPosition + 5,
                         title: {
                             display: true,
@@ -747,7 +746,7 @@
                             if (photoUrl) {
                                 if ($photoContainer.length === 0) {
                                     // Create photo container if it doesn't exist
-                                    $infoContainer.before('<div class="col-xs-3 col-sm-2" id="playerPhotoContainer"><img id="playerPhoto" src="' + photoUrl + '" style="max-width: 120px; max-height: 120px; border-radius: 8px;" /></div>');
+                                    $infoContainer.before('<div class="col-xs-3 col-sm-2" id="playerPhotoContainer"><img id="playerPhoto" src="' + photoUrl + '" style="max-width: 120px; max-height: 120px; border-radius: 8px; cursor: pointer;" onclick="showPhotoModal(this.src)" title="Click to enlarge" /></div>');
                                     $infoContainer.removeClass('col-xs-12').addClass('col-xs-9 col-sm-10');
                                 } else {
                                     $('#playerPhoto').attr('src', photoUrl);
@@ -891,7 +890,7 @@
                             var photoUrl = response.photoUrl + '?t=' + Date.now();
                             if ($photoContainer.length === 0) {
                                 // Create container if it doesn't exist - insert before info container
-                                $infoContainer.before('<div class="col-xs-3 col-sm-2" id="playerPhotoContainer"><img id="playerPhoto" src="' + photoUrl + '" style="max-width: 120px; max-height: 120px; border-radius: 8px;" /></div>');
+                                $infoContainer.before('<div class="col-xs-3 col-sm-2" id="playerPhotoContainer"><img id="playerPhoto" src="' + photoUrl + '" style="max-width: 120px; max-height: 120px; border-radius: 8px; cursor: pointer;" onclick="showPhotoModal(this.src)" title="Click to enlarge" /></div>');
                                 $infoContainer.removeClass('col-xs-12').addClass('col-xs-9 col-sm-10');
                             } else {
                                 $('#playerPhoto').attr('src', photoUrl);
@@ -909,6 +908,43 @@
                 });
             });
         });
+        
+        // Photo modal functionality
+        function showPhotoModal(src) {
+            var modal = document.getElementById('photoModal');
+            var modalImg = document.getElementById('photoModalImg');
+            modal.style.display = 'flex';
+            modalImg.src = src;
+        }
+        
+        function closePhotoModal() {
+            document.getElementById('photoModal').style.display = 'none';
+        }
+        
+        // Close modal when clicking outside the image
+        document.addEventListener('DOMContentLoaded', function() {
+            var modal = document.getElementById('photoModal');
+            if (modal) {
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal) {
+                        closePhotoModal();
+                    }
+                });
+            }
+        });
+        
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closePhotoModal();
+            }
+        });
     </script>
 }
+
+<!-- Photo Modal -->
+<div id="photoModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.85); z-index: 9999; justify-content: center; align-items: center; cursor: pointer;">
+    <span style="position: absolute; top: 20px; right: 30px; color: #fff; font-size: 35px; font-weight: bold; cursor: pointer;" onclick="closePhotoModal()">&times;</span>
+    <img id="photoModalImg" src="" alt="Player Photo" style="max-width: 90%; max-height: 90%; border-radius: 8px; box-shadow: 0 0 20px rgba(0,0,0,0.5);" />
+</div>
 
