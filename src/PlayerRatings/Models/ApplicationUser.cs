@@ -344,7 +344,8 @@ namespace PlayerRatings.Models
                     }
                     else
                     {
-                        if (highestOther.IsTrustedOrganization)
+                        if ((IsLocalPlayer && highestOther.IsLocalRanking) ||
+                            (!IsLocalPlayer && highestOther.IsTrustedOrganization))
                             effectiveRanking = highestOther;
 
                         result += " " + otherFormatted;
@@ -558,8 +559,8 @@ namespace PlayerRatings.Models
         public int GetRatingBeforeDate(DateTimeOffset date, bool intl = false)
         {
             // Use combined ranking to get the effective ranking (trusted kyu can override SWA kyu)
-            var ranking = GetCombinedRankingBeforeDate(date);
-            return GetRatingByRanking(ranking, intl);
+            GetCombinedRankingBeforeDate(date, out var effectiveRanking);
+            return GetRatingByRanking(effectiveRanking, intl);
         }
 
         /// <summary>
@@ -592,13 +593,10 @@ namespace PlayerRatings.Models
 
         public string GetPosition(ref int postion, string leagueName = "")
         {
-            if (!Active)
-                return "Inact";
-
             if (IsProPlayer)
                 return "Pro";
 
-            if (!leagueName.Contains("Intl.") && IsHiddenPlayer)
+            if (IsHiddenPlayer)
                 return postion.ToString();
 
             return postion++.ToString();

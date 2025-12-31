@@ -135,7 +135,7 @@ namespace PlayerRatings.Engine.Rating
 
             if (isPro)
             {
-                return GetProRating(Math.Min(rankingNum, 9));
+                return GetProRating(rankingNum);
             }
             else if (isDan)
             {
@@ -143,7 +143,7 @@ namespace PlayerRatings.Engine.Rating
             }
             else if (isKyu)
             {
-                return GetKyuRating(Math.Min(rankingNum, 30)) + delta;
+                return GetKyuRating(rankingNum);
             }
             else
             {
