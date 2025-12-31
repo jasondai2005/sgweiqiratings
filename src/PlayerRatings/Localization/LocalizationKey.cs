@@ -345,6 +345,10 @@ namespace PlayerRatings.Localization
         public static readonly LocalizationKey Returning = new LocalizationKey("RET", "RET", "复归");
         public static readonly LocalizationKey Go = new LocalizationKey("Go", "Go", "查看");
         public static readonly LocalizationKey Today = new LocalizationKey("Today", "Today", "今天");
+        public static readonly LocalizationKey MatchesBeforeNotIncluded = new LocalizationKey(
+            "Note: Matches before 01/01/2023 (shown in gray) are not included in rating calculations.",
+            "Примечание: матчи до 01/01/2023 (показаны серым) не включены в расчет рейтинга.",
+            "注：2023年1月1日之前的比赛（灰色显示）不计入等级分计算。");
 
         public static readonly LocalizationKey YouCanInviteNewPlayer =
             new LocalizationKey("You can invite new player to the league", "Вы можете добавить нового игрока в лигу", "您可以邀请新选手加入联赛");
