@@ -417,7 +417,19 @@
     </table>
 </div>
 
+@{
+    // Matches before this date are not included in rating calculations
+    var ratingStartDate = new DateTimeOffset(2023, 1, 1, 0, 0, 0, TimeSpan.Zero);
+    var hasOldMatches = Model.GameRecords.Any(g => g.Date < ratingStartDate);
+}
+
 <h4 class="mt-4">@LocString[nameof(LocalizationKey.GameRecords)]</h4>
+@if (hasOldMatches)
+{
+    <p class="text-muted" style="font-size: 0.9em; margin-bottom: 10px;">
+        <em>Note: Matches before 01/01/2023 (shown in gray) are not included in rating calculations.</em>
+    </p>
+}
 <div class="table-responsive">
     <table class="table table-striped">
         <thead>
@@ -431,17 +443,18 @@
         <tbody>
             @foreach (var game in Model.GameRecords.OrderByDescending(g => g.Date))
             {
-                <tr>
+                var isOldMatch = game.Date < ratingStartDate;
+                <tr style="@(isOldMatch ? "opacity: 0.5; background-color: #f5f5f5;" : "")">
                     <td>@game.DateDisplay</td>
                     <td>@game.MatchName</td>
                     <td>
-                        <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = game.OpponentId, swaOnly = Model.SwaOnly, })">@game.OpponentName</a>
+                        <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = game.OpponentId, swaOnly = Model.SwaOnly, })" style="@(isOldMatch ? "color: #888;" : "")">@game.OpponentName</a>
                         @if (!string.IsNullOrEmpty(game.OpponentRanking))
                         {
                             <span style="font-size: 0.8em; color: #666;">@game.OpponentRanking</span>
                         }
                     </td>
-                    <td style="color: @(game.Result == "Win" ? "green" : game.Result == "Loss" ? "red" : "gray"); font-weight: bold;">
+                    <td style="color: @(isOldMatch ? "#888" : game.Result == "Win" ? "green" : game.Result == "Loss" ? "red" : "gray"); font-weight: bold;">
                         @game.Result
                     </td>
                 </tr>

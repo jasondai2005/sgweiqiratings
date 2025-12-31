@@ -30,6 +30,9 @@ namespace PlayerRatings.Controllers
         private const string MATCH_TGA = "TGA ";
         private const string MATCH_SG = "SG ";
 
+        // Minimum date for rating calculations (matches before this date are not included in ratings)
+        private static readonly DateTimeOffset RATING_START_DATE = new DateTimeOffset(2023, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
         // Cache duration for league data (5 minutes)
         private static readonly TimeSpan LeagueCacheDuration = TimeSpan.FromMinutes(5);
 
@@ -75,18 +78,17 @@ namespace PlayerRatings.Controllers
         }
 
         /// <summary>
-        /// Filters matches based on date and match type.
-        /// For non-SG leagues (international), all matches are included.
+        /// Filters matches based on date and match type for rating calculations.
+        /// Excludes matches before RATING_START_DATE (01/01/2023).
+        /// For non-SG leagues (international), all match types are included.
         /// </summary>
-        /// <param name="includeDate">If true, includes matches on the exact date (<=). If false, excludes them (&lt;).</param>
-        /// <param name="isSgLeague">If true, filters by match type (SWA/TGA/SG). If false, includes all matches.</param>
-        private static IOrderedEnumerable<Match> FilterMatches(IEnumerable<Match> matches, DateTimeOffset date, bool swaOnly, bool includeDate = true, bool isSgLeague = true)
+        /// <param name="isSgLeague">If true, filters by match type (SWA/TGA/SG). If false, includes all match types.</param>
+        private static IOrderedEnumerable<Match> FilterMatches(IEnumerable<Match> matches, DateTimeOffset date, bool swaOnly, bool isSgLeague = true)
         {
-            Func<Match, bool> dateFilter = includeDate 
-                ? x => x.Date <= date 
-                : x => x.Date < date;
+            // Date filter: between RATING_START_DATE and cutoff date
+            Func<Match, bool> dateFilter = x => x.Date >= RATING_START_DATE && x.Date <= date;
             
-            // Non-SG (international) leagues include all matches
+            // Non-SG (international) leagues include all match types
             if (!isSgLeague)
                 return matches.Where(x => dateFilter(x)).OrderBy(m => m.Date);
             
