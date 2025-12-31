@@ -25,14 +25,13 @@
     <input type="hidden" name="id" value="@Model.LeagueId" />
     <input type="hidden" id="swaOnlyHidden" name="swaOnly" value="@(Model.SwaOnly ? "true" : "false")" />
     <input type="hidden" id="promotionBonusHidden" name="promotionBonus" value="@(Model.PromotionBonus ? "true" : "false")" />
-    <input type="hidden" id="showNonLocalHidden" name="showNonLocal" value="@(Model.ShowNonLocal ? "true" : "false")" />
     <div style="display: inline-flex; flex-wrap: nowrap; gap: 4px; align-items: center;">
-        <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = prevMonthStr, swaOnly = Model.SwaOnly, promotionBonus = Model.PromotionBonus, showNonLocal = Model.ShowNonLocal })" class="btn btn-outline-primary">◀ @prevMonth.ToString("MMM")</a>
+        <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = prevMonthStr, swaOnly = Model.SwaOnly, promotionBonus = Model.PromotionBonus })" class="btn btn-outline-primary">◀ @prevMonth.ToString("MMM")</a>
         <input type="text" name="byDate" value="@currentDateStr" class="form-control text-center" style="width: 110px;" placeholder="dd/MM/yyyy" />
         <button type="submit" class="btn btn-primary">Go</button>
         @if (nextMonth <= DateTime.Now)
         {
-            <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = nextMonthStr, swaOnly = Model.SwaOnly, promotionBonus = Model.PromotionBonus, showNonLocal = Model.ShowNonLocal })" class="btn btn-outline-primary">@nextMonth.ToString("MMM") ▶</a>
+            <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = nextMonthStr, swaOnly = Model.SwaOnly, promotionBonus = Model.PromotionBonus })" class="btn btn-outline-primary">@nextMonth.ToString("MMM") ▶</a>
         }
         else
         {
@@ -40,9 +39,9 @@
         }
         @if (!isViewingToday)
         {
-            <a href="@Url.Action("Rating", new { id = Model.LeagueId, swaOnly = Model.SwaOnly, promotionBonus = Model.PromotionBonus, showNonLocal = Model.ShowNonLocal })" class="btn btn-success">Today</a>
+            <a href="@Url.Action("Rating", new { id = Model.LeagueId, swaOnly = Model.SwaOnly, promotionBonus = Model.PromotionBonus })" class="btn btn-success">Today</a>
         }
-        <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = Model.ByDate, swaOnly = Model.SwaOnly, promotionBonus = Model.PromotionBonus, showNonLocal = Model.ShowNonLocal, refresh = true })" class="btn btn-outline-secondary" title="Reload data from database">⟳</a>
+        <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = Model.ByDate, swaOnly = Model.SwaOnly, promotionBonus = Model.PromotionBonus, refresh = true })" class="btn btn-outline-secondary" title="Reload data from database">⟳</a>
     </div>
     @if (Model.IsSgLeague)
     {
@@ -55,13 +54,6 @@
                 <input class="form-check-input" type="checkbox" id="promotionBonusToggle" @(Model.PromotionBonus ? "checked" : "") onchange="document.getElementById('promotionBonusHidden').value = this.checked; this.form.submit();" style="cursor: pointer;">
                 <label class="form-check-label" for="promotionBonusToggle" style="cursor: pointer; white-space: nowrap;">@LocString[nameof(LocalizationKey.PromotionBonus)]</label>
             </div>
-            @if (Model.NonLocalUsers.Any())
-            {
-            <div class="form-check form-switch" style="display: flex; align-items: center; gap: 6px;">
-                <input class="form-check-input" type="checkbox" id="showNonLocalToggle" @(Model.ShowNonLocal ? "checked" : "") onchange="document.getElementById('showNonLocalHidden').value = this.checked; this.form.submit();" style="cursor: pointer;">
-                <label class="form-check-label" for="showNonLocalToggle" style="cursor: pointer; white-space: nowrap;">@LocString[nameof(LocalizationKey.ShowNonLocalPlayers)]</label>
-            </div>
-            }
         </div>
     }
 </form>
@@ -113,7 +105,7 @@
             </tr>
         }
 
-        @if (Model.ShowNonLocal && Model.NonLocalUsers.Any())
+        @if (Model.NonLocalUsers.Any())
         {
             <tr><td colspan="10" style="background-color: #f0f0f0; font-weight: bold; padding: 8px;">@LocString[nameof(LocalizationKey.NonLocalPlayers)]</td></tr>
             @foreach (var item in Model.NonLocalUsers)
