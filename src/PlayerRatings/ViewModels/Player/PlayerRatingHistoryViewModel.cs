@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using PlayerRatings.Models;
 
 namespace PlayerRatings.ViewModels.Player
@@ -27,6 +28,48 @@ namespace PlayerRatings.ViewModels.Player
         /// Position display string (e.g., "№3" or "-" if not ranked).
         /// </summary>
         public string PositionDisplay => Position > 0 ? $"№{Position}" : "-";
+        
+        // ===== Statistics computed from GameRecords =====
+        
+        /// <summary>
+        /// Total number of games played (all time).
+        /// </summary>
+        public int TotalGames => GameRecords?.Count ?? 0;
+        
+        /// <summary>
+        /// Total wins (all time).
+        /// </summary>
+        public int TotalWins => GameRecords?.Count(g => g.Result == "Win") ?? 0;
+        
+        /// <summary>
+        /// Total losses (all time).
+        /// </summary>
+        public int TotalLosses => GameRecords?.Count(g => g.Result == "Loss") ?? 0;
+        
+        /// <summary>
+        /// Overall win rate as a percentage (0-100).
+        /// </summary>
+        public double OverallWinRate => TotalGames > 0 ? (double)TotalWins / TotalGames * 100 : 0;
+        
+        /// <summary>
+        /// Games played in the current calendar year.
+        /// </summary>
+        public int CurrentYearGames => GameRecords?.Count(g => g.Date.Year == DateTime.Now.Year) ?? 0;
+        
+        /// <summary>
+        /// Wins in the current calendar year.
+        /// </summary>
+        public int CurrentYearWins => GameRecords?.Count(g => g.Date.Year == DateTime.Now.Year && g.Result == "Win") ?? 0;
+        
+        /// <summary>
+        /// Losses in the current calendar year.
+        /// </summary>
+        public int CurrentYearLosses => GameRecords?.Count(g => g.Date.Year == DateTime.Now.Year && g.Result == "Loss") ?? 0;
+        
+        /// <summary>
+        /// Win rate for the current calendar year as a percentage (0-100).
+        /// </summary>
+        public double CurrentYearWinRate => CurrentYearGames > 0 ? (double)CurrentYearWins / CurrentYearGames * 100 : 0;
     }
 
     public class MonthlyRating

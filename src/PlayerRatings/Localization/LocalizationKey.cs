@@ -334,6 +334,12 @@ namespace PlayerRatings.Localization
         public static readonly LocalizationKey Upload = new LocalizationKey("Upload", "Upload", "上传");
         public static readonly LocalizationKey NonLocalPlayers = new LocalizationKey("Non-Local Players", "Non-Local Players", "非本地选手");
         public static readonly LocalizationKey InactivePlayers = new LocalizationKey("Inactive Players", "Inactive Players", "不活跃选手");
+        public static readonly LocalizationKey Statistics = new LocalizationKey("Statistics", "Статистика", "统计");
+        public static readonly LocalizationKey Overall = new LocalizationKey("Overall", "Всего", "总计");
+        public static readonly LocalizationKey ThisYear = new LocalizationKey("This Year", "Этот год", "今年");
+        public static readonly LocalizationKey Games = new LocalizationKey("Games", "Игры", "对局数");
+        public static readonly LocalizationKey Wins = new LocalizationKey("Wins", "Победы", "胜");
+        public static readonly LocalizationKey Losses = new LocalizationKey("Losses", "Поражения", "负");
 
         public static readonly LocalizationKey YouCanInviteNewPlayer =
             new LocalizationKey("You can invite new player to the league", "Вы можете добавить нового игрока в лигу", "您可以邀请新选手加入联赛");

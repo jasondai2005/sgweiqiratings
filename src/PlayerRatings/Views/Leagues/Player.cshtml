@@ -35,10 +35,44 @@
                         <p style="margin-bottom: 5px;"><strong>@LocString[nameof(LocalizationKey.CurrentRanking)]:</strong> @Model.Player.LatestRanking</p>
                         @if (Model.Position > 0)
                         {
-                        <p style="margin-bottom: 0;"><strong>@LocString[nameof(LocalizationKey.Position)]:</strong> @Model.PositionDisplay <span style="color: #666; font-size: 0.9em;">/ @Model.TotalPlayers</span></p>
+                        <p style="margin-bottom: 5px;"><strong>@LocString[nameof(LocalizationKey.Position)]:</strong> @Model.PositionDisplay <span style="color: #666; font-size: 0.9em;">/ @Model.TotalPlayers</span></p>
                         }
                     </div>
                 </div>
+                
+                @if (Model.TotalGames > 0)
+                {
+                <!-- Statistics Section -->
+                <hr style="margin: 10px 0;" />
+                <div class="row">
+                    <div class="col-xs-12">
+                        <strong>@LocString[nameof(LocalizationKey.Statistics)]</strong>
+                    </div>
+                </div>
+                <div class="row" style="margin-top: 8px;">
+                    <div class="col-sm-6">
+                        <span style="color: #666;">@LocString[nameof(LocalizationKey.Overall)]:</span>
+                        <span style="margin-left: 5px;">
+                            <strong>@Model.TotalGames</strong> @LocString[nameof(LocalizationKey.Games)]
+                            <span style="color: #5cb85c; margin-left: 8px;">@Model.TotalWins W</span>
+                            <span style="color: #d9534f; margin-left: 4px;">@Model.TotalLosses L</span>
+                            <span style="margin-left: 8px; font-weight: bold;">(@Model.OverallWinRate.ToString("F1")%)</span>
+                        </span>
+                    </div>
+                    @if (Model.CurrentYearGames > 0)
+                    {
+                    <div class="col-sm-6">
+                        <span style="color: #666;">@LocString[nameof(LocalizationKey.ThisYear)] (@DateTime.Now.Year):</span>
+                        <span style="margin-left: 5px;">
+                            <strong>@Model.CurrentYearGames</strong> @LocString[nameof(LocalizationKey.Games)]
+                            <span style="color: #5cb85c; margin-left: 8px;">@Model.CurrentYearWins W</span>
+                            <span style="color: #d9534f; margin-left: 4px;">@Model.CurrentYearLosses L</span>
+                            <span style="margin-left: 8px; font-weight: bold;">(@Model.CurrentYearWinRate.ToString("F1")%)</span>
+                        </span>
+                    </div>
+                    }
+                </div>
+                }
                 
                 <!-- Edit Player Info Form (collapsed by default) -->
                 <div class="collapse" id="editPlayerInfo" style="margin-top: 15px;">
