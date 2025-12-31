@@ -20,7 +20,7 @@ namespace PlayerRatings.Engine.Stats
         // Number of games required before calculating estimated initial rating
         private const int GAMES_FOR_ESTIMATION = 12;
 
-        // Static setting to control whether promotion bonus is enabled
+        // Debug switch: set to false to disable promotion bonus for testing
         public static bool PromotionBonusEnabled { get; set; } = true;
 
         // Static setting to control SWA Only mode (shows TGA as foreign rankings)

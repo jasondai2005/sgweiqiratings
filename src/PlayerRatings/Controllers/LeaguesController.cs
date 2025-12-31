@@ -358,7 +358,7 @@ namespace PlayerRatings.Controllers
 
         // GET: Leagues/Rating/5
         private EloStat elo = new EloStat();
-        public async Task<IActionResult> Rating(Guid? id, string byDate, bool swaOnly = false, bool promotionBonus = true, bool refresh = false)
+        public async Task<IActionResult> Rating(Guid? id, string byDate, bool swaOnly = false, bool refresh = false)
         {
             if (id == null)
             {
@@ -389,7 +389,7 @@ namespace PlayerRatings.Controllers
             var winRateStat = new WinRateStat();
             var recentMatches = new List<Match>();
             var (eloResult, activeUsers, isSgLeague) = CalculateRatings(
-                league, date, swaOnly, promotionBonus, 
+                league, date, swaOnly,
                 allowedUserIds: notBlockedUserIds,
                 onMatchProcessed: (match, _) => {
                     winRateStat.AddMatch(match);
@@ -454,7 +454,7 @@ namespace PlayerRatings.Controllers
                 .ToList();
             promotedPlayers.Sort(CompareByRankingRatingAndName);
 
-            return View(new RatingViewModel(stats, users, promotedPlayers, recentMatches, forecast, id.Value, byDate, swaOnly, isSgLeague, promotionBonus, nonLocalUsers, inactiveUsers));
+            return View(new RatingViewModel(stats, users, promotedPlayers, recentMatches, forecast, id.Value, byDate, swaOnly, isSgLeague, nonLocalUsers, inactiveUsers));
         }
 
         private static void AddUser(HashSet<ApplicationUser> activeUsers, Match match, ApplicationUser player)
@@ -510,7 +510,6 @@ namespace PlayerRatings.Controllers
         /// <param name="league">League with matches loaded</param>
         /// <param name="cutoffDate">Date to calculate ratings up to</param>
         /// <param name="swaOnly">Filter for SWA tournaments only</param>
-        /// <param name="promotionBonus">Enable promotion bonus</param>
         /// <param name="allowedUserIds">Optional filter - only include these user IDs (null = include all)</param>
         /// <param name="onMatchProcessed">Optional callback for each match with EloStat (for monthly snapshots)</param>
         /// <returns>Tuple of (EloStat, activeUsers, isSgLeague)</returns>
@@ -518,8 +517,7 @@ namespace PlayerRatings.Controllers
             CalculateRatings(
                 League league, 
                 DateTimeOffset cutoffDate, 
-                bool swaOnly, 
-                bool promotionBonus,
+                bool swaOnly,
                 HashSet<string> allowedUserIds = null,
                 Action<Match, EloStat> onMatchProcessed = null)
         {
@@ -527,7 +525,6 @@ namespace PlayerRatings.Controllers
             ResetPlayerState(league.Matches);
 
             League.CutoffDate = cutoffDate;
-            EloStat.PromotionBonusEnabled = promotionBonus;
             EloStat.SwaOnly = swaOnly;
 
             bool isSgLeague = league.Name?.Contains("Singapore Weiqi") ?? false;
@@ -719,7 +716,7 @@ namespace PlayerRatings.Controllers
         }
 
         // GET: Leagues/Player/5?playerId=xxx
-        public async Task<IActionResult> Player(Guid id, string playerId, bool swaOnly = false, bool promotionBonus = true, bool refresh = false)
+        public async Task<IActionResult> Player(Guid id, string playerId, bool swaOnly = false, bool refresh = false)
         {
             if (string.IsNullOrEmpty(playerId))
             {
@@ -781,7 +778,6 @@ namespace PlayerRatings.Controllers
                     Player = player,
                     MonthlyRatings = new List<MonthlyRating>(),
                     SwaOnly = swaOnly,
-                    PromotionBonus = promotionBonus,
                     GameRecords = new List<GameRecord>()
                 });
             }
@@ -868,8 +864,7 @@ namespace PlayerRatings.Controllers
             var (eloStat, activeUsers, _) = CalculateRatings(
                 league, 
                 DateTimeOffset.Now, 
-                swaOnly, 
-                promotionBonus,
+                swaOnly,
                 allowedUserIds: notBlockedUserIds,
                 onMatchProcessed: OnMatchProcessed);
             currentEloStat = eloStat;
@@ -954,7 +949,6 @@ namespace PlayerRatings.Controllers
                 GameRecords = gameRecords,
                 SwaOnly = swaOnly,
                 IsSgLeague = isSgLeague,
-                PromotionBonus = promotionBonus,
                 Position = position,
                 TotalPlayers = totalPlayers
             });
