@@ -17,7 +17,10 @@ namespace PlayerRatings.Repositories
 
         public IEnumerable<League> GetLeagues(ApplicationUser user)
         {
-            return _context.LeaguePlayers.Include(lp => lp.League).Where(lp => lp.UserId == user.Id)
+            return _context.LeaguePlayers
+                .AsNoTracking()
+                .Include(lp => lp.League)
+                .Where(lp => lp.UserId == user.Id)
                 .Select(lp => lp.League)
                 .Distinct()
                 .ToList();

@@ -59,6 +59,7 @@ namespace PlayerRatings.Controllers
 
             var matches =
                 _context.Match
+                    .AsNoTracking()
                     .Where(m => m.LeagueId == leagueId)
                     .OrderByDescending(m => m.Date)
                     .Skip(pageSize*page)

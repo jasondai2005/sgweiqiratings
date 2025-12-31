@@ -14,6 +14,32 @@ namespace PlayerRatings.Models
         {
             base.OnModelCreating(builder);
 
+            // Performance indexes for Match table
+            builder.Entity<Match>(entity =>
+            {
+                entity.HasIndex(m => m.LeagueId).HasDatabaseName("IX_Match_LeagueId");
+                entity.HasIndex(m => m.Date).HasDatabaseName("IX_Match_Date");
+                entity.HasIndex(m => m.FirstPlayerId).HasDatabaseName("IX_Match_FirstPlayerId");
+                entity.HasIndex(m => m.SecondPlayerId).HasDatabaseName("IX_Match_SecondPlayerId");
+                // Composite index for common query pattern: filter by league, order by date
+                entity.HasIndex(m => new { m.LeagueId, m.Date }).HasDatabaseName("IX_Match_LeagueId_Date");
+            });
+
+            // Performance indexes for LeaguePlayer table
+            builder.Entity<LeaguePlayer>(entity =>
+            {
+                entity.HasIndex(lp => lp.LeagueId).HasDatabaseName("IX_LeaguePlayer_LeagueId");
+                entity.HasIndex(lp => lp.UserId).HasDatabaseName("IX_LeaguePlayer_UserId");
+                // Composite index for common query: find user's league membership
+                entity.HasIndex(lp => new { lp.LeagueId, lp.UserId }).HasDatabaseName("IX_LeaguePlayer_LeagueId_UserId");
+            });
+
+            // Performance index for Invite table
+            builder.Entity<Invite>(entity =>
+            {
+                entity.HasIndex(i => i.InvitedById).HasDatabaseName("IX_Invite_InvitedById");
+            });
+
             if (Database.ProviderName == "Microsoft.EntityFrameworkCore.Sqlite")
             {
                 // SQLite does not have proper support for DateTimeOffset via Entity Framework Core, see the limitations

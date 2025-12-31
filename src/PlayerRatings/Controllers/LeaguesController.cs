@@ -103,6 +103,7 @@ namespace PlayerRatings.Controllers
             }
 
             var allPlayers = _context.LeaguePlayers
+                .AsNoTracking()
                 .Include(lp => lp.User).ThenInclude(u => u.Rankings)
                 .Where(lp =>
                     lp.LeagueId == league.Id &&
@@ -330,25 +331,31 @@ namespace PlayerRatings.Controllers
             League.CutoffDate = date;
             var currentUser = await User.GetApplicationUser(_userManager);
 
-            var league = _leaguesRepository.GetUserAuthorizedLeague(currentUser, id.Value);
-
-            if (league == null)
+            // First check if user is authorized for this league (lightweight check)
+            if (!_context.LeaguePlayers.Any(lp => lp.LeagueId == id.Value && lp.UserId == currentUser.Id))
             {
                 return NotFound();
             }
 
-            league =
-                _context.League
+            // Load league with all required data in a single query
+            // Note: Cannot use AsNoTracking() here because the code modifies entity properties
+            // (MatchCount, FirstMatch, LastMatch etc.) and relies on entity identity
+            var league = _context.League
                     .Include(l => l.Matches)
                     .ThenInclude(m => m.FirstPlayer)
                     .ThenInclude(p => p.Rankings)
                     .Include(l => l.Matches)
                     .ThenInclude(m => m.SecondPlayer)
                     .ThenInclude(p => p.Rankings)
-                    .Single(m => m.Id == id);
+                    .SingleOrDefault(m => m.Id == id);
+
+            if (league == null)
+            {
+                return NotFound();
+            }
 
             // Get player statuses for filtering
-            var leaguePlayers = _context.LeaguePlayers.Where(lp => lp.LeagueId == league.Id).ToList();
+            var leaguePlayers = _context.LeaguePlayers.AsNoTracking().Where(lp => lp.LeagueId == league.Id).ToList();
             var notBlockedUserIds = new HashSet<string>(
                 leaguePlayers.Where(lp => lp.Status != PlayerStatus.Blocked).Select(lp => lp.UserId));
             var hiddenUserIds = new HashSet<string>(
@@ -433,6 +440,7 @@ namespace PlayerRatings.Controllers
             if (missingAlwaysShownIds.Any())
             {
                 var alwaysShownUsers = await _context.Users
+                    .AsNoTracking()
                     .Include(u => u.Rankings)
                     .Where(u => missingAlwaysShownIds.Contains(u.Id))
                     .ToListAsync();
@@ -614,17 +622,25 @@ namespace PlayerRatings.Controllers
             }
 
             var currentUser = await User.GetApplicationUser(_userManager);
-            var league = _leaguesRepository.GetUserAuthorizedLeague(currentUser, id);
+
+            // First check if user is authorized for this league (lightweight check)
+            if (!_context.LeaguePlayers.Any(lp => lp.LeagueId == id && lp.UserId == currentUser.Id))
+            {
+                return NotFound();
+            }
+
+            // Load league with all required data in a single query
+            // Note: Cannot use AsNoTracking() here because the code modifies entity properties
+            // (MatchCount, FirstMatch, LastMatch etc.) and relies on entity identity
+            var league = _context.League
+                .Include(l => l.Matches).ThenInclude(m => m.FirstPlayer).ThenInclude(p => p.Rankings)
+                .Include(l => l.Matches).ThenInclude(m => m.SecondPlayer).ThenInclude(p => p.Rankings)
+                .SingleOrDefault(m => m.Id == id);
 
             if (league == null)
             {
                 return NotFound();
             }
-
-            league = _context.League
-                .Include(l => l.Matches).ThenInclude(m => m.FirstPlayer).ThenInclude(p => p.Rankings)
-                .Include(l => l.Matches).ThenInclude(m => m.SecondPlayer).ThenInclude(p => p.Rankings)
-                .Single(m => m.Id == id);
 
             // Check if this is an international league
             bool isIntlLeague = league.Name?.Contains("Intl.") ?? false;

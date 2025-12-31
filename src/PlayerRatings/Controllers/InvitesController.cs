@@ -39,7 +39,7 @@ namespace PlayerRatings.Controllers
         {
             var currentUser = await User.GetApplicationUser(_userManager);
 
-            return View(await _context.Invites.Include(i => i.CreatedUser).Where(i => i.InvitedById == currentUser.Id).ToListAsync());
+            return View(await _context.Invites.AsNoTracking().Include(i => i.CreatedUser).Where(i => i.InvitedById == currentUser.Id).ToListAsync());
         }
 
         // GET: Invites/Create
@@ -165,7 +165,7 @@ namespace PlayerRatings.Controllers
                 return NotFound();
             }
 
-            var invite = await _context.Invites.Include(i => i.CreatedUser).SingleOrDefaultAsync(m => m.Id == id);
+            var invite = await _context.Invites.AsNoTracking().Include(i => i.CreatedUser).SingleOrDefaultAsync(m => m.Id == id);
             if (invite == null)
             {
                 return NotFound();
