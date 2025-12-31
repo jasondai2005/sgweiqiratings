@@ -42,8 +42,9 @@
         {
             <a href="@Url.Action("Rating", new { id = Model.LeagueId, swaOnly = Model.SwaOnly, promotionBonus = Model.PromotionBonus, showNonLocal = Model.ShowNonLocal })" class="btn btn-success">Today</a>
         }
+        <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = Model.ByDate, swaOnly = Model.SwaOnly, promotionBonus = Model.PromotionBonus, showNonLocal = Model.ShowNonLocal, refresh = true })" class="btn btn-outline-secondary" title="Reload data from database">⟳</a>
     </div>
-    @if (!Model.IsIntlLeague)
+    @if (Model.IsSgLeague)
     {
         <div class="mt-2" style="display: inline-flex; gap: 16px; align-items: center;">
             <div class="form-check form-switch" style="display: flex; align-items: center; gap: 6px;">

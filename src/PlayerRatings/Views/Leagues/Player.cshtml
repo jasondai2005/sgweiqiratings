@@ -301,9 +301,12 @@
     );
 }
 
-<a href="@Url.Action("Rating", new { id = Model.LeagueId, swaOnly = Model.SwaOnly, promotionBonus = Model.PromotionBonus })" class="btn btn-outline-secondary mb-3">← @LocString[nameof(LocalizationKey.BackToRating)]</a>
+<div class="mb-3" style="display: inline-flex; gap: 8px;">
+    <a href="@Url.Action("Rating", new { id = Model.LeagueId, swaOnly = Model.SwaOnly, promotionBonus = Model.PromotionBonus })" class="btn btn-outline-secondary">← @LocString[nameof(LocalizationKey.BackToRating)]</a>
+    <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = Model.Player.Id, swaOnly = Model.SwaOnly, promotionBonus = Model.PromotionBonus, refresh = true })" class="btn btn-outline-secondary" title="Reload data from database">⟳</a>
+</div>
 
-@if (!Model.IsIntlLeague && Model.MonthlyRatings.Any())
+@if (Model.IsSgLeague && Model.MonthlyRatings.Any())
 {
 <form asp-action="Player" method="get" class="mb-3">
     <input type="hidden" name="id" value="@Model.LeagueId" />

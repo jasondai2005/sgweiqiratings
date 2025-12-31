@@ -39,9 +39,9 @@ namespace PlayerRatings.Engine.Stats
                 firstUserScore = 0.5;
             }
 
-            bool isIntlLeague = match.League?.Name?.Contains("Intl.") ?? false;
-            int firstPlayerRankingRating = match.FirstPlayer.GetRatingBeforeDate(match.Date.Date, isIntlLeague);
-            int secondPlayerRankingRating = match.SecondPlayer.GetRatingBeforeDate(match.Date.Date, isIntlLeague);
+            bool isSgLeague = match.League?.Name?.Contains("Singapore Weiqi") ?? false;
+            int firstPlayerRankingRating = match.FirstPlayer.GetRatingBeforeDate(match.Date.Date, !isSgLeague);
+            int secondPlayerRankingRating = match.SecondPlayer.GetRatingBeforeDate(match.Date.Date, !isSgLeague);
             double firstPlayerRating = _dict.TryGetValue(match.FirstPlayer.Id, out var cachedFirst) ? cachedFirst : firstPlayerRankingRating;
             double secondPlayerRating = _dict.TryGetValue(match.SecondPlayer.Id, out var cachedSecond) ? cachedSecond : secondPlayerRankingRating;
 
@@ -49,8 +49,8 @@ namespace PlayerRatings.Engine.Stats
             double factor2 = factor1;
             if (factor1 == 1) // factor is not specified
             {
-                bool player1NeedsDynamic = match.FirstPlayer.NeedDynamicFactor(isIntlLeague);
-                bool player2NeedsDynamic = match.SecondPlayer.NeedDynamicFactor(isIntlLeague);
+                bool player1NeedsDynamic = match.FirstPlayer.NeedDynamicFactor(!isSgLeague);
+                bool player2NeedsDynamic = match.SecondPlayer.NeedDynamicFactor(!isSgLeague);
 
                 // Apply uncertainty-based K factor for new/foreign players
                 // This is symmetric - applies to both wins and losses
@@ -96,8 +96,8 @@ namespace PlayerRatings.Engine.Stats
             _dict[match.SecondPlayer.Id] = specialRating.NewRatingBPlayer;
 
             // Check for promotions and queue rating floor adjustments (applied after all matches on that day)
-            CheckForPromotion(match.FirstPlayer, match.Date, isIntlLeague);
-            CheckForPromotion(match.SecondPlayer, match.Date, isIntlLeague);
+            CheckForPromotion(match.FirstPlayer, match.Date, isSgLeague);
+            CheckForPromotion(match.SecondPlayer, match.Date, isSgLeague);
 
             match.ShiftRating = rating.ShiftRatingAPlayer.ToString("F1");
             var player2ShiftRating = (secondPlayerRating - _dict[match.SecondPlayer.Id]).ToString("F1");
@@ -108,15 +108,15 @@ namespace PlayerRatings.Engine.Stats
             }
 
             // Track games for performance-based initial rating calculation
-            TrackGameForPerformanceRating(match.FirstPlayer, secondPlayerRating, firstUserScore, isIntlLeague);
-            TrackGameForPerformanceRating(match.SecondPlayer, firstPlayerRating, 1 - firstUserScore, isIntlLeague);
+            TrackGameForPerformanceRating(match.FirstPlayer, secondPlayerRating, firstUserScore, isSgLeague);
+            TrackGameForPerformanceRating(match.SecondPlayer, firstPlayerRating, 1 - firstUserScore, isSgLeague);
         }
 
         // Track the last known ranking for each player to detect promotions
         private readonly Dictionary<string, PlayerRanking> _lastKnownRanking = new Dictionary<string, PlayerRanking>();
 
-        // Track pending promotion rating floors: player Id -> (rating floor, isIntlLeague, wasKyuPlayer)
-        private readonly Dictionary<string, (double ratingFloor, bool isIntlLeague, bool wasKyuPlayer)> _pendingPromotionFloors 
+        // Track pending promotion rating floors: player Id -> (rating floor, isSgLeague, wasKyuPlayer)
+        private readonly Dictionary<string, (double ratingFloor, bool isSgLeague, bool wasKyuPlayer)> _pendingPromotionFloors 
             = new Dictionary<string, (double, bool, bool)>();
 
         // Track the current date being processed
@@ -126,16 +126,16 @@ namespace PlayerRatings.Engine.Stats
         /// Public method to check and apply promotion for a player at a specific date.
         /// Called when a player is first encountered to apply any promotions that may have happened.
         /// </summary>
-        public void CheckPlayerPromotion(ApplicationUser player, DateTimeOffset date, bool isIntlLeague)
+        public void CheckPlayerPromotion(ApplicationUser player, DateTimeOffset date, bool isSgLeague)
         {
-            CheckForPromotion(player, date, isIntlLeague);
+            CheckForPromotion(player, date, isSgLeague);
         }
 
         /// <summary>
         /// Checks if a player was promoted and queues a rating floor adjustment.
         /// The adjustment is applied after all matches on that day complete.
         /// </summary>
-        private void CheckForPromotion(ApplicationUser player, DateTimeOffset matchDate, bool isIntlLeague)
+        private void CheckForPromotion(ApplicationUser player, DateTimeOffset matchDate, bool isSgLeague)
         {
             // Apply any pending promotion floors from previous days
             if (matchDate.Date > _currentProcessingDate)
@@ -188,8 +188,8 @@ namespace PlayerRatings.Engine.Stats
                 }
 
                 // Ranking changed - check if this is a promotion (higher rating for new ranking)
-                int previousRankingRating = player.GetRatingByRanking(previousRanking, isIntlLeague);
-                int currentRankingRating = player.GetRatingByRanking(currentRanking, isIntlLeague);
+                int previousRankingRating = player.GetRatingByRanking(previousRanking, !isSgLeague);
+                int currentRankingRating = player.GetRatingByRanking(currentRanking, !isSgLeague);
 
                 if (currentRankingRating > previousRankingRating)
                 {
@@ -204,7 +204,7 @@ namespace PlayerRatings.Engine.Stats
                         double ratingFloor = currentRankingRating - singleRankDiff * 0.5;
                         // Track if previous ranking was kyu - only kyu players should stop performance tracking
                         bool wasKyuPlayer = previousRanking.Ranking?.Contains('K', StringComparison.OrdinalIgnoreCase) ?? true;
-                        _pendingPromotionFloors[player.Id] = (ratingFloor, isIntlLeague, wasKyuPlayer);
+                        _pendingPromotionFloors[player.Id] = (ratingFloor, isSgLeague, wasKyuPlayer);
                     }
                 }
             }
@@ -275,10 +275,10 @@ namespace PlayerRatings.Engine.Stats
         /// estimated initial rating after they've played enough games.
         /// After calculation, applies a correction to the player's current rating.
         /// </summary>
-        private void TrackGameForPerformanceRating(ApplicationUser player, double opponentRating, double score, bool isIntlLeague)
+        private void TrackGameForPerformanceRating(ApplicationUser player, double opponentRating, double score, bool isSgLeague)
         {
             // Only track for players who need performance estimation
-            if (!player.NeedDynamicFactor(isIntlLeague))
+            if (!player.NeedDynamicFactor(!isSgLeague))
             {
                 // Clean up tracker as we no longer need to track this player
                 _performanceTracker.Remove(player.Id);
@@ -303,7 +303,7 @@ namespace PlayerRatings.Engine.Stats
                 // original ranking-based rating and performance-based estimate
                 if (_dict.TryGetValue(player.Id, out var currentRating))
                 {
-                    double originalInitialRating = player.GetRatingBeforeDate(player.FirstMatch.Date, isIntlLeague);
+                    double originalInitialRating = player.GetRatingBeforeDate(player.FirstMatch.Date, !isSgLeague);
                     double ratingCorrection = estimatedInitialRating - originalInitialRating;
                     
                     // Apply partial correction (50%) to avoid over-adjusting

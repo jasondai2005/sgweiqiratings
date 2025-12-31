@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using PlayerRatings.Engine.Rating;
 using PlayerRatings.Engine.Stats;
 using PlayerRatings.Models;
@@ -22,35 +23,71 @@ namespace PlayerRatings.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly ILeaguesRepository _leaguesRepository;
         private readonly IWebHostEnvironment _env;
-
-        public LeaguesController(ApplicationDbContext context, UserManager<ApplicationUser> userManager,
-            ILeaguesRepository leaguesRepository, IWebHostEnvironment env)
-        {
-            _context = context;
-            _userManager = userManager;
-            _leaguesRepository = leaguesRepository;
-            _env = env;
-        }
+        private readonly IMemoryCache _cache;
 
         // Match type constants
         private const string MATCH_SWA = "SWA ";
         private const string MATCH_TGA = "TGA ";
         private const string MATCH_SG = "SG ";
 
+        // Cache duration for league data (5 minutes)
+        private static readonly TimeSpan LeagueCacheDuration = TimeSpan.FromMinutes(5);
+
+        public LeaguesController(ApplicationDbContext context, UserManager<ApplicationUser> userManager,
+            ILeaguesRepository leaguesRepository, IWebHostEnvironment env, IMemoryCache cache)
+        {
+            _context = context;
+            _userManager = userManager;
+            _leaguesRepository = leaguesRepository;
+            _env = env;
+            _cache = cache;
+        }
+
+        /// <summary>
+        /// Gets league with all matches and players from cache, or loads from database if not cached.
+        /// </summary>
+        private League GetLeagueWithMatches(Guid leagueId, bool forceRefresh = false)
+        {
+            string cacheKey = $"League_{leagueId}";
+
+            if (forceRefresh)
+            {
+                _cache.Remove(cacheKey);
+            }
+
+            if (!_cache.TryGetValue(cacheKey, out League league))
+            {
+                league = _context.League
+                    .Include(l => l.Matches).ThenInclude(m => m.FirstPlayer).ThenInclude(p => p.Rankings)
+                    .Include(l => l.Matches).ThenInclude(m => m.SecondPlayer).ThenInclude(p => p.Rankings)
+                    .SingleOrDefault(m => m.Id == leagueId);
+
+                if (league != null)
+                {
+                    // Detach entities before caching so they're not tied to this DbContext
+                    _context.ChangeTracker.Clear();
+                    
+                    _cache.Set(cacheKey, league, LeagueCacheDuration);
+                }
+            }
+
+            return league;
+        }
+
         /// <summary>
         /// Filters matches based on date and match type.
-        /// For international leagues, all matches are included.
+        /// For non-SG leagues (international), all matches are included.
         /// </summary>
         /// <param name="includeDate">If true, includes matches on the exact date (<=). If false, excludes them (&lt;).</param>
-        /// <param name="isIntlLeague">If true, includes all matches regardless of match type.</param>
-        private static IOrderedEnumerable<Match> FilterMatches(IEnumerable<Match> matches, DateTimeOffset date, bool swaOnly, bool includeDate = true, bool isIntlLeague = false)
+        /// <param name="isSgLeague">If true, filters by match type (SWA/TGA/SG). If false, includes all matches.</param>
+        private static IOrderedEnumerable<Match> FilterMatches(IEnumerable<Match> matches, DateTimeOffset date, bool swaOnly, bool includeDate = true, bool isSgLeague = true)
         {
             Func<Match, bool> dateFilter = includeDate 
                 ? x => x.Date <= date 
                 : x => x.Date < date;
             
-            // International leagues include all matches
-            if (isIntlLeague)
+            // Non-SG (international) leagues include all matches
+            if (!isSgLeague)
                 return matches.Where(x => dateFilter(x)).OrderBy(m => m.Date);
             
             return swaOnly
@@ -61,14 +98,14 @@ namespace PlayerRatings.Controllers
 
         /// <summary>
         /// Filters matches for a specific player based on date and match type.
-        /// For international leagues, all matches are included.
+        /// For non-SG leagues (international), all matches are included.
         /// </summary>
-        private static IOrderedEnumerable<Match> FilterPlayerMatches(IEnumerable<Match> matches, string playerId, bool swaOnly, bool isIntlLeague = false)
+        private static IOrderedEnumerable<Match> FilterPlayerMatches(IEnumerable<Match> matches, string playerId, bool swaOnly, bool isSgLeague = true)
         {
             Func<Match, bool> playerFilter = m => m.FirstPlayerId == playerId || m.SecondPlayerId == playerId;
             
-            // International leagues include all matches
-            if (isIntlLeague)
+            // Non-SG (international) leagues include all matches
+            if (!isSgLeague)
                 return matches.Where(m => playerFilter(m)).OrderBy(m => m.Date);
             
             return swaOnly
@@ -321,7 +358,7 @@ namespace PlayerRatings.Controllers
 
         // GET: Leagues/Rating/5
         private EloStat elo = new EloStat();
-        public async Task<IActionResult> Rating(Guid? id, string byDate, bool swaOnly = false, bool promotionBonus = true, bool showNonLocal = true)
+        public async Task<IActionResult> Rating(Guid? id, string byDate, bool swaOnly = false, bool promotionBonus = true, bool showNonLocal = true, bool refresh = false)
         {
             if (id == null)
             {
@@ -337,17 +374,8 @@ namespace PlayerRatings.Controllers
                 return NotFound();
             }
 
-            // Load league with all required data in a single query
-            // Note: Cannot use AsNoTracking() here because the code modifies entity properties
-            // (MatchCount, FirstMatch, LastMatch etc.) and relies on entity identity
-            var league = _context.League
-                    .Include(l => l.Matches)
-                    .ThenInclude(m => m.FirstPlayer)
-                    .ThenInclude(p => p.Rankings)
-                    .Include(l => l.Matches)
-                    .ThenInclude(m => m.SecondPlayer)
-                    .ThenInclude(p => p.Rankings)
-                    .SingleOrDefault(m => m.Id == id);
+            // Load league with all required data (cached for performance)
+            var league = GetLeagueWithMatches(id.Value, refresh);
 
             if (league == null)
             {
@@ -355,86 +383,48 @@ namespace PlayerRatings.Controllers
             }
 
             // Get player statuses for filtering
-            var leaguePlayers = _context.LeaguePlayers.AsNoTracking().Where(lp => lp.LeagueId == league.Id).ToList();
-            var notBlockedUserIds = new HashSet<string>(
-                leaguePlayers.Where(lp => lp.Status != PlayerStatus.Blocked).Select(lp => lp.UserId));
-            var hiddenUserIds = new HashSet<string>(
-                leaguePlayers.Where(lp => lp.Status == PlayerStatus.Hidden).Select(lp => lp.UserId));
-            var alwaysShownUserIds = new HashSet<string>(
-                leaguePlayers.Where(lp => lp.Status == PlayerStatus.AlwaysShown).Select(lp => lp.UserId));
-            var activeUsers = new HashSet<ApplicationUser>();
-            elo = new EloStat();
-            var stats = new List<IStat>
-            {
-                elo,
-                new WinRateStat()
-            };
+            var (notBlockedUserIds, hiddenUserIds, alwaysShownUserIds) = GetPlayerStatuses(league.Id);
 
-            // Check if this is an international league (all matches count, no filtering)
-            bool isIntlLeague = league.Name?.Contains("Intl.") ?? false;
+            // Use shared calculation method - also collect matches for lastMatches display
+            var winRateStat = new WinRateStat();
+            var recentMatches = new List<Match>();
+            var (eloResult, activeUsers, isSgLeague) = CalculateRatings(
+                league, date, swaOnly, promotionBonus, 
+                allowedUserIds: notBlockedUserIds,
+                onMatchProcessed: (match, _) => {
+                    winRateStat.AddMatch(match);
+                    if (match.Date > date.AddMonths(-1))
+                        recentMatches.Add(match);
+                });
+            elo = eloResult;
+            
+            var stats = new List<IStat> { elo, winRateStat };
 
-            // Set promotion bonus enabled based on parameter
-            EloStat.PromotionBonusEnabled = promotionBonus;
-            EloStat.SwaOnly = swaOnly;
-
-            // Filter matches based on swaOnly toggle (ignored for international leagues)
-            var matches = FilterMatches(league.Matches, date, swaOnly, isIntlLeague: isIntlLeague);
-            foreach (var match in matches)
-            {
-                if (notBlockedUserIds.Contains(match.FirstPlayerId))
-                {
-                    AddUser(activeUsers, match, match.FirstPlayer);
-                }
-                if (notBlockedUserIds.Contains(match.SecondPlayerId))
-                {
-                    AddUser(activeUsers, match, match.SecondPlayer);
-                }
-
-                foreach (var stat in stats)
-                {
-                    stat.AddMatch(match);
-                }
-            }
-
-            // Check promotions for all active users at the current date
-            // This ensures promotions are applied even if the player hasn't played recently
-            foreach (var user in activeUsers)
-            {
-                elo.CheckPlayerPromotion(user, date, isIntlLeague);
-            }
-
-            // Finalize any pending operations (e.g., promotion rating floors)
-            elo.FinalizeProcessing();
-
+            // Build forecast matrix
             var userList = new List<ApplicationUser>(activeUsers);
             var forecast = new Dictionary<string, Dictionary<string, string>>();
-            foreach (var appUser in userList)
-            {
-                var dict = new Dictionary<string, string>();
+            //foreach (var appUser in userList)
+            //{
+            //    var dict = new Dictionary<string, string>();
+            //    var userRating = elo[appUser];
+            //    foreach (var t in userList)
+            //    {
+            //        dict[t.Id] = (new Elo(userRating, elo[t], 1, 0).NewRatingAPlayer - userRating).ToString("N1");
+            //    }
+            //    forecast[appUser.Id] = dict;
+            //}
 
-                foreach (var t in userList)
-                {
-                    var userRating = elo[appUser];
-                    dict[t.Id] = (new Elo(userRating, elo[t], 1, 0).NewRatingAPlayer - userRating).ToString("N1");
-                }
-
-                forecast[appUser.Id] = dict;
-            }
-
-            var lastMatches = matches.Where(m=> m.Date > date.AddMonths(-1));
-            // Players in monitoring period shouldn't impact existing players' positions
-            // Also exclude hidden players (Status == Hidden) from display
+            // Filter users for display
             var users = activeUsers
-                .Where(x => league.Name.Contains("Intl.") || (!x.IsHiddenPlayer))
-                .Where(x => !hiddenUserIds.Contains(x.Id))
+                .Where(x => (!isSgLeague || !x.IsHiddenPlayer) && !hiddenUserIds.Contains(x.Id))
                 .ToList();
             
-            // Separate inactive users (not pro)
+            // Separate inactive users
             var inactiveUsers = users.Where(x => !x.Active && !x.IsProPlayer).ToList();
             
             // Add AlwaysShown users who may not have played any matches
             var activeUserIds = new HashSet<string>(activeUsers.Select(u => u.Id));
-            var missingAlwaysShownIds = alwaysShownUserIds.Where(id => !activeUserIds.Contains(id)).ToList();
+            var missingAlwaysShownIds = alwaysShownUserIds.Where(uid => !activeUserIds.Contains(uid)).ToList();
             if (missingAlwaysShownIds.Any())
             {
                 var alwaysShownUsers = await _context.Users
@@ -449,7 +439,6 @@ namespace PlayerRatings.Controllers
             users = users.Where(x => x.Active || x.IsProPlayer).ToList();
             
             // For Singapore Weiqi league, separate local and non-local players
-            bool isSgLeague = league.Name?.Contains("Singapore Weiqi") ?? false;
             List<ApplicationUser> nonLocalUsers = new List<ApplicationUser>();
             if (isSgLeague)
             {
@@ -461,12 +450,11 @@ namespace PlayerRatings.Controllers
             users.Sort(CompareByRatingAndName);
 
             var promotedPlayers = activeUsers
-                .Where(x => !hiddenUserIds.Contains(x.Id)) // Don't show hidden players in promotions
-                .Where(x => (date.Year > 2023 || x.IsHiddenPlayer) && x.Promotion.Contains('→'))
+                .Where(x => x.Promotion.Contains('→'))
                 .ToList();
             promotedPlayers.Sort(CompareByRankingRatingAndName);
 
-            return View(new RatingViewModel(stats, users, promotedPlayers, lastMatches, forecast, id.Value, byDate, swaOnly, isIntlLeague, promotionBonus, nonLocalUsers, showNonLocal, inactiveUsers));
+            return View(new RatingViewModel(stats, users, promotedPlayers, recentMatches, forecast, id.Value, byDate, swaOnly, isSgLeague, promotionBonus, nonLocalUsers, showNonLocal, inactiveUsers));
         }
 
         private static void AddUser(HashSet<ApplicationUser> activeUsers, Match match, ApplicationUser player)
@@ -497,6 +485,130 @@ namespace PlayerRatings.Controllers
             player.MatchCount++;
 
             activeUsers.Add(player);
+        }
+
+        /// <summary>
+        /// Loads player statuses for filtering (blocked, hidden, always shown).
+        /// </summary>
+        private (HashSet<string> notBlocked, HashSet<string> hidden, HashSet<string> alwaysShown) 
+            GetPlayerStatuses(Guid leagueId)
+        {
+            var leaguePlayers = _context.LeaguePlayers.AsNoTracking()
+                .Where(lp => lp.LeagueId == leagueId).ToList();
+            
+            return (
+                new HashSet<string>(leaguePlayers.Where(lp => lp.Status != PlayerStatus.Blocked).Select(lp => lp.UserId)),
+                new HashSet<string>(leaguePlayers.Where(lp => lp.Status == PlayerStatus.Hidden).Select(lp => lp.UserId)),
+                new HashSet<string>(leaguePlayers.Where(lp => lp.Status == PlayerStatus.AlwaysShown).Select(lp => lp.UserId))
+            );
+        }
+
+        /// <summary>
+        /// Shared rating calculation used by both Rating and Player pages.
+        /// Ensures consistent results across both views.
+        /// </summary>
+        /// <param name="league">League with matches loaded</param>
+        /// <param name="cutoffDate">Date to calculate ratings up to</param>
+        /// <param name="swaOnly">Filter for SWA tournaments only</param>
+        /// <param name="promotionBonus">Enable promotion bonus</param>
+        /// <param name="allowedUserIds">Optional filter - only include these user IDs (null = include all)</param>
+        /// <param name="onMatchProcessed">Optional callback for each match with EloStat (for monthly snapshots)</param>
+        /// <returns>Tuple of (EloStat, activeUsers, isSgLeague)</returns>
+        private (EloStat eloStat, HashSet<ApplicationUser> activeUsers, bool isSgLeague) 
+            CalculateRatings(
+                League league, 
+                DateTimeOffset cutoffDate, 
+                bool swaOnly, 
+                bool promotionBonus,
+                HashSet<string> allowedUserIds = null,
+                Action<Match, EloStat> onMatchProcessed = null)
+        {
+            // Reset player transient state at the start (important for cached data)
+            ResetPlayerState(league.Matches);
+
+            League.CutoffDate = cutoffDate;
+            EloStat.PromotionBonusEnabled = promotionBonus;
+            EloStat.SwaOnly = swaOnly;
+
+            bool isSgLeague = league.Name?.Contains("Singapore Weiqi") ?? false;
+
+            var activeUsers = new HashSet<ApplicationUser>();
+            var eloStat = new EloStat();
+
+            var matches = FilterMatches(league.Matches, cutoffDate, swaOnly, isSgLeague: isSgLeague);
+            foreach (var match in matches)
+            {
+                // Add users (with optional filter)
+                if (allowedUserIds == null || allowedUserIds.Contains(match.FirstPlayerId))
+                {
+                    AddUser(activeUsers, match, match.FirstPlayer);
+                }
+                if (allowedUserIds == null || allowedUserIds.Contains(match.SecondPlayerId))
+                {
+                    AddUser(activeUsers, match, match.SecondPlayer);
+                }
+
+                eloStat.AddMatch(match);
+                
+                // Callback for additional processing (e.g., monthly snapshots)
+                onMatchProcessed?.Invoke(match, eloStat);
+            }
+
+            // Check promotions for all active users
+            foreach (var user in activeUsers)
+            {
+                eloStat.CheckPlayerPromotion(user, cutoffDate, isSgLeague);
+            }
+            eloStat.FinalizeProcessing();
+
+            return (eloStat, activeUsers, isSgLeague);
+        }
+
+        /// <summary>
+        /// Resets player transient state before rating calculation.
+        /// This is important when using cached data to ensure each calculation starts fresh.
+        /// </summary>
+        private static void ResetPlayerState(IEnumerable<Match> matches)
+        {
+            var resetPlayers = new HashSet<string>();
+            foreach (var match in matches)
+            {
+                if (resetPlayers.Add(match.FirstPlayerId))
+                {
+                    ResetPlayer(match.FirstPlayer);
+                }
+                if (resetPlayers.Add(match.SecondPlayerId))
+                {
+                    ResetPlayer(match.SecondPlayer);
+                }
+            }
+        }
+
+        private static void ResetPlayer(ApplicationUser player)
+        {
+            player.MatchCount = 0;
+            player.FirstMatch = DateTimeOffset.MinValue;
+            player.LastMatch = DateTimeOffset.MinValue;
+            player.PreviousMatchDate = DateTimeOffset.MinValue;
+            player.MatchesSinceReturn = 0;
+            player.EstimatedInitialRating = null;
+        }
+
+        /// <summary>
+        /// Gets ranked users list from active users (same logic for Rating and Player pages).
+        /// </summary>
+        private List<ApplicationUser> GetRankedUsers(
+            HashSet<ApplicationUser> activeUsers, 
+            HashSet<string> hiddenUserIds,
+            bool isSgLeague)
+        {
+            return activeUsers
+                .Where(x => x.Active 
+                    && !x.IsProPlayer
+                    && (!isSgLeague || !x.IsHiddenPlayer) // SG league hides monitoring players
+                    && (hiddenUserIds == null || !hiddenUserIds.Contains(x.Id))
+                    && (!isSgLeague || x.IsLocalPlayer))
+                .ToList();
         }
 
         private int CompareByRatingAndName(ApplicationUser x, ApplicationUser y)
@@ -607,7 +719,7 @@ namespace PlayerRatings.Controllers
         }
 
         // GET: Leagues/Player/5?playerId=xxx
-        public async Task<IActionResult> Player(Guid id, string playerId, bool swaOnly = false, bool promotionBonus = true)
+        public async Task<IActionResult> Player(Guid id, string playerId, bool swaOnly = false, bool promotionBonus = true, bool refresh = false)
         {
             if (string.IsNullOrEmpty(playerId))
             {
@@ -622,25 +734,17 @@ namespace PlayerRatings.Controllers
                 return NotFound();
             }
 
-            // Load league with all required data in a single query
-            // Note: Cannot use AsNoTracking() here because the code modifies entity properties
-            // (MatchCount, FirstMatch, LastMatch etc.) and relies on entity identity
-            var league = _context.League
-                .Include(l => l.Matches).ThenInclude(m => m.FirstPlayer).ThenInclude(p => p.Rankings)
-                .Include(l => l.Matches).ThenInclude(m => m.SecondPlayer).ThenInclude(p => p.Rankings)
-                .SingleOrDefault(m => m.Id == id);
+            // Load league with all required data (cached for performance)
+            var league = GetLeagueWithMatches(id, refresh);
 
             if (league == null)
             {
                 return NotFound();
             }
 
-            // Check if this is an international league
-            bool isIntlLeague = league.Name?.Contains("Intl.") ?? false;
-
-            // Set promotion bonus enabled based on parameter
-            EloStat.PromotionBonusEnabled = promotionBonus;
-            EloStat.SwaOnly = swaOnly;
+            // Get player statuses and league type info
+            var (notBlockedUserIds, hiddenUserIds, _) = GetPlayerStatuses(league.Id);
+            bool isSgLeague = league.Name?.Contains("Singapore Weiqi") ?? false;
 
             // Get player from already loaded match data (includes Rankings via ThenInclude)
             var player = league.Matches
@@ -666,7 +770,7 @@ namespace PlayerRatings.Controllers
             }
 
             // Find player's matches (all matches for intl leagues, filtered for local leagues)
-            var playerMatches = FilterPlayerMatches(league.Matches, playerId, swaOnly, isIntlLeague).ToList();
+            var playerMatches = FilterPlayerMatches(league.Matches, playerId, swaOnly, isSgLeague).ToList();
 
             // If player has no matches, show page with just their info (no rating history)
             if (!playerMatches.Any())
@@ -695,81 +799,38 @@ namespace PlayerRatings.Controllers
                 startDate = playerMatches[11].Date; // 12th game (0-indexed)
             }
             
-            // ===== OPTIMIZED: Single pass through all matches =====
-            // Instead of recalculating from scratch for each month, we process matches once
-            // and capture snapshots at month boundaries.
-            
+            // ===== Use shared calculation with monthly snapshot callback =====
             var monthlyRatings = new List<MonthlyRating>();
-            var activeUsers = new HashSet<ApplicationUser>();
-            var eloStat = new EloStat();
-            
-            // Get all matches up to current date, sorted chronologically
-            League.CutoffDate = DateTimeOffset.Now;
-            var allMatches = FilterMatches(league.Matches, League.CutoffDate, swaOnly, includeDate: false, isIntlLeague: isIntlLeague).ToList();
-            
-            // Track monthly data as we process
             var startMonth = new DateTime(startDate.Year, startDate.Month, 1);
-            var currentProcessingMonth = new DateTime(1900, 1, 1); // Will be set on first match
+            var currentProcessingMonth = new DateTime(1900, 1, 1);
             int playerMatchCount = 0;
             int matchesInCurrentMonth = 0;
             var matchNamesInCurrentMonth = new List<string>();
+            EloStat currentEloStat = null;
             
-            // Helper to capture monthly snapshot
-            void CaptureMonthlySnapshot(DateTime monthToCapture)
+            // Callback to capture monthly snapshots during processing
+            void OnMatchProcessed(Match match, EloStat elo)
             {
-                // Only capture if we've reached the start month and player has enough games
-                if (monthToCapture < startMonth)
-                    return;
-                    
-                bool hasEnoughGames = !isNewForeignPlayer || playerMatchCount >= 12;
-                if (playerMatchCount > 0 && hasEnoughGames)
-                {
-                    // Check promotion at end of this month
-                    var lastDayOfMonth = monthToCapture.AddMonths(1).AddDays(-1);
-                    eloStat.CheckPlayerPromotion(player, new DateTimeOffset(lastDayOfMonth), isIntlLeague);
-                    eloStat.FinalizeProcessing();
-                    
-                    matchNamesInCurrentMonth.Reverse();
-                    monthlyRatings.Add(new MonthlyRating
-                    {
-                        Month = monthToCapture,
-                        Rating = eloStat[player],
-                        MatchesInMonth = matchesInCurrentMonth,
-                        MatchNames = new List<string>(matchNamesInCurrentMonth)
-                    });
-                }
-            }
-            
-            // Process all matches in chronological order (single pass)
-            foreach (var match in allMatches)
-            {
+                currentEloStat = elo;
                 var matchMonth = new DateTime(match.Date.Year, match.Date.Month, 1);
                 
                 // When month changes, capture snapshot of previous month
                 if (matchMonth > currentProcessingMonth && currentProcessingMonth.Year > 1900)
                 {
-                    CaptureMonthlySnapshot(currentProcessingMonth);
+                    CaptureSnapshot(currentProcessingMonth);
                     
-                    // Fill in any skipped months (player inactive)
+                    // Fill in any skipped months
                     var nextMonth = currentProcessingMonth.AddMonths(1);
                     while (nextMonth < matchMonth)
                     {
-                        CaptureMonthlySnapshot(nextMonth);
+                        CaptureSnapshot(nextMonth);
                         nextMonth = nextMonth.AddMonths(1);
                     }
                     
-                    // Reset monthly counters
                     matchesInCurrentMonth = 0;
                     matchNamesInCurrentMonth.Clear();
                 }
                 currentProcessingMonth = matchMonth;
-                
-                // Track user activity (same as AddUser in Rating page)
-                AddUser(activeUsers, match, match.FirstPlayer);
-                AddUser(activeUsers, match, match.SecondPlayer);
-                
-                // Add match to ELO calculation
-                eloStat.AddMatch(match);
                 
                 // Track this player's monthly stats
                 if (match.FirstPlayerId == playerId || match.SecondPlayerId == playerId)
@@ -783,38 +844,54 @@ namespace PlayerRatings.Controllers
                 }
             }
             
-            // Capture final month and any remaining months up to current
+            void CaptureSnapshot(DateTime monthToCapture)
+            {
+                if (monthToCapture < startMonth || currentEloStat == null)
+                    return;
+                    
+                bool hasEnoughGames = !isNewForeignPlayer || playerMatchCount >= 12;
+                if (playerMatchCount > 0 && hasEnoughGames)
+                {
+                    var reversed = new List<string>(matchNamesInCurrentMonth);
+                    reversed.Reverse();
+                    monthlyRatings.Add(new MonthlyRating
+                    {
+                        Month = monthToCapture,
+                        Rating = currentEloStat[player],
+                        MatchesInMonth = matchesInCurrentMonth,
+                        MatchNames = reversed
+                    });
+                }
+            }
+            
+            // Use shared calculation (same as Rating page)
+            var (eloStat, activeUsers, _) = CalculateRatings(
+                league, 
+                DateTimeOffset.Now, 
+                swaOnly, 
+                promotionBonus,
+                allowedUserIds: notBlockedUserIds,
+                onMatchProcessed: OnMatchProcessed);
+            currentEloStat = eloStat;
+            
+            // Capture final month and fill remaining months
             if (currentProcessingMonth.Year > 1900)
             {
-                CaptureMonthlySnapshot(currentProcessingMonth);
+                CaptureSnapshot(currentProcessingMonth);
                 
-                // Fill in months up to current month
                 var endMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
                 var nextMonth = currentProcessingMonth.AddMonths(1);
                 while (nextMonth <= endMonth)
                 {
                     matchesInCurrentMonth = 0;
                     matchNamesInCurrentMonth.Clear();
-                    CaptureMonthlySnapshot(nextMonth);
+                    CaptureSnapshot(nextMonth);
                     nextMonth = nextMonth.AddMonths(1);
                 }
             }
             
-            // Check promotions for all active users at current date
-            foreach (var user in activeUsers)
-            {
-                eloStat.CheckPlayerPromotion(user, League.CutoffDate, isIntlLeague);
-            }
-            eloStat.FinalizeProcessing();
-            
-            // Calculate position from the same EloStat (no need to recalculate)
-            bool isSgLeague = league.Name?.Contains("Singapore Weiqi") ?? false;
-            var rankedUsers = activeUsers
-                .Where(x => x.Active)
-                .Where(x => !x.IsProPlayer)
-                .Where(x => isIntlLeague || !x.IsHiddenPlayer)
-                .Where(x => !isSgLeague || x.IsLocalPlayer)
-                .ToList();
+            // Get ranked users using shared method (same filtering as Rating page)
+            var rankedUsers = GetRankedUsers(activeUsers, hiddenUserIds, isSgLeague);
             
             rankedUsers.Sort((x, y) =>
             {
@@ -834,21 +911,6 @@ namespace PlayerRatings.Controllers
             
             int totalPlayers = rankedUsers.Count;
             int position = rankedUsers.FindIndex(u => u.Id == playerId) + 1;
-            
-            // Reset player data for consistency
-            foreach (var match in allMatches)
-            {
-                match.FirstPlayer.MatchCount = 0;
-                match.FirstPlayer.FirstMatch = DateTimeOffset.MinValue;
-                match.FirstPlayer.LastMatch = DateTimeOffset.MinValue;
-                match.FirstPlayer.PreviousMatchDate = DateTimeOffset.MinValue;
-                match.FirstPlayer.MatchesSinceReturn = 0;
-                match.SecondPlayer.MatchCount = 0;
-                match.SecondPlayer.FirstMatch = DateTimeOffset.MinValue;
-                match.SecondPlayer.LastMatch = DateTimeOffset.MinValue;
-                match.SecondPlayer.PreviousMatchDate = DateTimeOffset.MinValue;
-                match.SecondPlayer.MatchesSinceReturn = 0;
-            }
 
             // Build game records from player matches
             var gameRecords = new List<GameRecord>();
@@ -891,7 +953,7 @@ namespace PlayerRatings.Controllers
                 MonthlyRatings = monthlyRatings,
                 GameRecords = gameRecords,
                 SwaOnly = swaOnly,
-                IsIntlLeague = isIntlLeague,
+                IsSgLeague = isSgLeague,
                 PromotionBonus = promotionBonus,
                 Position = position,
                 TotalPlayers = totalPlayers
