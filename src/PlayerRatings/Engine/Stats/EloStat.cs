@@ -59,7 +59,8 @@ namespace PlayerRatings.Engine.Stats
                     factor1 = CalculateUncertaintyFactor(match.FirstPlayer.MatchCount);
                     
                     // Reduce impact on established players when playing against uncertain players
-                    if (!player2NeedsDynamic)
+                    // Exception: Pro players always use their own K factor
+                    if (!player2NeedsDynamic && !match.SecondPlayer.IsProPlayer)
                     {
                         factor2 = 0.5; // Half K for established player
                     }
@@ -70,7 +71,7 @@ namespace PlayerRatings.Engine.Stats
                     factor2 = CalculateUncertaintyFactor(match.SecondPlayer.MatchCount);
                     
                     // Reduce impact on established players when playing against uncertain players
-                    if (!player1NeedsDynamic)
+                    if (!player1NeedsDynamic && !match.FirstPlayer.IsProPlayer)
                     {
                         factor1 = 0.5; // Half K for established player
                     }
@@ -85,7 +86,7 @@ namespace PlayerRatings.Engine.Stats
             }
 
             var rating = new Elo(firstPlayerRating, secondPlayerRating, firstUserScore, 1 - firstUserScore, Elo.GetK(firstPlayerRating) * factor1);
-            Elo specialRating = factor1 != factor2 ? 
+            Elo specialRating = factor1 != factor2 || match.SecondPlayer.IsProPlayer ? 
                 specialRating = new Elo(firstPlayerRating, secondPlayerRating, firstUserScore, 1 - firstUserScore, Elo.GetK(secondPlayerRating) * factor2) :
                 rating;
 
@@ -193,10 +194,15 @@ namespace PlayerRatings.Engine.Stats
 
                 if (currentRankingRating > previousRankingRating)
                 {
+                    // Pro players and foreign players directly use their new ranking rating
+                    if (player.IsProPlayer || (!player.IsLocalPlayer && !currentRanking.IsLocalRanking))
+                    {
+                        _pendingPromotionFloors[player.Id] = (currentRankingRating, isSgLeague, false);
+                    }
                     // Only apply promotion bonus for 4D and lower promotions
                     // 5D and above (rating >= 2500) are considered strong enough and don't need the bonus
                     // Note: TGA (5D) = 2400 still gets bonus as it's equivalent to SWA 4D in strength
-                    if (currentRankingRating < 2500)
+                    else if (currentRankingRating < 2500)
                     {
                         // This is a promotion - queue rating floor for end of day
                         // Rating floor is 50% of a single-rank difference below the new rank
