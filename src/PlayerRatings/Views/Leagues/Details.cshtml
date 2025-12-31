@@ -147,7 +147,7 @@ else
                     <td>
                         <a href="@Url.Action("Player", new { id = Model.League.Id, playerId = player.User.Id })">@player.User.DisplayName</a>
                     </td>
-                    <td>@player.User.Residence</td>
+                    <td>@player.User.CurrentResidence</td>
                     <td>@(Model.SwaRankedPlayersOnly ? player.User.LatestSwaRanking : player.User.LatestRanking)</td>
                     <td>@(Model.SwaRankedPlayersOnly ? player.User.LatestSwaRankedDate : player.User.LatestRankedDate)</td>
                     <td title=@(Model.SwaRankedPlayersOnly ? string.Empty : player.User.FormatedRankingHistory)>

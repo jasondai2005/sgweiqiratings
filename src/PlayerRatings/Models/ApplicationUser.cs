@@ -19,7 +19,10 @@ namespace PlayerRatings.Models
         public int? BirthYearValue { get; set; }
 
         /// <summary>
-        /// Player's residence/location. Determines if player is local.
+        /// Player's residence history. Format: "{Place} ({year}); {Place} ({year}); {Place}"
+        /// Example: "Singapore (2020); Malaysia (2018); China"
+        /// When year is not supplied, player is considered to have lived there since min date.
+        /// Otherwise, since the beginning of that year.
         /// </summary>
         public string Residence { get; set; }
 
@@ -46,9 +49,84 @@ namespace PlayerRatings.Models
             : string.Empty;
 
         /// <summary>
-        /// Determines if this is a local player based on Residence
+        /// Gets the current residence (first entry in residence history, without year).
+        /// Used for display purposes.
         /// </summary>
-        public bool IsLocalPlayer => string.IsNullOrEmpty(Residence) || Residence == "Singapore";
+        public string CurrentResidence
+        {
+            get
+            {
+                if (string.IsNullOrEmpty(Residence))
+                    return string.Empty;
+                
+                var firstEntry = Residence.Split(';')[0].Trim();
+                // Remove year suffix if present, e.g., "Singapore (2020)" -> "Singapore"
+                var parenIndex = firstEntry.LastIndexOf('(');
+                if (parenIndex > 0)
+                    return firstEntry.Substring(0, parenIndex).Trim();
+                return firstEntry;
+            }
+        }
+
+        /// <summary>
+        /// Determines if this is a local player (lives in Singapore) at the current date.
+        /// </summary>
+        public bool IsLocalPlayer => IsLocalPlayerAt(DateTimeOffset.Now);
+
+        /// <summary>
+        /// Determines if this player lived in Singapore at the specified date.
+        /// Parses residence history format: "{Place} ({year}); {Place} ({year}); {Place}"
+        /// </summary>
+        public bool IsLocalPlayerAt(DateTimeOffset date)
+        {
+            if (string.IsNullOrEmpty(Residence))
+                return true; // Default to local if not specified
+
+            // Parse residence history entries (most recent first)
+            var entries = Residence.Split(';')
+                .Select(e => e.Trim())
+                .Where(e => !string.IsNullOrEmpty(e))
+                .ToList();
+
+            foreach (var entry in entries)
+            {
+                // Parse place and optional year: "Singapore (2020)" or "Singapore"
+                var place = entry;
+                int? year = null;
+
+                var parenIndex = entry.LastIndexOf('(');
+                if (parenIndex > 0 && entry.EndsWith(")"))
+                {
+                    place = entry.Substring(0, parenIndex).Trim();
+                    var yearStr = entry.Substring(parenIndex + 1, entry.Length - parenIndex - 2);
+                    if (int.TryParse(yearStr, out int parsedYear))
+                        year = parsedYear;
+                }
+
+                // Check if this entry applies to the given date
+                // If year is specified, this residence is valid from beginning of that year
+                // If no year, this is the earliest known residence (valid from min date)
+                var entryStartDate = year.HasValue 
+                    ? new DateTimeOffset(year.Value, 1, 1, 0, 0, 0, TimeSpan.Zero)
+                    : DateTimeOffset.MinValue;
+
+                if (date >= entryStartDate)
+                {
+                    return place.Equals("Singapore", StringComparison.OrdinalIgnoreCase);
+                }
+            }
+
+            // If no entry matches, use the last (oldest) entry
+            if (entries.Any())
+            {
+                var lastEntry = entries.Last();
+                var parenIndex = lastEntry.LastIndexOf('(');
+                var place = parenIndex > 0 ? lastEntry.Substring(0, parenIndex).Trim() : lastEntry;
+                return place.Equals("Singapore", StringComparison.OrdinalIgnoreCase);
+            }
+
+            return true; // Default to local
+        }
 
         internal DateTimeOffset LastMatch { get; set; } = DateTimeOffset.MinValue;
         internal DateTimeOffset FirstMatch { get; set; } = DateTimeOffset.MinValue;

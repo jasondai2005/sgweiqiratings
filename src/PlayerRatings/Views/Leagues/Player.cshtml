@@ -31,7 +31,7 @@
                     }
                     <div class="@(string.IsNullOrEmpty(Model.Player.Photo) ? "col-xs-12" : "col-xs-9 col-sm-10")" id="playerInfoContainer">
                         <p style="margin-bottom: 5px; @(Model.Player.BirthYearValue == null ? "display:none;" : "")" id="birthYearRow"><strong>@LocString[nameof(LocalizationKey.BirthYear)]:</strong> <span id="displayBirthYear">@Model.Player.BirthYear</span></p>
-                        <p style="margin-bottom: 5px;"><strong>@LocString[nameof(LocalizationKey.Residence)]:</strong> <span id="displayResidence">@(Model.Player.Residence ?? "Singapore")</span></p>
+                        <p style="margin-bottom: 5px;"><strong>@LocString[nameof(LocalizationKey.Residence)]:</strong> <span id="displayResidence">@(string.IsNullOrEmpty(Model.Player.CurrentResidence) ? "Singapore" : Model.Player.CurrentResidence)</span></p>
                         <p style="margin-bottom: 5px;"><strong>@LocString[nameof(LocalizationKey.CurrentRanking)]:</strong> @Model.Player.LatestRanking</p>
                         @if (Model.Position > 0)
                         {
@@ -608,7 +608,15 @@
                             } else {
                                 $('#birthYearRow').hide();
                             }
-                            $('#displayResidence').text($form.find('[name="Residence"]').val() || 'Singapore');
+                            // Extract current residence (first entry without year)
+                            var fullResidence = $form.find('[name="Residence"]').val() || '';
+                            var currentResidence = 'Singapore';
+                            if (fullResidence) {
+                                var firstEntry = fullResidence.split(';')[0].trim();
+                                var parenIndex = firstEntry.lastIndexOf('(');
+                                currentResidence = parenIndex > 0 ? firstEntry.substring(0, parenIndex).trim() : firstEntry;
+                            }
+                            $('#displayResidence').text(currentResidence || 'Singapore');
                             var photoUrl = $form.find('[name="Photo"]').val();
                             var $photoContainer = $('#playerPhotoContainer');
                             var $infoContainer = $('#playerInfoContainer');

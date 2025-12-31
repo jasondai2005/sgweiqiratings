@@ -156,7 +156,7 @@ namespace PlayerRatings.Controllers
             
             if (isSgLeague)
             {
-                players = allPlayers.Where(x => x.User.IsLocalPlayer).ToList();
+                players = allPlayers.Where(x => x.User.IsLocalPlayer || !string.IsNullOrEmpty(x.User.LatestSwaRanking)).ToList();
                 nonLocalPlayers = allPlayers.Where(x => !x.User.IsLocalPlayer && string.IsNullOrEmpty(x.User.LatestSwaRanking)).ToList();
                 nonLocalPlayers.Sort(CompareByRankingAndName);
             }
@@ -344,6 +344,9 @@ namespace PlayerRatings.Controllers
 
             _context.SaveChanges();
 
+            // Invalidate cache since player status changed
+            _cache.Remove($"League_{league.Id}");
+
             var id = league.Id;
             return RedirectToAction(nameof(Details), new { id });
         }
@@ -438,13 +441,13 @@ namespace PlayerRatings.Controllers
             inactiveUsers.Sort(CompareByRatingAndName);
             users = users.Where(x => x.Active || x.IsProPlayer).ToList();
             
-            // For Singapore Weiqi league, separate local and non-local players
+            // For Singapore Weiqi league, separate local and non-local players based on cutoff date
             List<ApplicationUser> nonLocalUsers = new List<ApplicationUser>();
             if (isSgLeague)
             {
-                nonLocalUsers = users.Where(x => !x.IsLocalPlayer).ToList();
+                nonLocalUsers = users.Where(x => !x.IsLocalPlayerAt(date)).ToList();
                 nonLocalUsers.Sort(CompareByRatingAndName);
-                users = users.Where(x => x.IsLocalPlayer).ToList();
+                users = users.Where(x => x.IsLocalPlayerAt(date)).ToList();
             }
             
             users.Sort(CompareByRatingAndName);
@@ -594,17 +597,19 @@ namespace PlayerRatings.Controllers
         /// <summary>
         /// Gets ranked users list from active users (same logic for Rating and Player pages).
         /// </summary>
+        /// <param name="cutoffDate">Date to check local player status against</param>
         private List<ApplicationUser> GetRankedUsers(
             HashSet<ApplicationUser> activeUsers, 
             HashSet<string> hiddenUserIds,
-            bool isSgLeague)
+            bool isSgLeague,
+            DateTimeOffset cutoffDate)
         {
             return activeUsers
                 .Where(x => x.Active 
                     && !x.IsProPlayer
                     && (!isSgLeague || !x.IsHiddenPlayer) // SG league hides monitoring players
                     && (hiddenUserIds == null || !hiddenUserIds.Contains(x.Id))
-                    && (!isSgLeague || x.IsLocalPlayer))
+                    && (!isSgLeague || x.IsLocalPlayerAt(cutoffDate)))
                 .ToList();
         }
 
@@ -886,7 +891,7 @@ namespace PlayerRatings.Controllers
             }
             
             // Get ranked users using shared method (same filtering as Rating page)
-            var rankedUsers = GetRankedUsers(activeUsers, hiddenUserIds, isSgLeague);
+            var rankedUsers = GetRankedUsers(activeUsers, hiddenUserIds, isSgLeague, DateTimeOffset.Now);
             
             rankedUsers.Sort((x, y) =>
             {
