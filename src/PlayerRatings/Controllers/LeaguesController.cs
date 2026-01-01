@@ -948,10 +948,16 @@ namespace PlayerRatings.Controllers
                     // monthToCapture is already end-of-month, just convert to DateTimeOffset
                     var monthEnd = new DateTimeOffset(monthToCapture, TimeSpan.Zero);
                     
+                    // For the current month, use 'now' instead of month-end to reflect current state
+                    // This avoids confusion (e.g., showing position based on future end-of-month)
+                    var now = DateTimeOffset.Now;
+                    var isCurrentMonth = monthToCapture.Year == now.Year && monthToCapture.Month == now.Month;
+                    var effectiveDate = isCurrentMonth ? now : monthEnd;
+                    
                     // Apply promotions for all tracked players up to this month's end
                     // This ensures players who got promoted but had no match get their bonus
-                    currentEloStat.ApplyPromotionsUpToDate(allPlayersInMatches.Values, monthEnd, isSgLeague);
-                    var twoYearsAgo = monthEnd.AddYears(-2);
+                    currentEloStat.ApplyPromotionsUpToDate(allPlayersInMatches.Values, effectiveDate, isSgLeague);
+                    var twoYearsAgo = effectiveDate.AddYears(-2);
                     
                     // Filter to active, rankable players at this month
                     var rankableAtMonth = allPlayersInMatches.Values
@@ -960,7 +966,7 @@ namespace PlayerRatings.Controllers
                             && !u.IsProPlayer
                             && (!isSgLeague || !u.IsHiddenPlayer)
                             && (hiddenUserIds == null || !hiddenUserIds.Contains(u.Id))
-                            && (!isSgLeague || u.IsLocalPlayerAt(monthEnd)))
+                            && (!isSgLeague || u.IsLocalPlayerAt(effectiveDate)))
                         .ToList();
                     
                     // Sort by rating (descending), then ranking, then name
@@ -971,8 +977,8 @@ namespace PlayerRatings.Controllers
                         int result = ratingY.CompareTo(ratingX);
                         if (result == 0)
                         {
-                            var ranking1 = x.GetCombinedRankingBeforeDate(monthEnd);
-                            var ranking2 = y.GetCombinedRankingBeforeDate(monthEnd);
+                            var ranking1 = x.GetCombinedRankingBeforeDate(effectiveDate);
+                            var ranking2 = y.GetCombinedRankingBeforeDate(effectiveDate);
                             if (ranking1 != ranking2)
                                 return string.Compare(ranking1, ranking2, StringComparison.OrdinalIgnoreCase);
                             return string.Compare(x.DisplayName, y.DisplayName, StringComparison.OrdinalIgnoreCase);
@@ -1025,36 +1031,11 @@ namespace PlayerRatings.Controllers
                 }
             }
             
-            // Get ranked users with same filtering as monthly history (including 2-year activity rule)
-            var now = DateTimeOffset.Now;
-            var twoYearsAgoNow = now.AddYears(-2);
-            var rankedUsers = allPlayersInMatches.Values
-                .Where(u => notBlockedUserIds.Contains(u.Id)
-                    && playerLastMatchDates.TryGetValue(u.Id, out var lastMatch) && lastMatch > twoYearsAgoNow
-                    && !u.IsProPlayer
-                    && (!isSgLeague || !u.IsHiddenPlayer)
-                    && (hiddenUserIds == null || !hiddenUserIds.Contains(u.Id))
-                    && (!isSgLeague || u.IsLocalPlayerAt(now)))
-                .ToList();
-            
-            rankedUsers.Sort((x, y) =>
-            {
-                double ratingX = eloStat[x];
-                double ratingY = eloStat[y];
-                int result = ratingY.CompareTo(ratingX);
-                if (result == 0)
-                {
-                    var ranking1 = x.GetCombinedRankingBeforeDate(now);
-                    var ranking2 = y.GetCombinedRankingBeforeDate(now);
-                    if (ranking1 != ranking2)
-                        return string.Compare(ranking1, ranking2, StringComparison.OrdinalIgnoreCase);
-                    return string.Compare(x.DisplayName, y.DisplayName, StringComparison.OrdinalIgnoreCase);
-                }
-                return result;
-            });
-            
-            int totalPlayers = rankedUsers.Count;
-            int position = rankedUsers.FindIndex(u => u.Id == playerId) + 1;
+            // Use the latest month's position from monthlyRatings to ensure consistency
+            // This guarantees Position field matches the latest entry in Monthly Rating History
+            var latestMonthlyRating = monthlyRatings.OrderByDescending(r => r.Month).FirstOrDefault();
+            int position = latestMonthlyRating?.Position ?? 0;
+            int totalPlayers = latestMonthlyRating?.TotalPlayers ?? 0;
 
             // Build game records from player matches
             var gameRecords = new List<GameRecord>();
@@ -1086,7 +1067,8 @@ namespace PlayerRatings.Controllers
                     OpponentName = opponent.DisplayName,
                     OpponentRanking = opponentRanking,
                     OpponentId = opponent.Id,
-                    Result = result
+                    Result = result,
+                    Factor = match.Factor
                 });
             }
 

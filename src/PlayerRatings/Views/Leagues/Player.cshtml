@@ -568,17 +568,25 @@
             @foreach (var game in Model.GameRecords.OrderByDescending(g => g.Date))
             {
                 var isOldMatch = game.Date < ratingStartDate;
-                <tr style="@(isOldMatch ? "opacity: 0.5; background-color: #f5f5f5;" : "")">
+                var isNotRated = game.Factor == 0;
+                var isGrayedOut = isOldMatch || isNotRated;
+                <tr style="@(isGrayedOut ? "opacity: 0.5; background-color: #f5f5f5;" : "")">
                     <td>@game.DateDisplay</td>
-                    <td>@game.MatchName</td>
                     <td>
-                        <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = game.OpponentId, swaOnly = Model.SwaOnly, })" style="@(isOldMatch ? "color: #888;" : "")">@game.OpponentName</a>
+                        @game.MatchName
+                        @if (isNotRated)
+                        {
+                            <span style="font-size: 0.75em; color: #999; margin-left: 4px; font-style: italic;">(@LocString[nameof(LocalizationKey.NotRated)])</span>
+                        }
+                    </td>
+                    <td>
+                        <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = game.OpponentId, swaOnly = Model.SwaOnly, })" style="@(isGrayedOut ? "color: #888;" : "")">@game.OpponentName</a>
                         @if (!string.IsNullOrEmpty(game.OpponentRanking))
                         {
                             <span style="font-size: 0.8em; color: #666;">@game.OpponentRanking</span>
                         }
                     </td>
-                    <td style="color: @(isOldMatch ? "#888" : game.Result == "Win" ? "green" : game.Result == "Loss" ? "red" : "gray"); font-weight: bold;">
+                    <td style="color: @(isGrayedOut ? "#888" : game.Result == "Win" ? "green" : game.Result == "Loss" ? "red" : "gray"); font-weight: bold;">
                         @game.Result
                     </td>
                 </tr>

@@ -137,6 +137,16 @@ namespace PlayerRatings.ViewModels.Player
         public string OpponentRanking { get; set; }
         public string OpponentId { get; set; }
         public string Result { get; set; }
+        
+        /// <summary>
+        /// Match factor. 0 means the match is not rated.
+        /// </summary>
+        public double? Factor { get; set; }
+        
+        /// <summary>
+        /// Whether this match is rated (factor != 0).
+        /// </summary>
+        public bool IsRated => Factor != 0;
     }
 }
 
