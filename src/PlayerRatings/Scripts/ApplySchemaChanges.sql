@@ -34,3 +34,4 @@ INSERT OR IGNORE INTO __EFMigrationsHistory (MigrationId, ProductVersion)
 VALUES ('20241229000000_AddPlayerRankingTable', '6.0.5');
 
 
+

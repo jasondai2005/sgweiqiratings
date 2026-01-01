@@ -1025,8 +1025,17 @@ namespace PlayerRatings.Controllers
                 }
             }
             
-            // Get ranked users using shared method (same filtering as Rating page)
-            var rankedUsers = GetRankedUsers(activeUsers, hiddenUserIds, isSgLeague, DateTimeOffset.Now);
+            // Get ranked users with same filtering as monthly history (including 2-year activity rule)
+            var now = DateTimeOffset.Now;
+            var twoYearsAgoNow = now.AddYears(-2);
+            var rankedUsers = allPlayersInMatches.Values
+                .Where(u => notBlockedUserIds.Contains(u.Id)
+                    && playerLastMatchDates.TryGetValue(u.Id, out var lastMatch) && lastMatch > twoYearsAgoNow
+                    && !u.IsProPlayer
+                    && (!isSgLeague || !u.IsHiddenPlayer)
+                    && (hiddenUserIds == null || !hiddenUserIds.Contains(u.Id))
+                    && (!isSgLeague || u.IsLocalPlayerAt(now)))
+                .ToList();
             
             rankedUsers.Sort((x, y) =>
             {
@@ -1035,8 +1044,8 @@ namespace PlayerRatings.Controllers
                 int result = ratingY.CompareTo(ratingX);
                 if (result == 0)
                 {
-                    var ranking1 = x.GetCombinedRankingBeforeDate(League.CutoffDate);
-                    var ranking2 = y.GetCombinedRankingBeforeDate(League.CutoffDate);
+                    var ranking1 = x.GetCombinedRankingBeforeDate(now);
+                    var ranking2 = y.GetCombinedRankingBeforeDate(now);
                     if (ranking1 != ranking2)
                         return string.Compare(ranking1, ranking2, StringComparison.OrdinalIgnoreCase);
                     return string.Compare(x.DisplayName, y.DisplayName, StringComparison.OrdinalIgnoreCase);
