@@ -117,6 +117,10 @@ namespace PlayerRatings.Engine.Stats
         // Track the last known ranking for each player to detect promotions
         private readonly Dictionary<string, PlayerRanking> _lastKnownRanking = new Dictionary<string, PlayerRanking>();
 
+        // Track promotion bonuses applied to players: Key = playerId, Value = list of (date, fromRanking, fromOrg, toRanking, toOrg, bonusAmount)
+        private readonly Dictionary<string, List<(DateTimeOffset date, string fromRanking, string fromOrg, string toRanking, string toOrg, double bonusAmount)>> 
+            _promotionBonuses = new Dictionary<string, List<(DateTimeOffset, string, string, string, string, double)>>();
+
         /// <summary>
         /// Checks and applies promotion bonus for a player at a specific date.
         /// Since RankingDate is treated as end-of-day (23:59:59), promotions are only
@@ -153,6 +157,7 @@ namespace PlayerRatings.Engine.Stats
                 }
             }
 
+            // Now check if current ranking differs from what we last knew
             if (previousRanking != null && !IsSameRanking(previousRanking, currentRanking))
             {
                 // Only promotions from trusted organizations can trigger promotion bonus
@@ -210,7 +215,19 @@ namespace PlayerRatings.Engine.Stats
             double currentRating = _dict.TryGetValue(player.Id, out var cached) ? cached : 0;
             if (currentRating < ratingFloor)
             {
+                double bonusAmount = ratingFloor - currentRating;
                 _dict[player.Id] = ratingFloor;
+                
+                // Record the promotion bonus with the actual ranking date (not detection date)
+                // This ensures the bonus is shown in the month when the promotion happened
+                var promotionDate = currentRanking.RankingDate ?? date;
+                if (!_promotionBonuses.TryGetValue(player.Id, out var bonusList))
+                {
+                    bonusList = new List<(DateTimeOffset, string, string, string, string, double)>();
+                    _promotionBonuses[player.Id] = bonusList;
+                }
+                bonusList.Add((promotionDate, previousRanking.Ranking, previousRanking.Organization, 
+                    currentRanking.Ranking, currentRanking.Organization, bonusAmount));
                 
                 // Only stop performance estimation for kyu players
                 // Foreign dan players could be stronger than the promoted dan level
@@ -301,6 +318,27 @@ namespace PlayerRatings.Engine.Stats
         public bool DidPlayerReceiveCorrection(string playerId)
         {
             return _playersWithCorrectionApplied.Remove(playerId);
+        }
+
+        /// <summary>
+        /// Gets and clears all promotion bonuses for a player up to (and including) a specific date.
+        /// Returns list of (fromRanking, fromOrg, toRanking, toOrg, bonusAmount, promotionDate) tuples.
+        /// </summary>
+        public List<(string fromRanking, string fromOrg, string toRanking, string toOrg, double bonusAmount, DateTimeOffset? promotionDate)> 
+            ConsumePromotionBonuses(string playerId, DateTimeOffset upToDate)
+        {
+            if (!_promotionBonuses.TryGetValue(playerId, out var bonusList))
+                return new List<(string, string, string, string, double, DateTimeOffset?)>();
+
+            var result = bonusList
+                .Where(b => b.date <= upToDate)
+                .Select(b => (b.fromRanking, b.fromOrg, b.toRanking, b.toOrg, b.bonusAmount, (DateTimeOffset?)b.date))
+                .ToList();
+            
+            // Remove consumed bonuses
+            bonusList.RemoveAll(b => b.date <= upToDate);
+            
+            return result;
         }
 
         /// <summary>

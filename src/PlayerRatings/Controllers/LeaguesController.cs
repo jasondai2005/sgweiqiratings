@@ -983,6 +983,9 @@ namespace PlayerRatings.Controllers
                     int monthPosition = rankableAtMonth.FindIndex(u => u.Id == playerId) + 1;
                     int monthTotalPlayers = rankableAtMonth.Count;
                     
+                    // Get any promotion bonuses applied this month for this player
+                    var promotionBonuses = currentEloStat.ConsumePromotionBonuses(playerId, monthEnd);
+                    
                     monthlyRatings.Add(new MonthlyRating
                     {
                         Month = monthToCapture,
@@ -990,7 +993,8 @@ namespace PlayerRatings.Controllers
                         MatchesInMonth = matchesInCurrentMonth,
                         MatchNames = reversed,
                         Position = monthPosition,
-                        TotalPlayers = monthTotalPlayers
+                        TotalPlayers = monthTotalPlayers,
+                        PromotionBonuses = promotionBonuses
                     });
                 }
             }

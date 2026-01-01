@@ -389,8 +389,8 @@
             @foreach (var item in Model.MonthlyRatings.OrderByDescending(r => r.Month))
             {
                 var hasRankings = monthRankingLabels.TryGetValue(item.MonthDisplay, out var rankingList);
-                // Only show rows with matches or ranking changes
-                if (item.MatchesInMonth == 0 && !hasRankings)
+                // Only show rows with matches, ranking changes, or promotion bonuses
+                if (item.MatchesInMonth == 0 && !hasRankings && !item.HasPromotionBonus)
                 {
                     continue;
                 }
@@ -413,6 +413,10 @@
                         }
                     </td>
                     <td>
+                        @{
+                            // Track which bonuses have been displayed to show orphans at the end
+                            var displayedBonuses = new HashSet<int>();
+                        }
                         @if (hasRankings)
                         {
                             @foreach (var rankingInfo in rankingList.OrderByDescending(r => r.sortDate))
@@ -421,6 +425,52 @@
                                     <span style="color: rgb(255, 99, 132); font-weight: bold;">@rankingInfo.ranking</span>
                                     <span style="color: #666; font-size: 0.85em;">(@rankingInfo.date)</span>
                                 </div>
+                                @if (item.HasPromotionBonus)
+                                {
+                                    // Match bonus to ranking by DATE (more reliable than matching ranking names)
+                                    // The bonus was recorded with the ranking's date at calculation time
+                                    for (int i = 0; i < item.PromotionBonuses.Count; i++)
+                                    {
+                                        var bonus = item.PromotionBonuses[i];
+                                        // Match if bonus date equals ranking date
+                                        if (bonus.PromotionDate.HasValue && 
+                                            rankingInfo.date == bonus.PromotionDate.Value.ToString("dd/MM/yyyy"))
+                                        {
+                                            displayedBonuses.Add(i);
+                                            var fromDisplay = ApplicationUser.FormatRankingForDisplay(bonus.FromRanking, bonus.FromOrg);
+                                            var toDisplay = ApplicationUser.FormatRankingForDisplay(bonus.ToRanking, bonus.ToOrg);
+                                            <div style="margin-left: 8px;">
+                                                <span style="color: #5cb85c; font-size: 0.85em; font-weight: bold;" title="Promotion bonus applied">
+                                                    +@bonus.BonusAmount.ToString("F1")
+                                                </span>
+                                                <span style="color: #888; font-size: 0.8em;">
+                                                    (@fromDisplay→@toDisplay)
+                                                </span>
+                                            </div>
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        @if (item.HasPromotionBonus)
+                        {
+                            @* Show any orphan promotion bonuses (no matching ranking record) *@
+                            for (int i = 0; i < item.PromotionBonuses.Count; i++)
+                            {
+                                if (!displayedBonuses.Contains(i))
+                                {
+                                    var bonus = item.PromotionBonuses[i];
+                                    var fromDisplay = ApplicationUser.FormatRankingForDisplay(bonus.FromRanking, bonus.FromOrg);
+                                    var toDisplay = ApplicationUser.FormatRankingForDisplay(bonus.ToRanking, bonus.ToOrg);
+                                    <div>
+                                        <span style="color: #5cb85c; font-size: 0.85em; font-weight: bold;" title="Promotion bonus applied">
+                                            +@bonus.BonusAmount.ToString("F1")
+                                        </span>
+                                        <span style="color: #888; font-size: 0.8em;">
+                                            (@fromDisplay→@toDisplay)
+                                        </span>
+                                    </div>
+                                }
                             }
                         }
                     </td>

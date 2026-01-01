@@ -115,6 +115,17 @@ namespace PlayerRatings.ViewModels.Player
         /// Position display string (e.g., "№3" or "-" if not ranked).
         /// </summary>
         public string PositionDisplay => Position > 0 ? $"№{Position}" : "-";
+        
+        /// <summary>
+        /// Promotion bonuses applied this month: list of (fromRanking, fromOrg, toRanking, toOrg, bonusAmount, promotionDate).
+        /// </summary>
+        public List<(string FromRanking, string FromOrg, string ToRanking, string ToOrg, double BonusAmount, DateTimeOffset? PromotionDate)> PromotionBonuses { get; set; } 
+            = new List<(string, string, string, string, double, DateTimeOffset?)>();
+        
+        /// <summary>
+        /// Whether this month had any promotion bonuses applied.
+        /// </summary>
+        public bool HasPromotionBonus => PromotionBonuses.Any();
     }
 
     public class GameRecord

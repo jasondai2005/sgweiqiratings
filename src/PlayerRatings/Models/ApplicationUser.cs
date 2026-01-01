@@ -617,13 +617,24 @@ namespace PlayerRatings.Models
             if (playerRanking == null || string.IsNullOrEmpty(playerRanking.Ranking))
                 return string.Empty;
 
-            string org = playerRanking.Organization;
-            string ranking = playerRanking.Ranking;
+            return FormatRankingForDisplay(playerRanking.Ranking, playerRanking.Organization);
+        }
 
-            if (org == "SWA" || ranking.Contains("P"))
+        /// <summary>
+        /// Formats a ranking string with organization indicator for display.
+        /// </summary>
+        /// <param name="ranking">The ranking grade (e.g., "1D", "2K")</param>
+        /// <param name="organization">The organization (e.g., "SWA", "TGA")</param>
+        /// <returns>Formatted ranking: "1D" for SWA, "(1D)" for TGA, "[1D]" for others</returns>
+        public static string FormatRankingForDisplay(string ranking, string organization)
+        {
+            if (string.IsNullOrEmpty(ranking))
+                return string.Empty;
+
+            if (organization == "SWA" || ranking.Contains("P"))
                 return ranking;
             // When SwaOnly is enabled, show TGA as [] like foreign rankings
-            if (org == "TGA" && !Engine.Stats.EloStat.SwaOnly)
+            if (organization == "TGA" && !Engine.Stats.EloStat.SwaOnly)
                 return $"({ranking})";
             return $"[{ranking}]";
         }

@@ -84,3 +84,4 @@ SELECT 'TGA Rankings:' AS Info, COUNT(*)
 FROM PlayerRanking
 WHERE Organization = 'TGA';
 
+
