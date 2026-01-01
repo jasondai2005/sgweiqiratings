@@ -333,6 +333,7 @@ namespace PlayerRatings.Localization
         public static readonly LocalizationKey UploadPhoto = new LocalizationKey("Upload Photo", "Upload Photo", "上传照片");
         public static readonly LocalizationKey SupportedFormats = new LocalizationKey("Supported Formats", "Supported Formats", "支持的格式");
         public static readonly LocalizationKey Upload = new LocalizationKey("Upload", "Upload", "上传");
+        public static readonly LocalizationKey Screenshot = new LocalizationKey("Screenshot", "Скриншот", "截图");
         public static readonly LocalizationKey NonLocalPlayers = new LocalizationKey("Overseas Players", "Overseas Players", "海外选手");
         public static readonly LocalizationKey InactivePlayers = new LocalizationKey("Inactive Players", "Inactive Players", "不活跃选手");
         public static readonly LocalizationKey Statistics = new LocalizationKey("Statistics", "Статистика", "统计");

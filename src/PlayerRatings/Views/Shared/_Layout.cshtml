@@ -47,9 +47,9 @@
                     </ul>
 
                     @await Html.PartialAsync("_LoginPartial")
-                    @if (LanguageData.ValidLanguages.Count() > 1)
-                    {
-                        <ul class="nav navbar-nav navbar-right">
+                    <ul class="nav navbar-nav navbar-right">
+                        @if (LanguageData.ValidLanguages.Count() > 1)
+                        {
                             <li class="dropdown">
                                 <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">@LocString[LanguageData.CurrentLanguage] <span class="caret"></span></a>
                                 <ul class="dropdown-menu" role="menu" style="min-width: 100px">
@@ -70,10 +70,14 @@
                                         }
                                     }
                                 </ul>
-
                             </li>
-                        </ul>
-                    }
+                        }
+                        <li>
+                            <a href="#" onclick="captureScreenshot(); return false;" title="@LocString[nameof(LocalizationKey.Screenshot)]" style="padding: 15px 10px;">
+                                <span id="screenshotIcon">📷</span>
+                            </a>
+                        </li>
+                    </ul>
             </div>
             </div>
         </div>
@@ -96,6 +100,50 @@
                     asp-fallback-test="window.jQuery && window.jQuery.fn && window.jQuery.fn.modal">
             </script>
         </environment>
+
+        <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+        <script>
+            async function captureScreenshot() {
+                const icon = document.getElementById('screenshotIcon');
+                const originalIcon = icon.textContent;
+                icon.textContent = '⏳';
+                
+                try {
+                    // Get the main content area
+                    const content = document.querySelector('.container.body-content') || document.querySelector('.container') || document.body;
+                    
+                    // Capture the entire content
+                    const canvas = await html2canvas(content, {
+                        scale: 2,
+                        useCORS: true,
+                        allowTaint: true,
+                        backgroundColor: '#ffffff',
+                        scrollX: 0,
+                        scrollY: -window.scrollY,
+                        windowWidth: document.documentElement.scrollWidth,
+                        windowHeight: document.documentElement.scrollHeight
+                    });
+                    
+                    // Generate filename from page title
+                    const title = document.title.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '_').replace(/_+/g, '_');
+                    const filename = title + '_' + new Date().toISOString().slice(0,10) + '.png';
+                    
+                    // Convert to blob and download
+                    canvas.toBlob(function(blob) {
+                        const link = document.createElement('a');
+                        link.download = filename;
+                        link.href = URL.createObjectURL(blob);
+                        link.click();
+                        URL.revokeObjectURL(link.href);
+                    }, 'image/png');
+                } catch (error) {
+                    console.error('Screenshot failed:', error);
+                    alert('Screenshot failed. Please try again.');
+                } finally {
+                    icon.textContent = originalIcon;
+                }
+            }
+        </script>
 
         @RenderSection("scripts", required: false)
 </body>
