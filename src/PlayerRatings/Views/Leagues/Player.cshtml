@@ -512,14 +512,10 @@
                 </tr>
             }
             @{
-                // Use the latest ranking before first match (most recent promotion before playing)
-                var latestRankingBeforeFirstMatch = earlyRankings.Any() 
-                    ? earlyRankings.OrderByDescending(r => r.sortDate).First().ranking 
-                    : Model.Player.LatestRanking;
                 // For players with no matches, show their current ranking rating
                 var preEntryRating = !Model.MonthlyRatings.Any() && Model.Player.Rankings != null && Model.Player.Rankings.Any()
                     ? Model.Player.GetRatingBeforeDate(DateTimeOffset.MaxValue).ToString()
-                    : "-";
+                    : null;
                 
                 // Get matches before the first month shown in the rating history
                 var preEntryMatches = new List<string>();
@@ -534,44 +530,50 @@
                         .Reverse()
                         .ToList();
                 }
+                
+                // Only show Pre-entry row if there's something meaningful to display
+                var showPreEntry = earlyRankings.Any() || preEntryMatches.Any() || preEntryRating != null;
             }
-            <tr style="background-color: #f8f9fa;">
-                <td style="color: #666; font-style: italic;">@LocString[nameof(LocalizationKey.PreEntry)]</td>
-                <td>-</td>
-                <td>@preEntryRating</td>
-                <td>
-                    @if (preEntryMatches.Any())
-                    {
-                        @foreach (var matchName in preEntryMatches)
+            @if (showPreEntry)
+            {
+                <tr style="background-color: #f8f9fa;">
+                    <td style="color: #666; font-style: italic;">@LocString[nameof(LocalizationKey.PreEntry)]</td>
+                    <td>-</td>
+                    <td>@(preEntryRating ?? "-")</td>
+                    <td>
+                        @if (preEntryMatches.Any())
                         {
-                            <div style="font-size: 0.85em; color: #888;">@matchName</div>
+                            @foreach (var matchName in preEntryMatches)
+                            {
+                                <div style="font-size: 0.85em; color: #888;">@matchName</div>
+                            }
                         }
-                    }
-                    else
-                    {
-                        <span>-</span>
-                    }
-                </td>
-                <td>
-                    @if (earlyRankings.Any())
-                    {
-                        @foreach (var rankingInfo in earlyRankings.OrderByDescending(r => r.sortDate))
+                        else
                         {
-                            <div>
-                                <span style="color: rgb(255, 99, 132); font-weight: bold;">@rankingInfo.ranking</span>
-                                @if (!string.IsNullOrEmpty(rankingInfo.date))
-                                {
-                                    <span style="color: #666; font-size: 0.85em;">(@rankingInfo.date)</span>
-                                }
-                            </div>
+                            <span>-</span>
                         }
-                    }
-                    else
-                    {
-                        <span style="color: rgb(255, 99, 132); font-weight: bold;">@latestRankingBeforeFirstMatch.ToUpper()</span>
-                    }
-                </td>
-            </tr>
+                    </td>
+                    <td>
+                        @if (earlyRankings.Any())
+                        {
+                            @foreach (var rankingInfo in earlyRankings.OrderByDescending(r => r.sortDate))
+                            {
+                                <div>
+                                    <span style="color: rgb(255, 99, 132); font-weight: bold;">@rankingInfo.ranking</span>
+                                    @if (!string.IsNullOrEmpty(rankingInfo.date))
+                                    {
+                                        <span style="color: #666; font-size: 0.85em;">(@rankingInfo.date)</span>
+                                    }
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <span>-</span>
+                        }
+                    </td>
+                </tr>
+            }
         </tbody>
     </table>
 </div>
