@@ -36,6 +36,12 @@ namespace PlayerRatings.Engine.Stats
             }
 
             bool isSgLeague = match.League?.Name?.Contains("Singapore Weiqi") ?? false;
+            
+            // Check for promotions BEFORE calculating match Elo
+            // This ensures promotion bonus is applied before the match result is calculated
+            CheckPlayerPromotion(match.FirstPlayer, match.Date, isSgLeague);
+            CheckPlayerPromotion(match.SecondPlayer, match.Date, isSgLeague);
+            
             int firstPlayerRankingRating = match.FirstPlayer.GetRatingBeforeDate(match.Date.Date, !isSgLeague);
             int secondPlayerRankingRating = match.SecondPlayer.GetRatingBeforeDate(match.Date.Date, !isSgLeague);
             double firstPlayerRating = _dict.TryGetValue(match.FirstPlayer.Id, out var cachedFirst) ? cachedFirst : firstPlayerRankingRating;
@@ -91,11 +97,6 @@ namespace PlayerRatings.Engine.Stats
 
             _dict[match.FirstPlayer.Id] = rating.NewRatingAPlayer;
             _dict[match.SecondPlayer.Id] = specialRating.NewRatingBPlayer;
-
-            // Check for promotions and apply rating floor immediately
-            // (RankingDate is treated as end-of-day, so promotions only visible after effective time)
-            CheckPlayerPromotion(match.FirstPlayer, match.Date, isSgLeague);
-            CheckPlayerPromotion(match.SecondPlayer, match.Date, isSgLeague);
 
             match.ShiftRating = rating.ShiftRatingAPlayer.ToString("F1");
             var player2ShiftRating = (secondPlayerRating - _dict[match.SecondPlayer.Id]).ToString("F1");
