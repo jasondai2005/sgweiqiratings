@@ -335,6 +335,10 @@ namespace PlayerRatings.Localization
         public static readonly LocalizationKey Upload = new LocalizationKey("Upload", "Upload", "上传");
         public static readonly LocalizationKey Screenshot = new LocalizationKey("Screenshot", "Скриншот", "截图");
         public static readonly LocalizationKey NotRated = new LocalizationKey("Not Rated", "Не учитывается", "不计分");
+        public static readonly LocalizationKey Prev = new LocalizationKey("Prev", "Пред", "上一位");
+        public static readonly LocalizationKey Next = new LocalizationKey("Next", "След", "下一位");
+        public static readonly LocalizationKey PreviousPlayer = new LocalizationKey("Previous Player", "Предыдущий игрок", "上一位选手");
+        public static readonly LocalizationKey NextPlayer = new LocalizationKey("Next Player", "Следующий игрок", "下一位选手");
         public static readonly LocalizationKey NonLocalPlayers = new LocalizationKey("Overseas Players", "Overseas Players", "海外选手");
         public static readonly LocalizationKey InactivePlayers = new LocalizationKey("Inactive Players", "Inactive Players", "不活跃选手");
         public static readonly LocalizationKey Statistics = new LocalizationKey("Statistics", "Статистика", "统计");

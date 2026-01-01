@@ -29,6 +29,16 @@ namespace PlayerRatings.ViewModels.Player
         /// </summary>
         public string PositionDisplay => Position > 0 ? $"№{Position}" : "-";
         
+        /// <summary>
+        /// ID of the previous player in ranking order (higher position). Null if this is the first player.
+        /// </summary>
+        public string PreviousPlayerId { get; set; }
+        
+        /// <summary>
+        /// ID of the next player in ranking order (lower position). Null if this is the last player.
+        /// </summary>
+        public string NextPlayerId { get; set; }
+        
         // ===== Statistics computed from GameRecords =====
         
         /// <summary>

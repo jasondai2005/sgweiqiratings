@@ -1036,6 +1036,58 @@ namespace PlayerRatings.Controllers
             var latestMonthlyRating = monthlyRatings.OrderByDescending(r => r.Month).FirstOrDefault();
             int position = latestMonthlyRating?.Position ?? 0;
             int totalPlayers = latestMonthlyRating?.TotalPlayers ?? 0;
+            
+            // Build ranked players list for navigation (previous/next player)
+            var now = DateTimeOffset.Now;
+            var twoYearsAgoNav = now.AddYears(-2);
+            var rankedPlayerIds = new HashSet<string>();
+            var rankedPlayersForNav = allPlayersInMatches.Values
+                .Where(u => notBlockedUserIds.Contains(u.Id)
+                    && playerLastMatchDates.TryGetValue(u.Id, out var lastMatch) && lastMatch > twoYearsAgoNav
+                    && !u.IsProPlayer
+                    && (!isSgLeague || !u.IsHiddenPlayer)
+                    && (hiddenUserIds == null || !hiddenUserIds.Contains(u.Id))
+                    && (!isSgLeague || u.IsLocalPlayerAt(now)))
+                .ToList();
+            
+            rankedPlayersForNav.Sort((x, y) =>
+            {
+                double ratingX = eloStat[x];
+                double ratingY = eloStat[y];
+                int result = ratingY.CompareTo(ratingX);
+                if (result == 0)
+                {
+                    var ranking1 = x.GetCombinedRankingBeforeDate(now);
+                    var ranking2 = y.GetCombinedRankingBeforeDate(now);
+                    if (ranking1 != ranking2)
+                        return string.Compare(ranking1, ranking2, StringComparison.OrdinalIgnoreCase);
+                    return string.Compare(x.DisplayName, y.DisplayName, StringComparison.OrdinalIgnoreCase);
+                }
+                return result;
+            });
+            
+            foreach (var u in rankedPlayersForNav)
+                rankedPlayerIds.Add(u.Id);
+            
+            // Get unranked players (inactive, overseas, etc.) for continued navigation
+            var unrankedPlayersForNav = allPlayersInMatches.Values
+                .Where(u => notBlockedUserIds.Contains(u.Id)
+                    && !rankedPlayerIds.Contains(u.Id)
+                    && !u.IsProPlayer
+                    && (!isSgLeague || !u.IsHiddenPlayer)
+                    && (hiddenUserIds == null || !hiddenUserIds.Contains(u.Id)))
+                .OrderByDescending(u => eloStat[u]) // Sort by rating descending
+                .ThenBy(u => u.DisplayName)
+                .ToList();
+            
+            // Combine: ranked players first, then unranked
+            var allPlayersForNav = rankedPlayersForNav.Concat(unrankedPlayersForNav).ToList();
+            
+            // Find previous and next player IDs based on current position in combined list
+            int currentIndex = allPlayersForNav.FindIndex(u => u.Id == playerId);
+            string previousPlayerId = currentIndex > 0 ? allPlayersForNav[currentIndex - 1].Id : null;
+            string nextPlayerId = currentIndex >= 0 && currentIndex < allPlayersForNav.Count - 1 
+                ? allPlayersForNav[currentIndex + 1].Id : null;
 
             // Build game records from player matches
             var gameRecords = new List<GameRecord>();
@@ -1081,7 +1133,9 @@ namespace PlayerRatings.Controllers
                 SwaOnly = swaOnly,
                 IsSgLeague = isSgLeague,
                 Position = position,
-                TotalPlayers = totalPlayers
+                TotalPlayers = totalPlayers,
+                PreviousPlayerId = previousPlayerId,
+                NextPlayerId = nextPlayerId
             });
         }
 

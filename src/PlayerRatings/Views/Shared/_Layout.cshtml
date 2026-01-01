@@ -48,6 +48,11 @@
 
                     @await Html.PartialAsync("_LoginPartial")
                     <ul class="nav navbar-nav navbar-right">
+                        <li>
+                            <a href="#" onclick="captureScreenshot(); return false;" title="@LocString[nameof(LocalizationKey.Screenshot)]" style="padding: 15px 10px;">
+                                <span id="screenshotIcon">📷</span>
+                            </a>
+                        </li>
                         @if (LanguageData.ValidLanguages.Count() > 1)
                         {
                             <li class="dropdown">
@@ -72,11 +77,6 @@
                                 </ul>
                             </li>
                         }
-                        <li>
-                            <a href="#" onclick="captureScreenshot(); return false;" title="@LocString[nameof(LocalizationKey.Screenshot)]" style="padding: 15px 10px;">
-                                <span id="screenshotIcon">📷</span>
-                            </a>
-                        </li>
                     </ul>
             </div>
             </div>
