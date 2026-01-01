@@ -485,12 +485,38 @@
                 var preEntryRating = !Model.MonthlyRatings.Any() && Model.Player.Rankings != null && Model.Player.Rankings.Any()
                     ? Model.Player.GetRatingBeforeDate(DateTimeOffset.MaxValue).ToString()
                     : "-";
+                
+                // Get matches before the first month shown in the rating history
+                var preEntryMatches = new List<string>();
+                if (Model.MonthlyRatings.Any())
+                {
+                    var firstRatedMonth = Model.MonthlyRatings.Min(r => r.Month);
+                    preEntryMatches = Model.GameRecords
+                        .Where(g => g.Date.Year < firstRatedMonth.Year || 
+                                   (g.Date.Year == firstRatedMonth.Year && g.Date.Month < firstRatedMonth.Month))
+                        .Select(g => g.MatchName)
+                        .Distinct()
+                        .Reverse()
+                        .ToList();
+                }
             }
             <tr style="background-color: #f8f9fa;">
                 <td style="color: #666; font-style: italic;">@LocString[nameof(LocalizationKey.PreEntry)]</td>
                 <td>-</td>
                 <td>@preEntryRating</td>
-                <td>-</td>
+                <td>
+                    @if (preEntryMatches.Any())
+                    {
+                        @foreach (var matchName in preEntryMatches)
+                        {
+                            <div style="font-size: 0.85em; color: #888;">@matchName</div>
+                        }
+                    }
+                    else
+                    {
+                        <span>-</span>
+                    }
+                </td>
                 <td>
                     @if (earlyRankings.Any())
                     {
