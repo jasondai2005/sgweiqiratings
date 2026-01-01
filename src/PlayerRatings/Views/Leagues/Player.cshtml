@@ -4,7 +4,7 @@
 @model PlayerRatings.ViewModels.Player.PlayerRatingHistoryViewModel
 
 @{
-    ViewData["Title"] = Model.Player.DisplayName + " - Rating History";
+    ViewData["Title"] = Model.Player.DisplayName;
     var sortedRatings = Model.MonthlyRatings.OrderBy(r => r.Month).ToList();
     var playerRankings = Model.Player.Rankings?.OrderByDescending(r => r.RankingDate ?? DateTimeOffset.MinValue).ToList() 
         ?? new List<PlayerRanking>();
