@@ -8,7 +8,7 @@ namespace PlayerRatings.ViewModels.League
     public class RatingViewModel
     {
         public RatingViewModel(IEnumerable<IStat> stats, IEnumerable<ApplicationUser> users, IEnumerable<ApplicationUser> promotedPlayers,
-            IEnumerable<Models.Match> lastMatches, Dictionary<string, Dictionary<string, string>> forecast,
+            IEnumerable<Models.Match> lastMatches,
             Guid leagueId, string byDate = null, bool swaOnly = false, bool isSgLeague = true,
             IEnumerable<ApplicationUser> nonLocalUsers = null,
             IEnumerable<ApplicationUser> inactiveUsers = null,
@@ -19,7 +19,6 @@ namespace PlayerRatings.ViewModels.League
             Stats = stats;
             Users = users;
             PromotedPlayers = promotedPlayers;
-            Forecast = forecast;
             LastMatches = lastMatches;
             LeagueId = leagueId;
             ByDate = byDate;
@@ -41,8 +40,6 @@ namespace PlayerRatings.ViewModels.League
         public IEnumerable<ApplicationUser> NonLocalUsers { get; private set; }
 
         public IEnumerable<ApplicationUser> InactiveUsers { get; private set; }
-
-        public Dictionary<string, Dictionary<string, string>> Forecast { get; private set; }
 
         public IEnumerable<Models.Match> LastMatches { get; private set; }
 

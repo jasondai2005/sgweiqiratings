@@ -421,20 +421,6 @@ namespace PlayerRatings.Controllers
             
             var stats = new List<IStat> { elo, winRateStat };
 
-            // Build forecast matrix
-            var userList = new List<ApplicationUser>(activeUsers);
-            var forecast = new Dictionary<string, Dictionary<string, string>>();
-            //foreach (var appUser in userList)
-            //{
-            //    var dict = new Dictionary<string, string>();
-            //    var userRating = elo[appUser];
-            //    foreach (var t in userList)
-            //    {
-            //        dict[t.Id] = (new Elo(userRating, elo[t], 1, 0).NewRatingAPlayer - userRating).ToString("N1");
-            //    }
-            //    forecast[appUser.Id] = dict;
-            //}
-
             // Filter users for display
             var users = activeUsers
                 .Where(x => (!isSgLeague || !x.IsHiddenPlayer) && !hiddenUserIds.Contains(x.Id))
@@ -533,7 +519,7 @@ namespace PlayerRatings.Controllers
             // Restore cutoff date for view rendering (Promotion property uses League.CutoffDate)
             League.CutoffDate = date;
 
-            return View(new RatingViewModel(stats, users, promotedPlayers, recentMatches, forecast, id.Value, byDate, swaOnly, isSgLeague, nonLocalUsers, inactiveUsers, previousRatings, previousPositions, comparisonDate));
+            return View(new RatingViewModel(stats, users, promotedPlayers, recentMatches, id.Value, byDate, swaOnly, isSgLeague, nonLocalUsers, inactiveUsers, previousRatings, previousPositions, comparisonDate));
         }
 
         private static void AddUser(HashSet<ApplicationUser> activeUsers, Match match, ApplicationUser player)
@@ -667,25 +653,6 @@ namespace PlayerRatings.Controllers
             player.PreviousMatchDate = DateTimeOffset.MinValue;
             player.MatchesSinceReturn = 0;
             player.EstimatedInitialRating = null;
-        }
-
-        /// <summary>
-        /// Gets ranked users list from active users (same logic for Rating and Player pages).
-        /// </summary>
-        /// <param name="cutoffDate">Date to check local player status against</param>
-        private List<ApplicationUser> GetRankedUsers(
-            HashSet<ApplicationUser> activeUsers, 
-            HashSet<string> hiddenUserIds,
-            bool isSgLeague,
-            DateTimeOffset cutoffDate)
-        {
-            return activeUsers
-                .Where(x => x.Active 
-                    && !x.IsProPlayer
-                    && (!isSgLeague || !x.IsHiddenPlayer) // SG league hides monitoring players
-                    && (hiddenUserIds == null || !hiddenUserIds.Contains(x.Id))
-                    && (!isSgLeague || x.IsLocalPlayerAt(cutoffDate)))
-                .ToList();
         }
 
         private int CompareByRatingAndName(ApplicationUser x, ApplicationUser y)

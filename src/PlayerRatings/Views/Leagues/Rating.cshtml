@@ -318,37 +318,3 @@
         }
     </table>
 </div>
-
-@* <h3>@LocString[nameof(LocalizationKey.Forecast)]</h3>
-<div class="table-responsive">
-    <table class="table table-striped table-responsive">
-        <tr>
-            <th>
-            </th>
-            @foreach (var item in Model.Users)
-            {
-                <th>
-                    @item.DisplayName
-                </th>
-            }
-        </tr>
-
-        @foreach (var userVer in Model.Users)
-        {
-            <tr>
-                <td>
-                    @userVer.DisplayName
-                </td>
-                @foreach (var userHor in Model.Users)
-                {
-                    <td>
-                        @if (userHor != userVer)
-                    {
-                            @Model.Forecast[userVer.Id][userHor.Id]
-                        }
-                    </td>
-                }
-            </tr>
-        }
-    </table>
-</div> *@
