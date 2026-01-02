@@ -25,6 +25,10 @@ namespace PlayerRatings.Engine.Stats
 
         public void AddMatch(Match match)
         {
+            // Skip bye matches (either player is NULL)
+            if (match.FirstPlayer == null || match.SecondPlayer == null)
+                return;
+                
             double firstUserScore = 1.0;
             if (match.SecondPlayerScore > match.FirstPlayerScore)
             {

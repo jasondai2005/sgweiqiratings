@@ -148,9 +148,33 @@
                                     {
                                         var color = result.Won == true ? "green" : (result.Won == false ? "red" : "gray");
                                         var symbol = result.Won == true ? "+" : (result.Won == false ? "-" : "=");
-                                        var oppIdx = playerIndex.TryGetValue(result.OpponentId, out var oi) ? oi : 0;
-                                        <span title="@result.OpponentName (@result.Score)">@oppIdx</span>
-                                        <span style="color: @color; font-weight: bold;">@symbol</span>
+                                        @if (string.IsNullOrEmpty(result.OpponentId))
+                                        {
+                                            // Bye round - no opponent
+                                            <span title="@result.OpponentName (@result.Score)" style="font-style: italic; color: #999;">0</span>
+                                            <span style="color: @color; font-weight: bold;">@symbol</span>
+                                        }
+                                        else
+                                        {
+                                            var oppIdx = playerIndex.TryGetValue(result.OpponentId, out var oi) ? oi : 0;
+                                            <span title="@result.OpponentName (@result.Score)">@oppIdx</span>
+                                            <span style="color: @color; font-weight: bold;">@symbol</span>
+                                        }
+                                    }
+                                    else if (Model.IsAdmin)
+                                    {
+                                        // Use first match date for this round, or tournament start date as fallback
+                                        var roundDate = Model.RoundDates.TryGetValue(r, out var rd) 
+                                            ? rd 
+                                            : (Model.StartDate ?? DateTimeOffset.Now);
+                                        <a asp-controller="Matches" asp-action="Create" 
+                                           asp-route-leagueId="@Model.LeagueId"
+                                           asp-route-tournamentId="@Model.Id"
+                                           asp-route-round="@r"
+                                           asp-route-lastMatchDateTime="@roundDate.ToString("o")"
+                                           asp-route-factor="0"
+                                           asp-route-firstPlayerId="@p.PlayerId"
+                                           class="btn btn-xs btn-default" title="Add match for @p.PlayerName in Round @r">+</a>
                                     }
                                     else
                                     {
@@ -236,16 +260,30 @@
                 {
                     <tr>
                         <td style="white-space: nowrap;">
-                            <a asp-controller="Leagues" asp-action="Player" asp-route-id="@Model.LeagueId" asp-route-playerId="@m.FirstPlayerId">@m.FirstPlayerName</a>
-                            @if (!string.IsNullOrEmpty(m.FirstPlayerRatingBefore))
+                            @if (!string.IsNullOrEmpty(m.FirstPlayerId))
                             {
-                                <span style="color: #666; font-size: 0.85em;">(@m.FirstPlayerRatingBefore)</span>
+                                <a asp-controller="Leagues" asp-action="Player" asp-route-id="@Model.LeagueId" asp-route-playerId="@m.FirstPlayerId">@m.FirstPlayerName</a>
+                                @if (!string.IsNullOrEmpty(m.FirstPlayerRatingBefore))
+                                {
+                                    <span style="color: #666; font-size: 0.85em;">(@m.FirstPlayerRatingBefore)</span>
+                                }
+                            }
+                            else
+                            {
+                                <span class="text-muted" style="font-style: italic;">BYE</span>
                             }
                             <span style="margin: 0 5px;">vs</span>
-                            <a asp-controller="Leagues" asp-action="Player" asp-route-id="@Model.LeagueId" asp-route-playerId="@m.SecondPlayerId">@m.SecondPlayerName</a>
-                            @if (!string.IsNullOrEmpty(m.SecondPlayerRatingBefore))
+                            @if (!string.IsNullOrEmpty(m.SecondPlayerId))
                             {
-                                <span style="color: #666; font-size: 0.85em;">(@m.SecondPlayerRatingBefore)</span>
+                                <a asp-controller="Leagues" asp-action="Player" asp-route-id="@Model.LeagueId" asp-route-playerId="@m.SecondPlayerId">@m.SecondPlayerName</a>
+                                @if (!string.IsNullOrEmpty(m.SecondPlayerRatingBefore))
+                                {
+                                    <span style="color: #666; font-size: 0.85em;">(@m.SecondPlayerRatingBefore)</span>
+                                }
+                            }
+                            else
+                            {
+                                <span class="text-muted" style="font-style: italic;">BYE</span>
                             }
                         </td>
                         <td>@m.GetScore()</td>

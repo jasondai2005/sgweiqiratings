@@ -40,7 +40,9 @@ namespace PlayerRatings.ViewModels.Match
         [Required]
         public string FirstPlayerId { get; set; }
 
-        [Required]
+        /// <summary>
+        /// Second player ID. Can be NULL for BYE matches (no opponent).
+        /// </summary>
         public string SecondPlayerId { get; set; }
 
         [Range(0, int.MaxValue)]

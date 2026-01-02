@@ -73,15 +73,29 @@
     <tbody>
     @foreach (var item in Model.Matches)
     {
-        var player1Ranking = item.FirstPlayer.GetCombinedRankingBeforeDate(item.Date);
-        var player2Ranking = item.SecondPlayer.GetCombinedRankingBeforeDate(item.Date);
+        var player1Ranking = item.FirstPlayer?.GetCombinedRankingBeforeDate(item.Date) ?? "";
+        var player2Ranking = item.SecondPlayer?.GetCombinedRankingBeforeDate(item.Date) ?? "";
         <tr>
             <td>
-                <a asp-controller="Leagues" asp-action="Player" asp-route-id="@Model.LeagueId" asp-route-playerId="@item.FirstPlayerId">@item.FirstPlayer.DisplayName</a>
-                <span style="color: #999; font-size: 0.85em;">@player1Ranking</span>
+                @if (item.FirstPlayer != null)
+                {
+                    <a asp-controller="Leagues" asp-action="Player" asp-route-id="@Model.LeagueId" asp-route-playerId="@item.FirstPlayerId">@item.FirstPlayer.DisplayName</a>
+                    <span style="color: #999; font-size: 0.85em;">@player1Ranking</span>
+                }
+                else
+                {
+                    <span class="text-muted" style="font-style: italic;">BYE</span>
+                }
                 <span style="margin: 0 5px;">vs</span>
-                <a asp-controller="Leagues" asp-action="Player" asp-route-id="@Model.LeagueId" asp-route-playerId="@item.SecondPlayerId">@item.SecondPlayer.DisplayName</a>
-                <span style="color: #999; font-size: 0.85em;">@player2Ranking</span>
+                @if (item.SecondPlayer != null)
+                {
+                    <a asp-controller="Leagues" asp-action="Player" asp-route-id="@Model.LeagueId" asp-route-playerId="@item.SecondPlayerId">@item.SecondPlayer.DisplayName</a>
+                    <span style="color: #999; font-size: 0.85em;">@player2Ranking</span>
+                }
+                else
+                {
+                    <span class="text-muted" style="font-style: italic;">BYE</span>
+                }
             </td>
             <td>
                 @item.GetScore()

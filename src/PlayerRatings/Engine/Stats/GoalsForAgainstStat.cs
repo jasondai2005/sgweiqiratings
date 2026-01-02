@@ -11,6 +11,10 @@ namespace PlayerRatings.Engine.Stats
 
         public void AddMatch(Match match)
         {
+            // Skip bye matches (either player is NULL)
+            if (match.FirstPlayer == null || match.SecondPlayer == null)
+                return;
+                
             _for[match.FirstPlayer.Id] = _for.ContainsKey(match.FirstPlayer.Id) ? _for[match.FirstPlayer.Id] : 0;
             _for[match.SecondPlayer.Id] = _for.ContainsKey(match.SecondPlayer.Id) ? _for[match.SecondPlayer.Id] : 0;
             _against[match.FirstPlayer.Id] = _against.ContainsKey(match.FirstPlayer.Id) ? _against[match.FirstPlayer.Id] : 0;

@@ -51,6 +51,7 @@
             <div class="col-md-10">
                 <select asp-for="SecondPlayerId" class="player-selector">
                     <option>@LocString[nameof(LocalizationKey.SelectOne)]</option>
+                    <option value="">BYE (No opponent)</option>
                     @foreach (var pair in Model.Users)
                     {
                         <option value="@pair.Key.Id" data-leagueIds="@string.Join(",", pair.Value.Select(v => v.ToString()))">@pair.Key.DisplayName</option>

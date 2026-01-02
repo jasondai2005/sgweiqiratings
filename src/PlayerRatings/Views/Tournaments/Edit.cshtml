@@ -319,7 +319,7 @@
                                         </td>
                                         <td>@m.Date.ToString("dd MMM")</td>
                                         <td>
-                                            @m.FirstPlayerName vs @m.SecondPlayerName
+                                            @(string.IsNullOrEmpty(m.FirstPlayerName) ? "BYE" : m.FirstPlayerName) vs @(string.IsNullOrEmpty(m.SecondPlayerName) ? "BYE" : m.SecondPlayerName)
                                             @if (!string.IsNullOrEmpty(m.MatchName))
                                             {
                                                 <br /><small class="text-muted">@m.MatchName</small>
@@ -362,12 +362,30 @@
             {
                 <div class="panel-footer">
                     <button type="submit" form="addMatchesForm" class="btn btn-primary">Add Selected Matches</button>
-                    <small class="text-muted" style="margin-left: 10px;">Check matches and set round numbers, then click Add.</small>
+                    @if (Model.AvailableMatches.Any(m => m.IsSelected))
+                    {
+                        <button type="button" id="saveRoundsBtn" class="btn btn-success" style="margin-left: 10px;">Save Rounds</button>
+                    }
+                    <small class="text-muted" style="margin-left: 10px;">Check matches and set round numbers, then click Add. Use "Save Rounds" to update rounds for existing matches.</small>
                 </div>
             }
         </div>
     </div>
 </div>
+
+<!-- Hidden form for Save Rounds -->
+<form asp-controller="Tournaments" asp-action="SaveRounds" method="post" id="saveRoundsForm">
+    <input type="hidden" name="tournamentId" value="@Model.Id" />
+    <input type="hidden" name="filterMonth" value="@Model.FilterMonth" />
+    <input type="hidden" name="filterYear" value="@Model.FilterYear" />
+    @{ var saveIdx = 0; }
+    @foreach (var m in Model.AvailableMatches.Where(x => x.IsSelected))
+    {
+        <input type="hidden" name="matchIds[@saveIdx]" value="@m.Id" class="save-round-match-id" data-match-id="@m.Id" />
+        <input type="hidden" name="rounds[@saveIdx]" value="@m.Round" class="save-round-value" data-match-id="@m.Id" />
+        saveIdx++;
+    }
+</form>
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
@@ -400,6 +418,24 @@
                     var index = $(this).data('index');
                     $('.round-input[data-index="' + index + '"]').val(roundValue);
                 });
+            });
+            
+            // Save Rounds button - sync values from main form and submit
+            $('#saveRoundsBtn').on('click', function() {
+                // Update hidden form values from the visible round inputs
+                $('.save-round-value').each(function() {
+                    var matchId = $(this).data('match-id');
+                    // Find the corresponding round input by matching the checkbox value
+                    var checkbox = $('input.match-checkbox[value="' + matchId + '"]');
+                    if (checkbox.length > 0) {
+                        var idx = checkbox.data('index');
+                        var roundInput = $('.round-input[data-index="' + idx + '"]');
+                        if (roundInput.length > 0) {
+                            $(this).val(roundInput.val());
+                        }
+                    }
+                });
+                $('#saveRoundsForm').submit();
             });
         });
     </script>

@@ -123,7 +123,7 @@ namespace PlayerRatings.Controllers
         }
 
         // GET: /<controller>/
-        public async Task<IActionResult> Create(Guid? leagueId, DateTimeOffset? lastMatchDateTime, string matchName, double? factor, Guid? tournamentId)
+        public async Task<IActionResult> Create(Guid? leagueId, DateTimeOffset? lastMatchDateTime, string matchName, double? factor, Guid? tournamentId, int? round, string firstPlayerId)
         {
             var currentUser = await _userManager.GetUserAsync(User);
 
@@ -150,13 +150,17 @@ namespace PlayerRatings.Controllers
                 })
                 .ToList();
 
+            // Determine first player - use provided or default to current user
+            var effectiveFirstPlayerId = !string.IsNullOrEmpty(firstPlayerId) ? firstPlayerId : currentUser.Id;
+
             return View("Create", new NewResultViewModel(leagues, players, lastMatchDateTime, matchName, factor)
             {
                 LeagueId = leagueId ?? leagues.First().Id,
-                FirstPlayerId = currentUser.Id,
-                SecondPlayerId = players.Keys.Except(new [] { currentUser }).FirstOrDefault()?.Id,
+                FirstPlayerId = effectiveFirstPlayerId,
+                SecondPlayerId = players.Keys.FirstOrDefault(p => p.Id != effectiveFirstPlayerId)?.Id,
                 Tournaments = tournaments,
-                TournamentId = tournamentId
+                TournamentId = tournamentId,
+                Round = round
             });
         }
 
@@ -226,10 +230,17 @@ namespace PlayerRatings.Controllers
 
                 var firstPlayer = players.Keys.FirstOrDefault(p => p.Id == model.FirstPlayerId) ??
                     await AddToLeague(model.FirstPlayerId, league);
-                var secondPlayer = players.Keys.FirstOrDefault(p => p.Id == model.SecondPlayerId) ??
-                    await AddToLeague(model.SecondPlayerId, league);
+                
+                // SecondPlayer can be NULL for BYE matches
+                ApplicationUser secondPlayer = null;
+                if (!string.IsNullOrEmpty(model.SecondPlayerId))
+                {
+                    secondPlayer = players.Keys.FirstOrDefault(p => p.Id == model.SecondPlayerId) ??
+                        await AddToLeague(model.SecondPlayerId, league);
+                }
 
-                if (firstPlayer == null || secondPlayer == null)
+                // First player is required, second player can be NULL (BYE)
+                if (firstPlayer == null)
                 {
                     ModelState.AddModelError("", _localizer[nameof(LocalizationKey.PlayerNotFound)]);
                     model.Leagues = new[] {league};
@@ -393,16 +404,25 @@ namespace PlayerRatings.Controllers
                 _context.LeaguePlayers.Where(lp => lp.LeagueId == league.Id).Select(lp => lp.User).ToList();
 
                 var firstPlayer = players.FirstOrDefault(p => p.Id == model.FirstPlayerId);
-                var secondPlayer = players.FirstOrDefault(p => p.Id == model.SecondPlayerId);
+                
+                // SecondPlayer can be NULL for BYE matches
+                ApplicationUser secondPlayer = null;
+                if (!string.IsNullOrEmpty(model.SecondPlayerId))
+                {
+                    secondPlayer = players.FirstOrDefault(p => p.Id == model.SecondPlayerId);
+                }
 
-                if (firstPlayer == null || secondPlayer == null)
+                // First player is required, second player can be NULL (BYE)
+                if (firstPlayer == null)
                 {
                     ModelState.AddModelError("", _localizer[nameof(LocalizationKey.PlayerNotFound)]);
                     return View("Create", model);
                 }
 
                 match.FirstPlayer = firstPlayer;
+                match.FirstPlayerId = firstPlayer.Id;
                 match.SecondPlayer = secondPlayer;
+                match.SecondPlayerId = secondPlayer?.Id;
                 match.FirstPlayerScore = model.FirstPlayerScore;
                 match.SecondPlayerScore = model.SecondPlayerScore;
                 match.Date = model.Date;

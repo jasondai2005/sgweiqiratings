@@ -17,6 +17,10 @@ namespace PlayerRatings.Engine.Stats
 
         public void AddMatch(Match match)
         {
+            // Skip bye matches (either player is NULL)
+            if (match.FirstPlayer == null || match.SecondPlayer == null)
+                return;
+                
             _streak[match.FirstPlayer.Id] = _streak.ContainsKey(match.FirstPlayer.Id) ? _streak[match.FirstPlayer.Id] : 0;
             _streak[match.SecondPlayer.Id] = _streak.ContainsKey(match.SecondPlayer.Id) ? _streak[match.SecondPlayer.Id] : 0;
 

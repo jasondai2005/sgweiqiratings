@@ -415,7 +415,8 @@ namespace PlayerRatings.Controllers
                 allowedUserIds: notBlockedUserIds,
                 onMatchProcessed: (match, _) => {
                     winRateStat.AddMatch(match);
-                    if (match.Date > date.AddMonths(-1))
+                    // Only add non-bye matches (both players must exist) to recent matches
+                    if (match.Date > date.AddMonths(-1) && match.FirstPlayer != null && match.SecondPlayer != null)
                         recentMatches.Add(match);
                 });
             elo = eloResult;
@@ -574,12 +575,12 @@ namespace PlayerRatings.Controllers
             var matches = FilterMatches(league.Matches, cutoffDate, swaOnly, isSgLeague: isSgLeague);
             foreach (var match in matches)
             {
-                // Add users (with optional filter)
-                if (allowedUserIds == null || allowedUserIds.Contains(match.FirstPlayerId))
+                // Add users (with optional filter) - skip NULL players for bye matches
+                if (match.FirstPlayer != null && (allowedUserIds == null || allowedUserIds.Contains(match.FirstPlayerId)))
                 {
                     AddUser(activeUsers, match, match.FirstPlayer);
                 }
-                if (allowedUserIds == null || allowedUserIds.Contains(match.SecondPlayerId))
+                if (match.SecondPlayer != null && (allowedUserIds == null || allowedUserIds.Contains(match.SecondPlayerId)))
                 {
                     AddUser(activeUsers, match, match.SecondPlayer);
                 }
@@ -834,13 +835,15 @@ namespace PlayerRatings.Controllers
                 currentEloStat = elo;
                 var matchMonth = GetEndOfMonth(match.Date.DateTime);
                 
-                // Track all players for position calculation
-                if (!allPlayersInMatches.ContainsKey(match.FirstPlayerId))
+                // Track all players for position calculation (skip NULL players for bye matches)
+                if (!string.IsNullOrEmpty(match.FirstPlayerId) && !allPlayersInMatches.ContainsKey(match.FirstPlayerId))
                     allPlayersInMatches[match.FirstPlayerId] = match.FirstPlayer;
-                if (!allPlayersInMatches.ContainsKey(match.SecondPlayerId))
+                if (!string.IsNullOrEmpty(match.SecondPlayerId) && !allPlayersInMatches.ContainsKey(match.SecondPlayerId))
                     allPlayersInMatches[match.SecondPlayerId] = match.SecondPlayer;
-                playerLastMatchDates[match.FirstPlayerId] = match.Date;
-                playerLastMatchDates[match.SecondPlayerId] = match.Date;
+                if (!string.IsNullOrEmpty(match.FirstPlayerId))
+                    playerLastMatchDates[match.FirstPlayerId] = match.Date;
+                if (!string.IsNullOrEmpty(match.SecondPlayerId))
+                    playerLastMatchDates[match.SecondPlayerId] = match.Date;
                 
                 // When month changes, capture snapshot of previous month
                 if (matchMonth > currentProcessingMonth && currentProcessingMonth.Year > 1900)
@@ -1084,10 +1087,10 @@ namespace PlayerRatings.Controllers
                 else
                     result = "Draw";
                 
-                // Get opponent ranking at time of match
+                // Get opponent ranking at time of match (handle BYE matches where opponent is null)
                 // Use just the date (midnight) to exclude same-day promotions
                 // since promotions happen at the end of the day after all matches
-                var opponentRanking = opponent.GetCombinedRankingBeforeDate(match.Date.Date);
+                var opponentRanking = opponent?.GetCombinedRankingBeforeDate(match.Date.Date);
                 
                 int? tournamentPosition = null;
                 if (match.TournamentId.HasValue && playerTournamentPositions.TryGetValue(match.TournamentId.Value, out var pos))
@@ -1098,9 +1101,9 @@ namespace PlayerRatings.Controllers
                 {
                     Date = match.Date,
                     MatchName = match.MatchName,
-                    OpponentName = opponent.DisplayName,
+                    OpponentName = opponent?.DisplayName ?? "BYE",
                     OpponentRanking = opponentRanking,
-                    OpponentId = opponent.Id,
+                    OpponentId = opponent?.Id,
                     Result = result,
                     Factor = match.Factor,
                     TournamentId = match.TournamentId,

@@ -45,6 +45,12 @@ namespace PlayerRatings.ViewModels.Tournament
         /// Maximum round number in the tournament (for standings table columns)
         /// </summary>
         public int MaxRounds { get; set; }
+        
+        /// <summary>
+        /// First match date for each round (round number -> date)
+        /// Used for creating new matches in a specific round
+        /// </summary>
+        public Dictionary<int, DateTimeOffset> RoundDates { get; set; } = new Dictionary<int, DateTimeOffset>();
     }
     
     /// <summary>

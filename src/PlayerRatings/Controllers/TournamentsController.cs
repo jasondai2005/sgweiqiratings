@@ -30,9 +30,39 @@ namespace PlayerRatings.Controllers
         private static SwissStats CalculateSwissStats(IEnumerable<Match> matches)
         {
             var playerStats = new Dictionary<string, PlayerMatchStats>();
+            var byeWins = new Dictionary<string, int>(); // Track bye wins separately
 
             foreach (var match in matches)
             {
+                // Handle bye matches (opponent is NULL)
+                if (string.IsNullOrEmpty(match.FirstPlayerId) || string.IsNullOrEmpty(match.SecondPlayerId))
+                {
+                    // Find the real player (non-null)
+                    var realPlayerId = !string.IsNullOrEmpty(match.FirstPlayerId) ? match.FirstPlayerId : match.SecondPlayerId;
+                    if (string.IsNullOrEmpty(realPlayerId))
+                        continue; // Both players are null, skip
+                    
+                    if (!playerStats.ContainsKey(realPlayerId))
+                        playerStats[realPlayerId] = new PlayerMatchStats();
+                    
+                    var realPlayerScore = !string.IsNullOrEmpty(match.FirstPlayerId) ? match.FirstPlayerScore : match.SecondPlayerScore;
+                    var byeScore = !string.IsNullOrEmpty(match.FirstPlayerId) ? match.SecondPlayerScore : match.FirstPlayerScore;
+                    
+                    // Count bye as a win if player won, loss if player lost
+                    if (realPlayerScore > byeScore)
+                    {
+                        playerStats[realPlayerId].Wins++;
+                        byeWins[realPlayerId] = byeWins.GetValueOrDefault(realPlayerId) + 1;
+                    }
+                    else if (byeScore > realPlayerScore)
+                    {
+                        playerStats[realPlayerId].Losses++;
+                    }
+                    
+                    // No opponent to track for bye matches, no points for/against from bye
+                    continue;
+                }
+                
                 if (!playerStats.ContainsKey(match.FirstPlayerId))
                     playerStats[match.FirstPlayerId] = new PlayerMatchStats();
                 if (!playerStats.ContainsKey(match.SecondPlayerId))
@@ -265,16 +295,17 @@ namespace PlayerRatings.Controllers
             var promotionBonuses = RatingCalculationHelper.GetPromotionBonuses(
                 leagueMatches, tournamentStartDate, tournamentEndDate.AddDays(1), swaOnly: false, isSgLeague, tournamentPlayerIds);
             
+            // Track first match date for each round (for creating new matches)
+            var roundDates = new Dictionary<int, DateTimeOffset>();
+            
             foreach (var match in tournament.Matches.Where(m => m.Round.HasValue))
             {
                 var round = match.Round.Value;
                 if (round > maxRound) maxRound = round;
                 
-                // Initialize dictionaries if needed
-                if (!playerRoundResults.ContainsKey(match.FirstPlayerId))
-                    playerRoundResults[match.FirstPlayerId] = new Dictionary<int, RoundResult>();
-                if (!playerRoundResults.ContainsKey(match.SecondPlayerId))
-                    playerRoundResults[match.SecondPlayerId] = new Dictionary<int, RoundResult>();
+                // Track first match date for this round
+                if (!roundDates.ContainsKey(round) || match.Date < roundDates[round])
+                    roundDates[round] = match.Date;
                 
                 // Determine winner
                 bool? firstWon = null;
@@ -282,6 +313,38 @@ namespace PlayerRatings.Controllers
                     firstWon = true;
                 else if (match.SecondPlayerScore > match.FirstPlayerScore)
                     firstWon = false;
+                
+                // Handle bye matches (one player is NULL)
+                if (string.IsNullOrEmpty(match.FirstPlayerId) || string.IsNullOrEmpty(match.SecondPlayerId))
+                {
+                    // Find the real player (non-null)
+                    var realPlayerId = !string.IsNullOrEmpty(match.FirstPlayerId) ? match.FirstPlayerId : match.SecondPlayerId;
+                    if (string.IsNullOrEmpty(realPlayerId))
+                        continue; // Both players are null, skip
+                    
+                    if (!playerRoundResults.ContainsKey(realPlayerId))
+                        playerRoundResults[realPlayerId] = new Dictionary<int, RoundResult>();
+                    
+                    var realPlayerWon = !string.IsNullOrEmpty(match.FirstPlayerId) ? firstWon : (firstWon.HasValue ? !firstWon.Value : null);
+                    var realPlayerScore = !string.IsNullOrEmpty(match.FirstPlayerId) 
+                        ? $"{match.FirstPlayerScore}:{match.SecondPlayerScore}"
+                        : $"{match.SecondPlayerScore}:{match.FirstPlayerScore}";
+                    
+                    playerRoundResults[realPlayerId][round] = new RoundResult
+                    {
+                        OpponentId = null,
+                        OpponentName = "BYE",
+                        Won = realPlayerWon,
+                        Score = realPlayerScore
+                    };
+                    continue;
+                }
+                
+                // Initialize dictionaries if needed
+                if (!playerRoundResults.ContainsKey(match.FirstPlayerId))
+                    playerRoundResults[match.FirstPlayerId] = new Dictionary<int, RoundResult>();
+                if (!playerRoundResults.ContainsKey(match.SecondPlayerId))
+                    playerRoundResults[match.SecondPlayerId] = new Dictionary<int, RoundResult>();
                 
                 // Add results for first player
                 playerRoundResults[match.FirstPlayerId][round] = new RoundResult
@@ -334,6 +397,7 @@ namespace PlayerRatings.Controllers
                 Factor = tournament.Factor,
                 IsAdmin = isAdmin,
                 MaxRounds = maxRound,
+                RoundDates = roundDates,
                 Matches = orderedMatches
                     .Select(m => new TournamentMatchViewModel
                     {
@@ -729,6 +793,62 @@ namespace PlayerRatings.Controllers
             if (newPlayers.Any())
             {
                 _context.TournamentPlayers.AddRange(newPlayers);
+            }
+
+            await _context.SaveChangesAsync();
+
+            return RedirectToAction(nameof(Edit), new { id = tournamentId, filterMonth, filterYear });
+        }
+
+        // POST: Tournaments/SaveRounds
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SaveRounds(Guid tournamentId, List<Guid> matchIds, List<int?> rounds, int? filterMonth, int? filterYear)
+        {
+            var currentUser = await User.GetApplicationUser(_userManager);
+
+            var tournament = await _context.Tournaments
+                .Include(t => t.League)
+                .FirstOrDefaultAsync(t => t.Id == tournamentId);
+
+            if (tournament == null || tournament.League.CreatedByUserId != currentUser.Id)
+            {
+                return NotFound();
+            }
+
+            if (matchIds == null || !matchIds.Any())
+            {
+                return RedirectToAction(nameof(Edit), new { id = tournamentId, filterMonth, filterYear });
+            }
+
+            // Only update matches that are already in this tournament
+            var matches = await _context.Match
+                .Where(m => matchIds.Contains(m.Id) && m.TournamentId == tournamentId)
+                .ToListAsync();
+
+            for (int i = 0; i < matchIds.Count; i++)
+            {
+                var matchId = matchIds[i];
+                var round = i < rounds?.Count ? rounds[i] : null;
+                var match = matches.FirstOrDefault(m => m.Id == matchId);
+                
+                if (match != null)
+                {
+                    match.Round = round;
+                    
+                    // Update MatchName to include round
+                    var nameParts = new List<string>();
+                    if (!string.IsNullOrEmpty(tournament.Organizer))
+                        nameParts.Add(tournament.Organizer);
+                    if (!string.IsNullOrEmpty(tournament.Ordinal))
+                        nameParts.Add(tournament.Ordinal);
+                    nameParts.Add(tournament.Name);
+                    if (!string.IsNullOrEmpty(tournament.Group))
+                        nameParts.Add(tournament.Group);
+                    if (round.HasValue)
+                        nameParts.Add($"R{round.Value}");
+                    match.MatchName = string.Join(" ", nameParts);
+                }
             }
 
             await _context.SaveChangesAsync();

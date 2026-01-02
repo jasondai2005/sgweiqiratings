@@ -314,10 +314,24 @@
                     }
                 </td>
                 <td>
-                    @item.FirstPlayer.DisplayName (@item.OldFirstPlayerRating)
+                    @if (item.FirstPlayer != null)
+                    {
+                        @item.FirstPlayer.DisplayName <text>(@item.OldFirstPlayerRating)</text>
+                    }
+                    else
+                    {
+                        <span class="text-muted" style="font-style: italic;">BYE</span>
+                    }
                 </td>
                 <td>
-                    @item.SecondPlayer.DisplayName (@item.OldSecondPlayerRating)
+                    @if (item.SecondPlayer != null)
+                    {
+                        @item.SecondPlayer.DisplayName <text>(@item.OldSecondPlayerRating)</text>
+                    }
+                    else
+                    {
+                        <span class="text-muted" style="font-style: italic;">BYE</span>
+                    }
                 </td>
                 <td>
                     @item.ShiftRating

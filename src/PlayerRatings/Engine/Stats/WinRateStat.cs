@@ -11,6 +11,10 @@ namespace PlayerRatings.Engine.Stats
 
         public void AddMatch(Match match)
         {
+            // Skip bye matches (either player is NULL)
+            if (match.FirstPlayer == null || match.SecondPlayer == null)
+                return;
+                
             if (match.Factor.HasValue && match.Factor.Value == 0)
                 return;
 
