@@ -114,7 +114,9 @@ namespace PlayerRatings.Controllers
         }
 
         /// <summary>
-        /// Calculate positions using Swiss-system ranking
+        /// Calculate positions using Swiss-system ranking.
+        /// All undefeated players (0 losses, at least 1 win) get position 1 (champions).
+        /// Other players keep their true positions (e.g., if 3 players are at position 1, next is position 4).
         /// </summary>
         private static Dictionary<string, int> CalculateSwissPositions(SwissStats stats)
         {
@@ -127,14 +129,27 @@ namespace PlayerRatings.Controllers
                 .ToList();
 
             var positions = new Dictionary<string, int>();
+            
             for (int i = 0; i < rankedPlayers.Count; i++)
             {
                 var current = rankedPlayers[i];
+                bool isUndefeated = current.Value.Losses == 0 && current.Value.Wins > 0;
+                
+                // All undefeated players get position 1
+                if (isUndefeated)
+                {
+                    positions[current.Key] = 1;
+                    continue;
+                }
+                
+                // For defeated players, check for ties
                 if (i > 0)
                 {
                     var previous = rankedPlayers[i - 1];
-                    bool sameTier = (current.Value.Losses == 0 && current.Value.Wins > 0) == (previous.Value.Losses == 0 && previous.Value.Wins > 0);
-                    if (sameTier &&
+                    bool previousUndefeated = previous.Value.Losses == 0 && previous.Value.Wins > 0;
+                    
+                    // Check for ties among defeated players (not with undefeated)
+                    if (!previousUndefeated &&
                         current.Value.Wins == previous.Value.Wins &&
                         stats.SOS[current.Key] == stats.SOS[previous.Key] &&
                         stats.SOSOS[current.Key] == stats.SOSOS[previous.Key])
@@ -143,6 +158,8 @@ namespace PlayerRatings.Controllers
                         continue;
                     }
                 }
+                
+                // True position based on ranking order (1-indexed)
                 positions[current.Key] = i + 1;
             }
 
@@ -428,7 +445,7 @@ namespace PlayerRatings.Controllers
                             PlayerId = tp.PlayerId,
                             PlayerName = tp.Player?.DisplayName,
                             PlayerRanking = tp.Player?.GetCombinedRankingBeforeDate(tournamentStartDate),
-                            Residence = tp.Player?.CurrentResidence,
+                            Residence = tp.Player?.GetResidenceAt(tournamentStartDate),
                             Position = tp.Position,
                             CalculatedPosition = calculatedPositions.TryGetValue(tp.PlayerId, out var calcPos) ? calcPos : 0,
                             PromotionId = tp.PromotionId,
@@ -849,6 +866,42 @@ namespace PlayerRatings.Controllers
                         nameParts.Add($"R{round.Value}");
                     match.MatchName = string.Join(" ", nameParts);
                 }
+            }
+
+            await _context.SaveChangesAsync();
+
+            return RedirectToAction(nameof(Edit), new { id = tournamentId, filterMonth, filterYear });
+        }
+
+        // POST: Tournaments/ShiftMatchTimes - shift selected match times by X hours
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ShiftMatchTimes(Guid tournamentId, List<Guid> matchIds, int hours, int? filterMonth, int? filterYear)
+        {
+            var currentUser = await User.GetApplicationUser(_userManager);
+
+            var tournament = await _context.Tournaments
+                .Include(t => t.League)
+                .FirstOrDefaultAsync(t => t.Id == tournamentId);
+
+            if (tournament == null || tournament.League.CreatedByUserId != currentUser.Id)
+            {
+                return NotFound();
+            }
+
+            if (hours == 0 || matchIds == null || !matchIds.Any())
+            {
+                return RedirectToAction(nameof(Edit), new { id = tournamentId, filterMonth, filterYear });
+            }
+
+            // Load and shift selected matches
+            var matches = await _context.Match
+                .Where(m => matchIds.Contains(m.Id) && m.TournamentId == tournamentId)
+                .ToListAsync();
+
+            foreach (var match in matches)
+            {
+                match.Date = match.Date.AddHours(hours);
             }
 
             await _context.SaveChangesAsync();

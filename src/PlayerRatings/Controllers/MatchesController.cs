@@ -289,12 +289,12 @@ namespace PlayerRatings.Controllers
                             match.Factor = tournament.Factor;
                         }
 
-                        // Add players to tournament if not already there
+                        // Add players to tournament if not already there (skip NULL players for bye matches)
                         if (!_context.TournamentPlayers.Any(tp => tp.TournamentId == tournament.Id && tp.PlayerId == firstPlayer.Id))
                         {
                             _context.TournamentPlayers.Add(new TournamentPlayer { TournamentId = tournament.Id, PlayerId = firstPlayer.Id });
                         }
-                        if (!_context.TournamentPlayers.Any(tp => tp.TournamentId == tournament.Id && tp.PlayerId == secondPlayer.Id))
+                        if (secondPlayer != null && !_context.TournamentPlayers.Any(tp => tp.TournamentId == tournament.Id && tp.PlayerId == secondPlayer.Id))
                         {
                             _context.TournamentPlayers.Add(new TournamentPlayer { TournamentId = tournament.Id, PlayerId = secondPlayer.Id });
                         }

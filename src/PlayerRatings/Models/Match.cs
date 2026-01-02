@@ -59,12 +59,15 @@ namespace PlayerRatings.Models
 
         public string GetDescription()
         {
+            var firstPlayerName = FirstPlayer?.DisplayName ?? "BYE";
+            var secondPlayerName = SecondPlayer?.DisplayName ?? "BYE";
+            
             if (FirstPlayerScore > SecondPlayerScore)
             {
-                return FirstPlayer.DisplayName + " - " + SecondPlayer.DisplayName;
+                return firstPlayerName + " - " + secondPlayerName;
             }
 
-            return SecondPlayer.DisplayName + " - " + FirstPlayer.DisplayName;
+            return secondPlayerName + " - " + firstPlayerName;
         }
 
         public string GetScore()

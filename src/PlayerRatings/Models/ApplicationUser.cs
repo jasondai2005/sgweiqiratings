@@ -52,20 +52,61 @@ namespace PlayerRatings.Models
         /// Gets the current residence (first entry in residence history, without year).
         /// Used for display purposes.
         /// </summary>
-        public string CurrentResidence
+        public string CurrentResidence => GetResidenceAt(DateTimeOffset.Now);
+
+        /// <summary>
+        /// Gets the residence at a specific date.
+        /// Parses residence history format: "{Place} ({year}); {Place} ({year}); {Place}"
+        /// Returns the place name without the year.
+        /// </summary>
+        public string GetResidenceAt(DateTimeOffset date)
         {
-            get
+            if (string.IsNullOrEmpty(Residence))
+                return string.Empty;
+
+            // Parse residence history entries (most recent first)
+            var entries = Residence.Split(';')
+                .Select(e => e.Trim())
+                .Where(e => !string.IsNullOrEmpty(e))
+                .ToList();
+
+            foreach (var entry in entries)
             {
-                if (string.IsNullOrEmpty(Residence))
-                    return string.Empty;
-                
-                var firstEntry = Residence.Split(';')[0].Trim();
-                // Remove year suffix if present, e.g., "Singapore (2020)" -> "Singapore"
-                var parenIndex = firstEntry.LastIndexOf('(');
-                if (parenIndex > 0)
-                    return firstEntry.Substring(0, parenIndex).Trim();
-                return firstEntry;
+                // Parse place and optional year: "Singapore (2020)" or "Singapore"
+                var place = entry;
+                int? year = null;
+
+                var parenIndex = entry.LastIndexOf('(');
+                if (parenIndex > 0 && entry.EndsWith(")"))
+                {
+                    place = entry.Substring(0, parenIndex).Trim();
+                    var yearStr = entry.Substring(parenIndex + 1, entry.Length - parenIndex - 2);
+                    if (int.TryParse(yearStr, out int parsedYear))
+                        year = parsedYear;
+                }
+
+                // Check if this entry applies to the given date
+                // If year is specified, this residence is valid from beginning of that year
+                // If no year, this is the earliest known residence (valid from min date)
+                var entryStartDate = year.HasValue 
+                    ? new DateTimeOffset(year.Value, 1, 1, 0, 0, 0, TimeSpan.Zero)
+                    : DateTimeOffset.MinValue;
+
+                if (date >= entryStartDate)
+                {
+                    return place;
+                }
             }
+
+            // If no entry matches, use the last (oldest) entry
+            if (entries.Any())
+            {
+                var lastEntry = entries.Last();
+                var parenIndex = lastEntry.LastIndexOf('(');
+                return parenIndex > 0 ? lastEntry.Substring(0, parenIndex).Trim() : lastEntry;
+            }
+
+            return string.Empty;
         }
 
         /// <summary>

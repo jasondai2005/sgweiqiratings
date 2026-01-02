@@ -128,6 +128,7 @@
             </div>
         </form>
         
+        
         <!-- Players Section -->
         <div class="panel panel-default">
             <div class="panel-heading">
@@ -365,8 +366,14 @@
                     @if (Model.AvailableMatches.Any(m => m.IsSelected))
                     {
                         <button type="button" id="saveRoundsBtn" class="btn btn-success" style="margin-left: 10px;">Save Rounds</button>
+                        <span style="margin-left: 20px; border-left: 1px solid #ddd; padding-left: 20px;">
+                            <label style="font-weight: normal;">Shift selected by</label>
+                            <input type="number" id="shiftHours" class="form-control" style="width: 70px; display: inline-block; margin: 0 5px;" value="0" />
+                            <label style="font-weight: normal;">hours</label>
+                            <button type="button" id="shiftTimesBtn" class="btn btn-default" style="margin-left: 5px;">Apply</button>
+                        </span>
                     }
-                    <small class="text-muted" style="margin-left: 10px;">Check matches and set round numbers, then click Add. Use "Save Rounds" to update rounds for existing matches.</small>
+                    <br /><small class="text-muted">Check matches and set round numbers, then click Add. Use "Save Rounds" to update rounds for existing matches.</small>
                 </div>
             }
         </div>
@@ -385,6 +392,15 @@
         <input type="hidden" name="rounds[@saveIdx]" value="@m.Round" class="save-round-value" data-match-id="@m.Id" />
         saveIdx++;
     }
+</form>
+
+<!-- Hidden form for Shift Match Times -->
+<form asp-controller="Tournaments" asp-action="ShiftMatchTimes" method="post" id="shiftTimesForm">
+    <input type="hidden" name="tournamentId" value="@Model.Id" />
+    <input type="hidden" name="filterMonth" value="@Model.FilterMonth" />
+    <input type="hidden" name="filterYear" value="@Model.FilterYear" />
+    <input type="hidden" name="hours" id="shiftHoursValue" value="0" />
+    <div id="shiftMatchIds"></div>
 </form>
 
 @section Scripts {
@@ -436,6 +452,41 @@
                     }
                 });
                 $('#saveRoundsForm').submit();
+            });
+            
+            // Shift Match Times button - collect selected match IDs and submit
+            $('#shiftTimesBtn').on('click', function() {
+                var hours = parseInt($('#shiftHours').val()) || 0;
+                if (hours === 0) {
+                    alert('Please enter a non-zero number of hours.');
+                    return;
+                }
+                
+                // Get checked matches that are in the tournament (IsSelected)
+                var matchIds = [];
+                $('.match-checkbox:checked').each(function() {
+                    var matchId = $(this).val();
+                    // Only include matches that are already in the tournament
+                    var isInTournament = $(this).closest('tr').find('.label-success').length > 0;
+                    if (isInTournament) {
+                        matchIds.push(matchId);
+                    }
+                });
+                
+                if (matchIds.length === 0) {
+                    alert('Please select matches that are already in the tournament.');
+                    return;
+                }
+                
+                // Update hidden form
+                $('#shiftHoursValue').val(hours);
+                var container = $('#shiftMatchIds');
+                container.empty();
+                matchIds.forEach(function(id, idx) {
+                    container.append('<input type="hidden" name="matchIds[' + idx + ']" value="' + id + '" />');
+                });
+                
+                $('#shiftTimesForm').submit();
             });
         });
     </script>
