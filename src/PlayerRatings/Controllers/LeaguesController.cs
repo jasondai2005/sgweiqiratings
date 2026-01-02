@@ -1047,8 +1047,21 @@ namespace PlayerRatings.Controllers
                 .ThenBy(u => u.DisplayName)
                 .ToList();
             
-            // Combine: ranked players first, then unranked
-            var allPlayersForNav = rankedPlayersForNav.Concat(unrankedPlayersForNav).ToList();
+            var unrankedPlayerIds = new HashSet<string>(unrankedPlayersForNav.Select(u => u.Id));
+            
+            // Get hidden players for navigation after unranked
+            var hiddenPlayersForNav = allPlayersInMatches.Values
+                .Where(u => notBlockedUserIds.Contains(u.Id)
+                    && !rankedPlayerIds.Contains(u.Id)
+                    && !unrankedPlayerIds.Contains(u.Id)
+                    && !u.IsProPlayer
+                    && (u.IsHiddenPlayer || (hiddenUserIds != null && hiddenUserIds.Contains(u.Id))))
+                .OrderByDescending(u => eloStat[u]) // Sort by rating descending
+                .ThenBy(u => u.DisplayName)
+                .ToList();
+            
+            // Combine: ranked players first, then unranked, then hidden
+            var allPlayersForNav = rankedPlayersForNav.Concat(unrankedPlayersForNav).Concat(hiddenPlayersForNav).ToList();
             
             // Find previous and next player IDs based on current position in combined list
             int currentIndex = allPlayersForNav.FindIndex(u => u.Id == playerId);
