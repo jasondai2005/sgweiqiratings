@@ -91,6 +91,7 @@ namespace PlayerRatings.Controllers
                     .Include(m => m.FirstPlayer).ThenInclude(p => p.Rankings)
                     .Include(m => m.SecondPlayer).ThenInclude(p => p.Rankings)
                     .Include(m => m.League)
+                    .Include(m => m.Tournament)
                     .ToList();
 
             return View(new MatchesViewModel(matches, leagueId, currentMonth, availableMonths));
@@ -338,6 +339,18 @@ namespace PlayerRatings.Controllers
             var leagues = new[] { match.League };
             var leagueIds = leagues.Select(l => l.Id).ToList();
 
+            // Load tournaments for the league
+            var tournaments = await _context.Tournaments
+                .Where(t => t.LeagueId == league.Id)
+                .OrderByDescending(t => t.StartDate)
+                .Select(t => new ViewModels.Match.TournamentSelectItem
+                {
+                    Id = t.Id,
+                    LeagueId = t.LeagueId,
+                    Name = t.FullName
+                })
+                .ToListAsync();
+
             ViewBag.Editing = true;
 
             return View("Create", new NewResultViewModel(leagues, GetUsers(leagueIds), null, match.MatchName, match.Factor)
@@ -347,7 +360,10 @@ namespace PlayerRatings.Controllers
                 SecondPlayerId = match.SecondPlayerId,
                 Date = match.Date,
                 FirstPlayerScore = match.FirstPlayerScore,
-                SecondPlayerScore = match.SecondPlayerScore
+                SecondPlayerScore = match.SecondPlayerScore,
+                TournamentId = match.TournamentId,
+                Round = match.Round,
+                Tournaments = tournaments
             });
         }
 
@@ -392,6 +408,8 @@ namespace PlayerRatings.Controllers
                 match.Date = model.Date;
                 match.MatchName = model.MatchName;
                 match.Factor = model.Factor == 1 ? null : model.Factor;
+                match.TournamentId = model.TournamentId;
+                match.Round = model.Round;
 
                 _context.SaveChanges();
 

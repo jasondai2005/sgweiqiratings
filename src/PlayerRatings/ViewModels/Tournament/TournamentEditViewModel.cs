@@ -94,6 +94,11 @@ namespace PlayerRatings.ViewModels.Tournament
         /// Available players for selection (populated by controller)
         /// </summary>
         public List<PlayerSelectionItem> AvailablePlayers { get; set; } = new List<PlayerSelectionItem>();
+        
+        /// <summary>
+        /// All league players available to add to tournament (not already in tournament)
+        /// </summary>
+        public List<LeaguePlayerItem> LeaguePlayers { get; set; } = new List<LeaguePlayerItem>();
     }
     
     /// <summary>
@@ -159,6 +164,40 @@ namespace PlayerRatings.ViewModels.Tournament
         public Guid? PromotionId { get; set; }
         
         public string PromotionRanking { get; set; }
+        
+        /// <summary>
+        /// Number of wins in this tournament
+        /// </summary>
+        public int Wins { get; set; }
+        
+        /// <summary>
+        /// Number of losses in this tournament
+        /// </summary>
+        public int Losses { get; set; }
+        
+        /// <summary>
+        /// SOS - Sum of Opponents' Scores (sum of opponents' wins)
+        /// </summary>
+        public int SOS { get; set; }
+        
+        /// <summary>
+        /// SOSOS - Sum of Opponents' SOS (sum of opponents' SOS scores)
+        /// </summary>
+        public int SOSOS { get; set; }
+        
+        /// <summary>
+        /// True if player is undefeated (0 losses) - champion status
+        /// </summary>
+        public bool IsUndefeated => Losses == 0 && Wins > 0;
+    }
+    
+    /// <summary>
+    /// A league player available to add to tournament
+    /// </summary>
+    public class LeaguePlayerItem
+    {
+        public string PlayerId { get; set; }
+        public string PlayerName { get; set; }
     }
 }
 

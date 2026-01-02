@@ -495,11 +495,20 @@
                     <td>@if (showPosition) { <span>@item.Position<span style="color: #999; font-size: 0.85em;">/@item.TotalPlayers</span></span> } else { <span>-</span> }</td>
                     <td>@item.RatingDisplay</td>
                     <td>
-                        @if (item.MatchNames.Any())
+                        @if (item.Matches.Any())
                         {
-                            @foreach (var matchName in item.MatchNames)
+                            @foreach (var match in item.Matches)
                             {
-                                <div style="font-size: 0.85em;">@matchName</div>
+                                <div style="font-size: 0.85em;">
+                                    @if (match.TournamentId.HasValue)
+                                    {
+                                        <a asp-controller="Tournaments" asp-action="Details" asp-route-id="@match.TournamentId">@match.TournamentName</a>
+                                    }
+                                    else if (!string.IsNullOrEmpty(match.MatchName))
+                                    {
+                                        @match.MatchName
+                                    }
+                                </div>
                             }
                         }
                         else
@@ -581,22 +590,36 @@
                     ? Model.Player.GetRatingBeforeDate(DateTimeOffset.MaxValue).ToString()
                     : null;
                 
-                // Get matches before the first month shown in the rating history
-                var preEntryMatches = new List<string>();
+                // Get matches before the first month shown in the rating history (as unique MatchInfo objects)
+                var preEntryMatchInfos = new List<PlayerRatings.ViewModels.Player.MatchInfo>();
                 if (Model.MonthlyRatings.Any())
                 {
                     var firstRatedMonth = Model.MonthlyRatings.Min(r => r.Month);
-                    preEntryMatches = Model.GameRecords
+                    var preEntryGames = Model.GameRecords
                         .Where(g => g.Date.Year < firstRatedMonth.Year || 
                                    (g.Date.Year == firstRatedMonth.Year && g.Date.Month < firstRatedMonth.Month))
-                        .Select(g => g.MatchName)
-                        .Distinct()
-                        .Reverse()
                         .ToList();
+                    
+                    // Get unique matches by tournament or match name
+                    var seen = new HashSet<string>();
+                    foreach (var g in preEntryGames.AsEnumerable().Reverse())
+                    {
+                        var key = g.TournamentId?.ToString() ?? g.MatchName ?? "";
+                        if (!seen.Contains(key))
+                        {
+                            seen.Add(key);
+                            preEntryMatchInfos.Add(new PlayerRatings.ViewModels.Player.MatchInfo
+                            {
+                                MatchName = g.MatchName,
+                                TournamentId = g.TournamentId,
+                                TournamentName = g.TournamentName
+                            });
+                        }
+                    }
                 }
                 
                 // Only show Pre-entry row if there's something meaningful to display
-                var showPreEntry = earlyRankings.Any() || preEntryMatches.Any() || preEntryRating != null;
+                var showPreEntry = earlyRankings.Any() || preEntryMatchInfos.Any() || preEntryRating != null;
             }
             @if (showPreEntry)
             {
@@ -605,11 +628,20 @@
                     <td>-</td>
                     <td>@(preEntryRating ?? "-")</td>
                     <td>
-                        @if (preEntryMatches.Any())
+                        @if (preEntryMatchInfos.Any())
                         {
-                            @foreach (var matchName in preEntryMatches)
+                            @foreach (var match in preEntryMatchInfos)
                             {
-                                <div style="font-size: 0.85em; color: #888;">@matchName</div>
+                                <div style="font-size: 0.85em; color: #888;">
+                                    @if (match.TournamentId.HasValue)
+                                    {
+                                        <a asp-controller="Tournaments" asp-action="Details" asp-route-id="@match.TournamentId">@match.TournamentName</a>
+                                    }
+                                    else if (!string.IsNullOrEmpty(match.MatchName))
+                                    {
+                                        @match.MatchName
+                                    }
+                                </div>
                             }
                         }
                         else
@@ -674,7 +706,18 @@
                 <tr style="@(isGrayedOut ? "opacity: 0.5; background-color: #f5f5f5;" : "")">
                     <td>@game.DateDisplay</td>
                     <td>
-                        @game.MatchName
+                        @if (game.TournamentId.HasValue)
+                        {
+                            <a asp-controller="Tournaments" asp-action="Details" asp-route-id="@game.TournamentId">@game.TournamentName</a>
+                            @if (game.Round.HasValue)
+                            {
+                                <text> R@(game.Round)</text>
+                            }
+                        }
+                        else if (!string.IsNullOrEmpty(game.MatchName))
+                        {
+                            @game.MatchName
+                        }
                         @if (isNotRated)
                         {
                             <span style="font-size: 0.75em; color: #999; margin-left: 4px; font-style: italic;">(@LocString[nameof(LocalizationKey.NotRated)])</span>

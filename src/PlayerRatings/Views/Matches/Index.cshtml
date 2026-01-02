@@ -86,7 +86,18 @@
                 @item.GetScore()
             </td>
             <td>
-                @item.MatchName
+                @if (item.TournamentId.HasValue && item.Tournament != null)
+                {
+                    <a asp-controller="Tournaments" asp-action="Details" asp-route-id="@item.TournamentId">@item.Tournament.FullName</a>
+                    @if (item.Round.HasValue)
+                    {
+                        <text> R@(item.Round)</text>
+                    }
+                }
+                else if (!string.IsNullOrEmpty(item.MatchName))
+                {
+                    @item.MatchName
+                }
             </td>
             <td>
                 @item.Date.ToString("dd/MM/yyyy")

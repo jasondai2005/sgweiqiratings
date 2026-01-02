@@ -40,6 +40,11 @@ namespace PlayerRatings.ViewModels.Tournament
         public List<TournamentMatchViewModel> Matches { get; set; } = new List<TournamentMatchViewModel>();
         
         public List<TournamentPlayerViewModel> Players { get; set; } = new List<TournamentPlayerViewModel>();
+        
+        /// <summary>
+        /// Maximum round number in the tournament (for standings table columns)
+        /// </summary>
+        public int MaxRounds { get; set; }
     }
     
     /// <summary>
@@ -57,9 +62,13 @@ namespace PlayerRatings.ViewModels.Tournament
         
         public string FirstPlayerName { get; set; }
         
+        public string FirstPlayerRanking { get; set; }
+        
         public string SecondPlayerId { get; set; }
         
         public string SecondPlayerName { get; set; }
+        
+        public string SecondPlayerRanking { get; set; }
         
         public int FirstPlayerScore { get; set; }
         
@@ -68,6 +77,8 @@ namespace PlayerRatings.ViewModels.Tournament
         public double? Factor { get; set; }
         
         public string MatchName { get; set; }
+        
+        public string GetScore() => $"{FirstPlayerScore} : {SecondPlayerScore}";
     }
     
     /// <summary>
@@ -79,7 +90,35 @@ namespace PlayerRatings.ViewModels.Tournament
         
         public string PlayerName { get; set; }
         
+        /// <summary>
+        /// Player's ranking before/at the start of the tournament
+        /// </summary>
+        public string PlayerRanking { get; set; }
+        
+        /// <summary>
+        /// Player's residence/location
+        /// </summary>
+        public string Residence { get; set; }
+        
+        /// <summary>
+        /// The saved position in database (null if not set)
+        /// </summary>
         public int? Position { get; set; }
+        
+        /// <summary>
+        /// The calculated position based on wins/point differential
+        /// </summary>
+        public int CalculatedPosition { get; set; }
+        
+        /// <summary>
+        /// Returns the saved position, or calculated position if not saved
+        /// </summary>
+        public int DisplayPosition => Position ?? CalculatedPosition;
+        
+        /// <summary>
+        /// True if position is calculated (not saved in database)
+        /// </summary>
+        public bool IsCalculatedPosition => !Position.HasValue;
         
         public Guid? PromotionId { get; set; }
         
@@ -90,6 +129,57 @@ namespace PlayerRatings.ViewModels.Tournament
         public int Wins { get; set; }
         
         public int Losses { get; set; }
+        
+        /// <summary>
+        /// Point differential (points for - points against)
+        /// </summary>
+        public int PointDiff { get; set; }
+        
+        /// <summary>
+        /// SOS - Sum of Opponents' Scores (sum of opponents' wins)
+        /// </summary>
+        public int SOS { get; set; }
+        
+        /// <summary>
+        /// SOSOS - Sum of Opponents' SOS (sum of opponents' SOS scores)
+        /// </summary>
+        public int SOSOS { get; set; }
+        
+        /// <summary>
+        /// True if player is undefeated (0 losses) - champion status
+        /// </summary>
+        public bool IsUndefeated => Losses == 0 && Wins > 0;
+        
+        /// <summary>
+        /// Round results - key is round number, value is the result
+        /// </summary>
+        public Dictionary<int, RoundResult> RoundResults { get; set; } = new Dictionary<int, RoundResult>();
+    }
+    
+    /// <summary>
+    /// Result for a single round
+    /// </summary>
+    public class RoundResult
+    {
+        /// <summary>
+        /// Opponent's player ID
+        /// </summary>
+        public string OpponentId { get; set; }
+        
+        /// <summary>
+        /// Opponent's display name
+        /// </summary>
+        public string OpponentName { get; set; }
+        
+        /// <summary>
+        /// True if won, false if lost, null if draw
+        /// </summary>
+        public bool? Won { get; set; }
+        
+        /// <summary>
+        /// Score display (e.g., "2:1")
+        /// </summary>
+        public string Score { get; set; }
     }
 }
 

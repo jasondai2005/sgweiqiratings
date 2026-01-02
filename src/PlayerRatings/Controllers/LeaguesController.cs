@@ -76,6 +76,7 @@ namespace PlayerRatings.Controllers
                 league = _context.League
                     .Include(l => l.Matches).ThenInclude(m => m.FirstPlayer).ThenInclude(p => p.Rankings).ThenInclude(r => r.Tournament).ThenInclude(t => t.TournamentPlayers)
                     .Include(l => l.Matches).ThenInclude(m => m.SecondPlayer).ThenInclude(p => p.Rankings).ThenInclude(r => r.Tournament).ThenInclude(t => t.TournamentPlayers)
+                    .Include(l => l.Matches).ThenInclude(m => m.Tournament)
                     .SingleOrDefault(m => m.Id == leagueId);
 
                 if (league != null)
@@ -862,7 +863,7 @@ namespace PlayerRatings.Controllers
             var currentProcessingMonth = new DateTime(1900, 1, 1);
             int playerMatchCount = 0;
             int matchesInCurrentMonth = 0;
-            var matchNamesInCurrentMonth = new List<string>();
+            var matchInfosInCurrentMonth = new List<MatchInfo>();
             EloStat currentEloStat = null;
             
             // Track all players' last match dates for position calculation
@@ -890,7 +891,7 @@ namespace PlayerRatings.Controllers
                     
                     // Clear match data before filling skipped months (they have no matches)
                     matchesInCurrentMonth = 0;
-                    matchNamesInCurrentMonth.Clear();
+                    matchInfosInCurrentMonth.Clear();
                     
                     // Fill in any skipped months (with empty match names)
                     // Use GetEndOfMonth to ensure consistent end-of-month DateTime values
@@ -908,9 +909,17 @@ namespace PlayerRatings.Controllers
                 {
                     playerMatchCount++;
                     matchesInCurrentMonth++;
-                    if (!matchNamesInCurrentMonth.Contains(match.MatchName))
+                    // Track unique match info (by tournament or match name)
+                    var matchKey = match.TournamentId?.ToString() ?? match.MatchName ?? "";
+                    if (!matchInfosInCurrentMonth.Any(m => (m.TournamentId?.ToString() ?? m.MatchName ?? "") == matchKey))
                     {
-                        matchNamesInCurrentMonth.Add(match.MatchName);
+                        matchInfosInCurrentMonth.Add(new MatchInfo
+                        {
+                            MatchName = match.MatchName,
+                            TournamentId = match.TournamentId,
+                            TournamentName = match.Tournament?.FullName,
+                            Round = match.Round
+                        });
                     }
                 }
             }
@@ -923,7 +932,7 @@ namespace PlayerRatings.Controllers
                 bool hasEnoughGames = !isNewForeignPlayer || playerMatchCount >= 12;
                 if (playerMatchCount > 0 && hasEnoughGames)
                 {
-                    var reversed = new List<string>(matchNamesInCurrentMonth);
+                    var reversed = new List<MatchInfo>(matchInfosInCurrentMonth);
                     reversed.Reverse();
                     
                     // monthToCapture is already end-of-month, just convert to DateTimeOffset
@@ -978,7 +987,7 @@ namespace PlayerRatings.Controllers
                         Month = monthToCapture,
                         Rating = currentEloStat[player],
                         MatchesInMonth = matchesInCurrentMonth,
-                        MatchNames = reversed,
+                        Matches = reversed,
                         Position = monthPosition,
                         TotalPlayers = monthTotalPlayers,
                         PromotionBonuses = promotionBonuses
@@ -1006,7 +1015,7 @@ namespace PlayerRatings.Controllers
                 while (nextMonth <= endMonth)
                 {
                     matchesInCurrentMonth = 0;
-                    matchNamesInCurrentMonth.Clear();
+                    matchInfosInCurrentMonth.Clear();
                     CaptureSnapshot(nextMonth);
                     nextMonth = GetEndOfMonth(nextMonth.AddMonths(1));
                 }
@@ -1114,7 +1123,10 @@ namespace PlayerRatings.Controllers
                     OpponentRanking = opponentRanking,
                     OpponentId = opponent.Id,
                     Result = result,
-                    Factor = match.Factor
+                    Factor = match.Factor,
+                    TournamentId = match.TournamentId,
+                    TournamentName = match.Tournament?.FullName,
+                    Round = match.Round
                 });
             }
 
@@ -1283,6 +1295,18 @@ namespace PlayerRatings.Controllers
             };
 
             _context.PlayerRankings.Add(ranking);
+
+            // If tournament is selected, also set this ranking as the player's promotion in the tournament
+            if (model.TournamentId.HasValue)
+            {
+                var tournamentPlayer = await _context.TournamentPlayers
+                    .FirstOrDefaultAsync(tp => tp.TournamentId == model.TournamentId.Value && tp.PlayerId == model.PlayerId);
+                if (tournamentPlayer != null)
+                {
+                    tournamentPlayer.PromotionId = ranking.RankingId;
+                }
+            }
+
             await _context.SaveChangesAsync();
 
             if (isAjax) return Json(new { 
@@ -1320,6 +1344,8 @@ namespace PlayerRatings.Controllers
                 return NotFound();
             }
 
+            var oldTournamentId = ranking.TournamentId;
+            
             ranking.Ranking = model.Ranking.ToUpper();
             ranking.Organization = model.Organization == "Other" ? null : model.Organization;
             ranking.RankingDate = model.RankingDate.HasValue 
@@ -1329,6 +1355,33 @@ namespace PlayerRatings.Controllers
             ranking.TournamentId = model.TournamentId;
 
             _context.PlayerRankings.Update(ranking);
+
+            // Update TournamentPlayer.PromotionId when tournament changes
+            if (oldTournamentId != model.TournamentId)
+            {
+                // Clear old tournament's promotion reference
+                if (oldTournamentId.HasValue)
+                {
+                    var oldTournamentPlayer = await _context.TournamentPlayers
+                        .FirstOrDefaultAsync(tp => tp.TournamentId == oldTournamentId.Value && tp.PlayerId == model.PlayerId && tp.PromotionId == ranking.RankingId);
+                    if (oldTournamentPlayer != null)
+                    {
+                        oldTournamentPlayer.PromotionId = null;
+                    }
+                }
+
+                // Set new tournament's promotion reference
+                if (model.TournamentId.HasValue)
+                {
+                    var newTournamentPlayer = await _context.TournamentPlayers
+                        .FirstOrDefaultAsync(tp => tp.TournamentId == model.TournamentId.Value && tp.PlayerId == model.PlayerId);
+                    if (newTournamentPlayer != null)
+                    {
+                        newTournamentPlayer.PromotionId = ranking.RankingId;
+                    }
+                }
+            }
+
             await _context.SaveChangesAsync();
 
             if (isAjax) return Json(new { 

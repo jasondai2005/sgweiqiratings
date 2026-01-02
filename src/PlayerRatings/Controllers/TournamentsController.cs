@@ -23,6 +23,117 @@ namespace PlayerRatings.Controllers
             _userManager = userManager;
         }
 
+        /// <summary>
+        /// Calculate Swiss-system stats for tournament players
+        /// </summary>
+        private static SwissStats CalculateSwissStats(IEnumerable<Match> matches)
+        {
+            var playerStats = new Dictionary<string, PlayerMatchStats>();
+
+            foreach (var match in matches)
+            {
+                if (!playerStats.ContainsKey(match.FirstPlayerId))
+                    playerStats[match.FirstPlayerId] = new PlayerMatchStats();
+                if (!playerStats.ContainsKey(match.SecondPlayerId))
+                    playerStats[match.SecondPlayerId] = new PlayerMatchStats();
+
+                var stats1 = playerStats[match.FirstPlayerId];
+                var stats2 = playerStats[match.SecondPlayerId];
+
+                // Track opponents
+                stats1.Opponents.Add(match.SecondPlayerId);
+                stats2.Opponents.Add(match.FirstPlayerId);
+
+                // Update points
+                stats1.PointsFor += match.FirstPlayerScore;
+                stats1.PointsAgainst += match.SecondPlayerScore;
+                stats2.PointsFor += match.SecondPlayerScore;
+                stats2.PointsAgainst += match.FirstPlayerScore;
+
+                // Determine winner
+                if (match.FirstPlayerScore > match.SecondPlayerScore)
+                {
+                    stats1.Wins++;
+                    stats2.Losses++;
+                }
+                else if (match.SecondPlayerScore > match.FirstPlayerScore)
+                {
+                    stats1.Losses++;
+                    stats2.Wins++;
+                }
+            }
+
+            // Calculate SOS (Sum of Opponents' Scores)
+            var sosScores = new Dictionary<string, int>();
+            foreach (var player in playerStats)
+            {
+                sosScores[player.Key] = player.Value.Opponents.Sum(oppId =>
+                    playerStats.TryGetValue(oppId, out var oppStats) ? oppStats.Wins : 0);
+            }
+
+            // Calculate SOSOS (Sum of Opponents' SOS)
+            var sososScores = new Dictionary<string, int>();
+            foreach (var player in playerStats)
+            {
+                sososScores[player.Key] = player.Value.Opponents.Sum(oppId =>
+                    sosScores.TryGetValue(oppId, out var oppSos) ? oppSos : 0);
+            }
+
+            return new SwissStats { PlayerStats = playerStats, SOS = sosScores, SOSOS = sososScores };
+        }
+
+        /// <summary>
+        /// Calculate positions using Swiss-system ranking
+        /// </summary>
+        private static Dictionary<string, int> CalculateSwissPositions(SwissStats stats)
+        {
+            var rankedPlayers = stats.PlayerStats
+                .OrderByDescending(p => p.Value.Losses == 0 && p.Value.Wins > 0 ? 1 : 0) // Undefeated first
+                .ThenByDescending(p => p.Value.Wins)
+                .ThenByDescending(p => stats.SOS[p.Key])
+                .ThenByDescending(p => stats.SOSOS[p.Key])
+                .ThenByDescending(p => p.Value.PointsFor - p.Value.PointsAgainst)
+                .ToList();
+
+            var positions = new Dictionary<string, int>();
+            for (int i = 0; i < rankedPlayers.Count; i++)
+            {
+                var current = rankedPlayers[i];
+                if (i > 0)
+                {
+                    var previous = rankedPlayers[i - 1];
+                    bool sameTier = (current.Value.Losses == 0 && current.Value.Wins > 0) == (previous.Value.Losses == 0 && previous.Value.Wins > 0);
+                    if (sameTier &&
+                        current.Value.Wins == previous.Value.Wins &&
+                        stats.SOS[current.Key] == stats.SOS[previous.Key] &&
+                        stats.SOSOS[current.Key] == stats.SOSOS[previous.Key])
+                    {
+                        positions[current.Key] = positions[previous.Key];
+                        continue;
+                    }
+                }
+                positions[current.Key] = i + 1;
+            }
+
+            return positions;
+        }
+
+        private class PlayerMatchStats
+        {
+            public int Wins { get; set; }
+            public int Losses { get; set; }
+            public int PointsFor { get; set; }
+            public int PointsAgainst { get; set; }
+            public List<string> Opponents { get; } = new List<string>();
+        }
+
+        private class SwissStats
+        {
+            public Dictionary<string, PlayerMatchStats> PlayerStats { get; set; }
+            public Dictionary<string, int> SOS { get; set; }
+            public Dictionary<string, int> SOSOS { get; set; }
+        }
+
         // GET: Tournaments?leagueId=xxx
         public async Task<IActionResult> Index(Guid leagueId)
         {
@@ -90,6 +201,7 @@ namespace PlayerRatings.Controllers
                     .ThenInclude(m => m.SecondPlayer)
                 .Include(t => t.TournamentPlayers)
                     .ThenInclude(tp => tp.Player)
+                        .ThenInclude(p => p.Rankings)
                 .Include(t => t.TournamentPlayers)
                     .ThenInclude(tp => tp.Promotion)
                 .FirstOrDefaultAsync(t => t.Id == id);
@@ -109,30 +221,56 @@ namespace PlayerRatings.Controllers
 
             var isAdmin = tournament.League.CreatedByUserId == currentUser.Id;
 
-            // Calculate player stats from matches
-            var playerStats = new Dictionary<string, (int wins, int losses)>();
-            foreach (var match in tournament.Matches)
-            {
-                if (!playerStats.ContainsKey(match.FirstPlayerId))
-                    playerStats[match.FirstPlayerId] = (0, 0);
-                if (!playerStats.ContainsKey(match.SecondPlayerId))
-                    playerStats[match.SecondPlayerId] = (0, 0);
+            // Calculate Swiss-system stats
+            var swissStats = CalculateSwissStats(tournament.Matches);
+            var calculatedPositions = CalculateSwissPositions(swissStats);
 
+            // Build round results for each player
+            var playerRoundResults = new Dictionary<string, Dictionary<int, RoundResult>>();
+            var maxRound = 0;
+            
+            // Get the tournament start date for ranking lookup
+            var tournamentStartDate = tournament.StartDate ?? tournament.Matches.Min(m => m.Date);
+            
+            foreach (var match in tournament.Matches.Where(m => m.Round.HasValue))
+            {
+                var round = match.Round.Value;
+                if (round > maxRound) maxRound = round;
+                
+                // Initialize dictionaries if needed
+                if (!playerRoundResults.ContainsKey(match.FirstPlayerId))
+                    playerRoundResults[match.FirstPlayerId] = new Dictionary<int, RoundResult>();
+                if (!playerRoundResults.ContainsKey(match.SecondPlayerId))
+                    playerRoundResults[match.SecondPlayerId] = new Dictionary<int, RoundResult>();
+                
+                // Determine winner
+                bool? firstWon = null;
                 if (match.FirstPlayerScore > match.SecondPlayerScore)
-                {
-                    var stats1 = playerStats[match.FirstPlayerId];
-                    playerStats[match.FirstPlayerId] = (stats1.wins + 1, stats1.losses);
-                    var stats2 = playerStats[match.SecondPlayerId];
-                    playerStats[match.SecondPlayerId] = (stats2.wins, stats2.losses + 1);
-                }
+                    firstWon = true;
                 else if (match.SecondPlayerScore > match.FirstPlayerScore)
+                    firstWon = false;
+                
+                // Add results for first player
+                playerRoundResults[match.FirstPlayerId][round] = new RoundResult
                 {
-                    var stats1 = playerStats[match.FirstPlayerId];
-                    playerStats[match.FirstPlayerId] = (stats1.wins, stats1.losses + 1);
-                    var stats2 = playerStats[match.SecondPlayerId];
-                    playerStats[match.SecondPlayerId] = (stats2.wins + 1, stats2.losses);
-                }
+                    OpponentId = match.SecondPlayerId,
+                    OpponentName = match.SecondPlayer?.DisplayName,
+                    Won = firstWon,
+                    Score = $"{match.FirstPlayerScore}:{match.SecondPlayerScore}"
+                };
+                
+                // Add results for second player
+                playerRoundResults[match.SecondPlayerId][round] = new RoundResult
+                {
+                    OpponentId = match.FirstPlayerId,
+                    OpponentName = match.FirstPlayer?.DisplayName,
+                    Won = firstWon.HasValue ? !firstWon.Value : null,
+                    Score = $"{match.SecondPlayerScore}:{match.FirstPlayerScore}"
+                };
             }
+            
+            // Build player lookup for display names
+            var playerLookup = tournament.TournamentPlayers.ToDictionary(tp => tp.PlayerId, tp => tp.Player);
 
             var viewModel = new TournamentDetailsViewModel
             {
@@ -150,6 +288,7 @@ namespace PlayerRatings.Controllers
                 TournamentType = tournament.TournamentType,
                 Factor = tournament.Factor,
                 IsAdmin = isAdmin,
+                MaxRounds = maxRound,
                 Matches = tournament.Matches
                     .OrderBy(m => m.Date)
                     .ThenBy(m => m.Round)
@@ -160,8 +299,10 @@ namespace PlayerRatings.Controllers
                         Round = m.Round,
                         FirstPlayerId = m.FirstPlayerId,
                         FirstPlayerName = m.FirstPlayer?.DisplayName,
+                        FirstPlayerRanking = m.FirstPlayer?.GetCombinedRankingBeforeDate(m.Date),
                         SecondPlayerId = m.SecondPlayerId,
                         SecondPlayerName = m.SecondPlayer?.DisplayName,
+                        SecondPlayerRanking = m.SecondPlayer?.GetCombinedRankingBeforeDate(m.Date),
                         FirstPlayerScore = m.FirstPlayerScore,
                         SecondPlayerScore = m.SecondPlayerScore,
                         Factor = m.Factor,
@@ -169,21 +310,30 @@ namespace PlayerRatings.Controllers
                     })
                     .ToList(),
                 Players = tournament.TournamentPlayers
-                    .OrderBy(tp => tp.Position ?? int.MaxValue)
-                    .ThenBy(tp => tp.Player?.DisplayName)
-                    .Select(tp => new TournamentPlayerViewModel
-                    {
-                        PlayerId = tp.PlayerId,
-                        PlayerName = tp.Player?.DisplayName,
-                        Position = tp.Position,
-                        PromotionId = tp.PromotionId,
-                        PromotionRanking = tp.Promotion?.Ranking,
-                        MatchCount = playerStats.ContainsKey(tp.PlayerId) 
-                            ? playerStats[tp.PlayerId].wins + playerStats[tp.PlayerId].losses 
-                            : 0,
-                        Wins = playerStats.ContainsKey(tp.PlayerId) ? playerStats[tp.PlayerId].wins : 0,
-                        Losses = playerStats.ContainsKey(tp.PlayerId) ? playerStats[tp.PlayerId].losses : 0
+                    .Select(tp => {
+                        var hasStats = swissStats.PlayerStats.TryGetValue(tp.PlayerId, out var pStats);
+                        return new TournamentPlayerViewModel
+                        {
+                            PlayerId = tp.PlayerId,
+                            PlayerName = tp.Player?.DisplayName,
+                            PlayerRanking = tp.Player?.GetCombinedRankingBeforeDate(tournamentStartDate),
+                            Residence = tp.Player?.CurrentResidence,
+                            Position = tp.Position,
+                            CalculatedPosition = calculatedPositions.TryGetValue(tp.PlayerId, out var calcPos) ? calcPos : 0,
+                            PromotionId = tp.PromotionId,
+                            PromotionRanking = tp.Promotion?.Ranking,
+                            MatchCount = hasStats ? pStats.Wins + pStats.Losses : 0,
+                            Wins = hasStats ? pStats.Wins : 0,
+                            Losses = hasStats ? pStats.Losses : 0,
+                            PointDiff = hasStats ? pStats.PointsFor - pStats.PointsAgainst : 0,
+                            SOS = swissStats.SOS.TryGetValue(tp.PlayerId, out var sos) ? sos : 0,
+                            SOSOS = swissStats.SOSOS.TryGetValue(tp.PlayerId, out var sosos) ? sosos : 0,
+                            RoundResults = playerRoundResults.TryGetValue(tp.PlayerId, out var rounds) ? rounds : new Dictionary<int, RoundResult>()
+                        };
                     })
+                    .OrderBy(p => p.DisplayPosition)
+                    .ThenByDescending(p => p.Wins)
+                    .ThenBy(p => p.PlayerName)
                     .ToList()
             };
 
@@ -301,6 +451,22 @@ namespace PlayerRatings.Controllers
 
             var selectedMatchIds = tournament.Matches.Select(m => m.Id).ToHashSet();
 
+            // Calculate Swiss-system stats
+            var swissStats = CalculateSwissStats(tournament.Matches);
+
+            // Get league players not already in tournament
+            var existingPlayerIds = tournament.TournamentPlayers.Select(tp => tp.PlayerId).ToHashSet();
+            var leaguePlayers = await _context.LeaguePlayers
+                .Include(lp => lp.User)
+                .Where(lp => lp.LeagueId == tournament.LeagueId && !existingPlayerIds.Contains(lp.UserId))
+                .OrderBy(lp => lp.User.DisplayName)
+                .Select(lp => new LeaguePlayerItem
+                {
+                    PlayerId = lp.UserId,
+                    PlayerName = lp.User.DisplayName
+                })
+                .ToListAsync();
+
             var viewModel = new TournamentEditViewModel
             {
                 Id = tournament.Id,
@@ -344,15 +510,23 @@ namespace PlayerRatings.Controllers
                 AvailablePlayers = tournament.TournamentPlayers
                     .OrderBy(tp => tp.Position ?? int.MaxValue)
                     .ThenBy(tp => tp.Player?.DisplayName)
-                    .Select(tp => new PlayerSelectionItem
-                    {
-                        PlayerId = tp.PlayerId,
-                        PlayerName = tp.Player?.DisplayName,
-                        IsSelected = true,
-                        Position = tp.Position,
-                        PromotionId = tp.PromotionId,
-                        PromotionRanking = tp.Promotion?.Ranking
-                    }).ToList()
+                    .Select(tp => {
+                        var hasStats = swissStats.PlayerStats.TryGetValue(tp.PlayerId, out var pStats);
+                        return new PlayerSelectionItem
+                        {
+                            PlayerId = tp.PlayerId,
+                            PlayerName = tp.Player?.DisplayName,
+                            IsSelected = true,
+                            Position = tp.Position,
+                            PromotionId = tp.PromotionId,
+                            PromotionRanking = tp.Promotion?.Ranking,
+                            Wins = hasStats ? pStats.Wins : 0,
+                            Losses = hasStats ? pStats.Losses : 0,
+                            SOS = swissStats.SOS.TryGetValue(tp.PlayerId, out var sos) ? sos : 0,
+                            SOSOS = swissStats.SOSOS.TryGetValue(tp.PlayerId, out var sosos) ? sosos : 0
+                        };
+                    }).ToList(),
+                LeaguePlayers = leaguePlayers
             };
 
             return View(viewModel);
@@ -537,36 +711,6 @@ namespace PlayerRatings.Controllers
             return RedirectToAction(nameof(Edit), new { id = tournamentId, filterMonth, filterYear });
         }
 
-        // POST: Tournaments/UpdatePlayerPosition
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> UpdatePlayerPosition(Guid tournamentId, string playerId, int? position)
-        {
-            var currentUser = await User.GetApplicationUser(_userManager);
-
-            var tournament = await _context.Tournaments
-                .Include(t => t.League)
-                .FirstOrDefaultAsync(t => t.Id == tournamentId);
-
-            if (tournament == null || tournament.League.CreatedByUserId != currentUser.Id)
-            {
-                return Json(new { success = false, message = "Unauthorized" });
-            }
-
-            var tournamentPlayer = await _context.TournamentPlayers
-                .FirstOrDefaultAsync(tp => tp.TournamentId == tournamentId && tp.PlayerId == playerId);
-
-            if (tournamentPlayer == null)
-            {
-                return Json(new { success = false, message = "Player not found" });
-            }
-
-            tournamentPlayer.Position = position;
-            await _context.SaveChangesAsync();
-
-            return Json(new { success = true });
-        }
-
         // POST: Tournaments/RemovePlayer
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -591,6 +735,117 @@ namespace PlayerRatings.Controllers
                 _context.TournamentPlayers.Remove(tournamentPlayer);
                 await _context.SaveChangesAsync();
             }
+
+            return RedirectToAction(nameof(Edit), new { id = tournamentId, filterMonth, filterYear });
+        }
+
+        // POST: Tournaments/AddPlayer - manually add a player to tournament
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AddPlayer(Guid tournamentId, string playerId, int? filterMonth, int? filterYear)
+        {
+            var currentUser = await User.GetApplicationUser(_userManager);
+
+            var tournament = await _context.Tournaments
+                .Include(t => t.League)
+                .Include(t => t.TournamentPlayers)
+                .FirstOrDefaultAsync(t => t.Id == tournamentId);
+
+            if (tournament == null || tournament.League.CreatedByUserId != currentUser.Id)
+            {
+                return NotFound();
+            }
+
+            // Check if player is in the league
+            var isInLeague = await _context.LeaguePlayers
+                .AnyAsync(lp => lp.LeagueId == tournament.LeagueId && lp.UserId == playerId);
+
+            if (!isInLeague)
+            {
+                return NotFound();
+            }
+
+            // Check if player is already in tournament
+            if (!tournament.TournamentPlayers.Any(tp => tp.PlayerId == playerId))
+            {
+                _context.TournamentPlayers.Add(new TournamentPlayer
+                {
+                    TournamentId = tournamentId,
+                    PlayerId = playerId
+                });
+                await _context.SaveChangesAsync();
+            }
+
+            return RedirectToAction(nameof(Edit), new { id = tournamentId, filterMonth, filterYear });
+        }
+
+        // POST: Tournaments/SavePositions - save all positions at once
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SavePositions(Guid tournamentId, List<string> playerIds, List<int?> positionValues, int? filterMonth, int? filterYear)
+        {
+            var currentUser = await User.GetApplicationUser(_userManager);
+
+            var tournament = await _context.Tournaments
+                .Include(t => t.League)
+                .Include(t => t.TournamentPlayers)
+                .FirstOrDefaultAsync(t => t.Id == tournamentId);
+
+            if (tournament == null || tournament.League.CreatedByUserId != currentUser.Id)
+            {
+                return NotFound();
+            }
+
+            if (playerIds != null && positionValues != null)
+            {
+                for (int i = 0; i < playerIds.Count && i < positionValues.Count; i++)
+                {
+                    var tournamentPlayer = tournament.TournamentPlayers.FirstOrDefault(tp => tp.PlayerId == playerIds[i]);
+                    if (tournamentPlayer != null)
+                    {
+                        tournamentPlayer.Position = positionValues[i];
+                    }
+                }
+                await _context.SaveChangesAsync();
+            }
+
+            return RedirectToAction(nameof(Edit), new { id = tournamentId, filterMonth, filterYear });
+        }
+
+        // POST: Tournaments/CalculatePositions
+        // Uses Swiss-system: undefeated players are champions, then rank by wins → SOS → SOSOS
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CalculatePositions(Guid tournamentId, int? filterMonth, int? filterYear)
+        {
+            var currentUser = await User.GetApplicationUser(_userManager);
+
+            var tournament = await _context.Tournaments
+                .Include(t => t.League)
+                .Include(t => t.Matches)
+                .Include(t => t.TournamentPlayers)
+                .FirstOrDefaultAsync(t => t.Id == tournamentId);
+
+            if (tournament == null || tournament.League.CreatedByUserId != currentUser.Id)
+            {
+                return NotFound();
+            }
+
+            // Calculate positions using Swiss-system
+            var swissStats = CalculateSwissStats(tournament.Matches);
+            var positions = CalculateSwissPositions(swissStats);
+
+            // Update positions in database
+            foreach (var kvp in positions)
+            {
+                var tournamentPlayer = tournament.TournamentPlayers.FirstOrDefault(tp => tp.PlayerId == kvp.Key);
+                if (tournamentPlayer != null)
+                {
+                    tournamentPlayer.Position = kvp.Value;
+                }
+            }
+
+            await _context.SaveChangesAsync();
 
             return RedirectToAction(nameof(Edit), new { id = tournamentId, filterMonth, filterYear });
         }

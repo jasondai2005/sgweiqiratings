@@ -114,7 +114,12 @@ namespace PlayerRatings.ViewModels.Player
         public double Rating { get; set; }
         public string RatingDisplay => Rating.ToString("F1");
         public int MatchesInMonth { get; set; }
-        public List<string> MatchNames { get; set; } = new List<string>();
+        public List<MatchInfo> Matches { get; set; } = new List<MatchInfo>();
+        
+        /// <summary>
+        /// Legacy property for backwards compatibility - returns just match names
+        /// </summary>
+        public List<string> MatchNames => Matches.Select(m => m.DisplayName).ToList();
         
         /// <summary>
         /// Player's position in the ranking at the end of this month (1-based). 0 means not ranked.
@@ -142,6 +147,22 @@ namespace PlayerRatings.ViewModels.Player
         /// </summary>
         public bool HasPromotionBonus => PromotionBonuses.Any();
     }
+    
+    /// <summary>
+    /// Match info for display in rating history
+    /// </summary>
+    public class MatchInfo
+    {
+        public string MatchName { get; set; }
+        public Guid? TournamentId { get; set; }
+        public string TournamentName { get; set; }
+        public int? Round { get; set; }
+        
+        /// <summary>
+        /// Display name - tournament name if available, otherwise match name
+        /// </summary>
+        public string DisplayName => TournamentName ?? MatchName ?? "";
+    }
 
     public class GameRecord
     {
@@ -162,6 +183,21 @@ namespace PlayerRatings.ViewModels.Player
         /// Whether this match is rated (factor != 0).
         /// </summary>
         public bool IsRated => Factor != 0;
+        
+        /// <summary>
+        /// Tournament ID if match belongs to a tournament.
+        /// </summary>
+        public Guid? TournamentId { get; set; }
+        
+        /// <summary>
+        /// Tournament full name for display.
+        /// </summary>
+        public string TournamentName { get; set; }
+        
+        /// <summary>
+        /// Round number within the tournament.
+        /// </summary>
+        public int? Round { get; set; }
     }
 }
 

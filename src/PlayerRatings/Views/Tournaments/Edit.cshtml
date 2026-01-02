@@ -130,56 +130,115 @@
         
         <!-- Players Section -->
         <div class="panel panel-default">
-            <div class="panel-heading">Players (@Model.AvailablePlayers.Count)</div>
+            <div class="panel-heading">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>Players (@Model.AvailablePlayers.Count)</span>
+                    <div>
+                        @if (Model.AvailablePlayers.Any())
+                        {
+                            <form asp-action="CalculatePositions" method="post" style="display: inline;">
+                                <input type="hidden" name="tournamentId" value="@Model.Id" />
+                                <input type="hidden" name="filterMonth" value="@Model.FilterMonth" />
+                                <input type="hidden" name="filterYear" value="@Model.FilterYear" />
+                                <button type="submit" class="btn btn-xs btn-default" title="Swiss-system: Undefeated first, then wins → SOS → SOSOS">
+                                    Calculate
+                                </button>
+                            </form>
+                        }
+                    </div>
+                </div>
+            </div>
             <div class="panel-body" style="padding: 0;">
                 @if (!Model.AvailablePlayers.Any())
                 {
-                    <p class="text-muted" style="padding: 15px; margin: 0;">Add matches to populate players.</p>
+                    <p class="text-muted" style="padding: 15px; margin: 0;">Add matches or players below.</p>
                 }
                 else
                 {
-                    <table class="table table-condensed" style="margin-bottom: 0;">
-                        <thead>
-                            <tr>
-                                <th style="width: 60px;">Pos</th>
-                                <th>Player</th>
-                                <th style="width: 80px;">Promo</th>
-                                <th style="width: 50px;"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var p in Model.AvailablePlayers)
-                            {
+                    <form asp-action="SavePositions" method="post" id="savePositionsForm">
+                        <input type="hidden" name="tournamentId" value="@Model.Id" />
+                        <input type="hidden" name="filterMonth" value="@Model.FilterMonth" />
+                        <input type="hidden" name="filterYear" value="@Model.FilterYear" />
+                        <table class="table table-condensed" style="margin-bottom: 0;">
+                            <thead>
                                 <tr>
-                                    <td>
-                                        <input type="number" class="form-control input-sm position-input" 
-                                               data-player-id="@p.PlayerId" 
-                                               value="@p.Position" 
-                                               style="width: 50px;" />
-                                    </td>
-                                    <td>@p.PlayerName</td>
-                                    <td>
-                                        @if (!string.IsNullOrEmpty(p.PromotionRanking))
-                                        {
-                                            <span class="label label-success">@p.PromotionRanking</span>
-                                        }
-                                    </td>
-                                    <td>
-                                        <form asp-action="RemovePlayer" method="post" style="display: inline;">
-                                            <input type="hidden" name="tournamentId" value="@Model.Id" />
-                                            <input type="hidden" name="playerId" value="@p.PlayerId" />
-                                            <input type="hidden" name="filterMonth" value="@Model.FilterMonth" />
-                                            <input type="hidden" name="filterYear" value="@Model.FilterYear" />
-                                            <button type="submit" class="btn btn-xs btn-danger" title="Remove player">×</button>
-                                        </form>
-                                    </td>
+                                    <th style="width: 55px;">Pos</th>
+                                    <th>Player</th>
+                                    <th style="width: 30px;">W</th>
+                                    <th style="width: 30px;">L</th>
+                                    <th style="width: 35px;" title="SOS">SOS</th>
+                                    <th style="width: 30px;"></th>
                                 </tr>
-                            }
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                @{ var playerIdx = 0; }
+                                @foreach (var p in Model.AvailablePlayers)
+                                {
+                                    var rowStyle = p.IsUndefeated ? "background-color: #fff9c4;" : "";
+                                    <tr style="@rowStyle">
+                                        <td>
+                                            <input type="hidden" name="playerIds[@playerIdx]" value="@p.PlayerId" />
+                                            <input type="number" name="positionValues[@playerIdx]" 
+                                                   class="form-control input-sm" 
+                                                   value="@p.Position" 
+                                                   style="width: 45px; padding: 2px 4px;" />
+                                        </td>
+                                        <td style="white-space: nowrap;">
+                                            @p.PlayerName
+                                            @if (p.IsUndefeated)
+                                            {
+                                                <span title="Undefeated">🏆</span>
+                                            }
+                                        </td>
+                                        <td>@p.Wins</td>
+                                        <td>@p.Losses</td>
+                                        <td title="SOS: @p.SOS, SOSOS: @p.SOSOS">@p.SOS</td>
+                                        <td>
+                                            <form asp-action="RemovePlayer" method="post" style="display: inline;">
+                                                <input type="hidden" name="tournamentId" value="@Model.Id" />
+                                                <input type="hidden" name="playerId" value="@p.PlayerId" />
+                                                <input type="hidden" name="filterMonth" value="@Model.FilterMonth" />
+                                                <input type="hidden" name="filterYear" value="@Model.FilterYear" />
+                                                <button type="submit" class="btn btn-xs btn-danger" title="Remove">×</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    playerIdx++;
+                                }
+                            </tbody>
+                        </table>
+                    </form>
                 }
             </div>
+            @if (Model.AvailablePlayers.Any())
+            {
+                <div class="panel-footer">
+                    <button type="submit" form="savePositionsForm" class="btn btn-sm btn-primary">Save Positions</button>
+                </div>
+            }
         </div>
+        
+        <!-- Add Player Section -->
+        @if (Model.LeaguePlayers.Any())
+        {
+            <div class="panel panel-default">
+                <div class="panel-heading">Add Player</div>
+                <div class="panel-body">
+                    <form asp-action="AddPlayer" method="post" class="form-inline">
+                        <input type="hidden" name="tournamentId" value="@Model.Id" />
+                        <input type="hidden" name="filterMonth" value="@Model.FilterMonth" />
+                        <input type="hidden" name="filterYear" value="@Model.FilterYear" />
+                        <select name="playerId" class="form-control input-sm" style="width: 180px;">
+                            @foreach (var p in Model.LeaguePlayers)
+                            {
+                                <option value="@p.PlayerId">@p.PlayerName</option>
+                            }
+                        </select>
+                        <button type="submit" class="btn btn-sm btn-default">Add</button>
+                    </form>
+                </div>
+            </div>
+        }
     </div>
     
     <!-- Right Column: Match Selection -->
@@ -340,30 +399,6 @@
                 $('.match-checkbox:checked').each(function() {
                     var index = $(this).data('index');
                     $('.round-input[data-index="' + index + '"]').val(roundValue);
-                });
-            });
-            
-            // Update player position via AJAX
-            $('.position-input').on('change', function() {
-                var playerId = $(this).data('player-id');
-                var position = $(this).val() || '';
-                
-                $.ajax({
-                    url: '@Url.Action("UpdatePlayerPosition")',
-                    method: 'POST',
-                    data: {
-                        tournamentId: '@Model.Id',
-                        playerId: playerId,
-                        position: position
-                    },
-                    headers: {
-                        'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val()
-                    },
-                    success: function(data) {
-                        if (!data.success) {
-                            alert('Failed to update position: ' + data.message);
-                        }
-                    }
                 });
             });
         });
