@@ -2,7 +2,6 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PlayerRatings.Models;
 
@@ -16,11 +15,9 @@ namespace PlayerRatings.Migrations
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder
-                .HasAnnotation("ProductVersion", "7.0.0-rc1-16348")
-                .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
+            modelBuilder.HasAnnotation("ProductVersion", "6.0.5");
 
-            modelBuilder.Entity("Microsoft.AspNet.Identity.EntityFramework.IdentityRole", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
                 {
                     b.Property<string>("Id")
                         .HasColumnType("TEXT");
@@ -40,12 +37,13 @@ namespace PlayerRatings.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("NormalizedName")
+                        .IsUnique()
                         .HasDatabaseName("RoleNameIndex");
 
-                    b.ToTable("AspNetRoles");
+                    b.ToTable("AspNetRoles", (string)null);
                 });
 
-            modelBuilder.Entity("Microsoft.AspNet.Identity.EntityFramework.IdentityRoleClaim<string>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -63,10 +61,12 @@ namespace PlayerRatings.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("AspNetRoleClaims");
+                    b.HasIndex("RoleId");
+
+                    b.ToTable("AspNetRoleClaims", (string)null);
                 });
 
-            modelBuilder.Entity("Microsoft.AspNet.Identity.EntityFramework.IdentityUserClaim<string>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -84,15 +84,19 @@ namespace PlayerRatings.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("AspNetUserClaims");
+                    b.HasIndex("UserId");
+
+                    b.ToTable("AspNetUserClaims", (string)null);
                 });
 
-            modelBuilder.Entity("Microsoft.AspNet.Identity.EntityFramework.IdentityUserLogin<string>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
                 {
                     b.Property<string>("LoginProvider")
+                        .HasMaxLength(128)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("ProviderKey")
+                        .HasMaxLength(128)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("ProviderDisplayName")
@@ -104,10 +108,12 @@ namespace PlayerRatings.Migrations
 
                     b.HasKey("LoginProvider", "ProviderKey");
 
-                    b.ToTable("AspNetUserLogins");
+                    b.HasIndex("UserId");
+
+                    b.ToTable("AspNetUserLogins", (string)null);
                 });
 
-            modelBuilder.Entity("Microsoft.AspNet.Identity.EntityFramework.IdentityUserRole<string>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<string>", b =>
                 {
                     b.Property<string>("UserId")
                         .HasColumnType("TEXT");
@@ -117,7 +123,30 @@ namespace PlayerRatings.Migrations
 
                     b.HasKey("UserId", "RoleId");
 
-                    b.ToTable("AspNetUserRoles");
+                    b.HasIndex("RoleId");
+
+                    b.ToTable("AspNetUserRoles", (string)null);
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
+                {
+                    b.Property<string>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LoginProvider")
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Value")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("UserId", "LoginProvider", "Name");
+
+                    b.ToTable("AspNetUserTokens", (string)null);
                 });
 
             modelBuilder.Entity("PlayerRatings.Models.ApplicationUser", b =>
@@ -148,8 +177,8 @@ namespace PlayerRatings.Migrations
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("INTEGER");
 
-                    b.Property<DateTimeOffset?>("LockoutEnd")
-                        .HasColumnType("TEXT");
+                    b.Property<long?>("LockoutEnd")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("NormalizedEmail")
                         .HasMaxLength(256)
@@ -169,11 +198,9 @@ namespace PlayerRatings.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Photo")
-                        .HasMaxLength(500)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Residence")
-                        .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("SecurityStamp")
@@ -192,9 +219,10 @@ namespace PlayerRatings.Migrations
                         .HasDatabaseName("EmailIndex");
 
                     b.HasIndex("NormalizedUserName")
+                        .IsUnique()
                         .HasDatabaseName("UserNameIndex");
 
-                    b.ToTable("AspNetUsers");
+                    b.ToTable("AspNetUsers", (string)null);
                 });
 
             modelBuilder.Entity("PlayerRatings.Models.Invite", b =>
@@ -203,8 +231,8 @@ namespace PlayerRatings.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedOn")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("CreatedOn")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("CreatedUserId")
                         .HasColumnType("TEXT");
@@ -213,6 +241,11 @@ namespace PlayerRatings.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CreatedUserId");
+
+                    b.HasIndex("InvitedById")
+                        .HasDatabaseName("IX_Invite_InvitedById");
 
                     b.ToTable("Invite");
                 });
@@ -231,6 +264,8 @@ namespace PlayerRatings.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CreatedByUserId");
+
                     b.ToTable("League");
                 });
 
@@ -240,16 +275,26 @@ namespace PlayerRatings.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<bool>("IsBlocked")
-                        .HasColumnType("INTEGER");
-
                     b.Property<Guid>("LeagueId")
                         .HasColumnType("TEXT");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("IsBlocked");
 
                     b.Property<string>("UserId")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("LeagueId")
+                        .HasDatabaseName("IX_LeaguePlayer_LeagueId");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("IX_LeaguePlayer_UserId");
+
+                    b.HasIndex("LeagueId", "UserId")
+                        .HasDatabaseName("IX_LeaguePlayer_LeagueId_UserId");
 
                     b.ToTable("LeaguePlayer");
                 });
@@ -263,8 +308,8 @@ namespace PlayerRatings.Migrations
                     b.Property<string>("CreatedByUserId")
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("Date")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("Date")
+                        .HasColumnType("INTEGER");
 
                     b.Property<double?>("Factor")
                         .HasColumnType("REAL");
@@ -278,13 +323,42 @@ namespace PlayerRatings.Migrations
                     b.Property<Guid>("LeagueId")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("MatchName")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("Round")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("SecondPlayerId")
                         .HasColumnType("TEXT");
 
                     b.Property<int>("SecondPlayerScore")
                         .HasColumnType("INTEGER");
 
+                    b.Property<Guid?>("TournamentId")
+                        .HasColumnType("TEXT");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("Date")
+                        .HasDatabaseName("IX_Match_Date");
+
+                    b.HasIndex("FirstPlayerId")
+                        .HasDatabaseName("IX_Match_FirstPlayerId");
+
+                    b.HasIndex("LeagueId")
+                        .HasDatabaseName("IX_Match_LeagueId");
+
+                    b.HasIndex("SecondPlayerId")
+                        .HasDatabaseName("IX_Match_SecondPlayerId");
+
+                    b.HasIndex("TournamentId")
+                        .HasDatabaseName("IX_Match_TournamentId");
+
+                    b.HasIndex("LeagueId", "Date")
+                        .HasDatabaseName("IX_Match_LeagueId_Date");
 
                     b.ToTable("Match");
                 });
@@ -308,113 +382,303 @@ namespace PlayerRatings.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset?>("RankingDate")
-                        .HasColumnType("TEXT");
+                    b.Property<long?>("RankingDate")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("RankingNote")
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("TournamentId")
+                        .HasColumnType("TEXT");
+
                     b.HasKey("RankingId");
 
-                    b.HasIndex("PlayerId");
+                    b.HasIndex("PlayerId")
+                        .HasDatabaseName("IX_PlayerRanking_PlayerId");
 
-                    b.HasIndex("RankingDate");
+                    b.HasIndex("TournamentId")
+                        .HasDatabaseName("IX_PlayerRanking_TournamentId");
 
                     b.ToTable("PlayerRanking");
                 });
 
-            modelBuilder.Entity("Microsoft.AspNet.Identity.EntityFramework.IdentityRoleClaim<string>", b =>
+            modelBuilder.Entity("PlayerRatings.Models.Tournament", b =>
                 {
-                    b.HasOne("Microsoft.AspNet.Identity.EntityFramework.IdentityRole", null)
-                        .WithMany()
-                        .HasForeignKey("RoleId");
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("EndDate")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<double?>("Factor")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("Group")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("LeagueId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Location")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Ordinal")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Organizer")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("StartDate")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TournamentType")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LeagueId")
+                        .HasDatabaseName("IX_Tournament_LeagueId");
+
+                    b.HasIndex("LeagueId", "StartDate")
+                        .HasDatabaseName("IX_Tournament_LeagueId_StartDate");
+
+                    b.ToTable("Tournament");
                 });
 
-            modelBuilder.Entity("Microsoft.AspNet.Identity.EntityFramework.IdentityUserClaim<string>", b =>
+            modelBuilder.Entity("PlayerRatings.Models.TournamentPlayer", b =>
+                {
+                    b.Property<Guid>("TournamentId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PlayerId")
+                        .HasMaxLength(450)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("Position")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid?>("PromotionId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("TournamentId", "PlayerId");
+
+                    b.HasIndex("PlayerId")
+                        .HasDatabaseName("IX_TournamentPlayer_PlayerId");
+
+                    b.HasIndex("PromotionId");
+
+                    b.ToTable("TournamentPlayer");
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
+                {
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
                 {
                     b.HasOne("PlayerRatings.Models.ApplicationUser", null)
                         .WithMany()
-                        .HasForeignKey("UserId");
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
-            modelBuilder.Entity("Microsoft.AspNet.Identity.EntityFramework.IdentityUserLogin<string>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
                 {
                     b.HasOne("PlayerRatings.Models.ApplicationUser", null)
                         .WithMany()
-                        .HasForeignKey("UserId");
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
-            modelBuilder.Entity("Microsoft.AspNet.Identity.EntityFramework.IdentityUserRole<string>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<string>", b =>
                 {
-                    b.HasOne("Microsoft.AspNet.Identity.EntityFramework.IdentityRole", null)
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
                         .WithMany()
-                        .HasForeignKey("RoleId");
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("PlayerRatings.Models.ApplicationUser", null)
                         .WithMany()
-                        .HasForeignKey("UserId");
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
+                {
+                    b.HasOne("PlayerRatings.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("PlayerRatings.Models.Invite", b =>
                 {
-                    b.HasOne("PlayerRatings.Models.ApplicationUser", null)
+                    b.HasOne("PlayerRatings.Models.ApplicationUser", "CreatedUser")
                         .WithMany()
                         .HasForeignKey("CreatedUserId");
 
-                    b.HasOne("PlayerRatings.Models.ApplicationUser", null)
+                    b.HasOne("PlayerRatings.Models.ApplicationUser", "InvitedBy")
                         .WithMany()
                         .HasForeignKey("InvitedById");
+
+                    b.Navigation("CreatedUser");
+
+                    b.Navigation("InvitedBy");
                 });
 
             modelBuilder.Entity("PlayerRatings.Models.League", b =>
                 {
-                    b.HasOne("PlayerRatings.Models.ApplicationUser", null)
+                    b.HasOne("PlayerRatings.Models.ApplicationUser", "CreatedByUser")
                         .WithMany()
                         .HasForeignKey("CreatedByUserId");
+
+                    b.Navigation("CreatedByUser");
                 });
 
             modelBuilder.Entity("PlayerRatings.Models.LeaguePlayer", b =>
                 {
-                    b.HasOne("PlayerRatings.Models.League", null)
+                    b.HasOne("PlayerRatings.Models.League", "League")
                         .WithMany()
-                        .HasForeignKey("LeagueId");
+                        .HasForeignKey("LeagueId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
-                    b.HasOne("PlayerRatings.Models.ApplicationUser", null)
+                    b.HasOne("PlayerRatings.Models.ApplicationUser", "User")
                         .WithMany()
                         .HasForeignKey("UserId");
+
+                    b.Navigation("League");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("PlayerRatings.Models.Match", b =>
                 {
-                    b.HasOne("PlayerRatings.Models.ApplicationUser", null)
+                    b.HasOne("PlayerRatings.Models.ApplicationUser", "CreatedByUser")
                         .WithMany()
                         .HasForeignKey("CreatedByUserId");
 
-                    b.HasOne("PlayerRatings.Models.ApplicationUser", null)
+                    b.HasOne("PlayerRatings.Models.ApplicationUser", "FirstPlayer")
                         .WithMany()
                         .HasForeignKey("FirstPlayerId");
 
-                    b.HasOne("PlayerRatings.Models.League", null)
-                        .WithMany()
-                        .HasForeignKey("LeagueId");
+                    b.HasOne("PlayerRatings.Models.League", "League")
+                        .WithMany("Matches")
+                        .HasForeignKey("LeagueId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
-                    b.HasOne("PlayerRatings.Models.ApplicationUser", null)
+                    b.HasOne("PlayerRatings.Models.ApplicationUser", "SecondPlayer")
                         .WithMany()
                         .HasForeignKey("SecondPlayerId");
+
+                    b.HasOne("PlayerRatings.Models.Tournament", "Tournament")
+                        .WithMany("Matches")
+                        .HasForeignKey("TournamentId");
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("FirstPlayer");
+
+                    b.Navigation("League");
+
+                    b.Navigation("SecondPlayer");
+
+                    b.Navigation("Tournament");
                 });
 
             modelBuilder.Entity("PlayerRatings.Models.PlayerRanking", b =>
                 {
-                    b.HasOne("PlayerRatings.Models.ApplicationUser", null)
+                    b.HasOne("PlayerRatings.Models.ApplicationUser", "Player")
                         .WithMany("Rankings")
                         .HasForeignKey("PlayerId")
-                        .OnDelete(DeleteBehavior.Cascade);
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("PlayerRatings.Models.Tournament", "Tournament")
+                        .WithMany()
+                        .HasForeignKey("TournamentId");
+
+                    b.Navigation("Player");
+
+                    b.Navigation("Tournament");
+                });
+
+            modelBuilder.Entity("PlayerRatings.Models.Tournament", b =>
+                {
+                    b.HasOne("PlayerRatings.Models.League", "League")
+                        .WithMany("Tournaments")
+                        .HasForeignKey("LeagueId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("League");
+                });
+
+            modelBuilder.Entity("PlayerRatings.Models.TournamentPlayer", b =>
+                {
+                    b.HasOne("PlayerRatings.Models.ApplicationUser", "Player")
+                        .WithMany()
+                        .HasForeignKey("PlayerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("PlayerRatings.Models.PlayerRanking", "Promotion")
+                        .WithMany()
+                        .HasForeignKey("PromotionId");
+
+                    b.HasOne("PlayerRatings.Models.Tournament", "Tournament")
+                        .WithMany("TournamentPlayers")
+                        .HasForeignKey("TournamentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Player");
+
+                    b.Navigation("Promotion");
+
+                    b.Navigation("Tournament");
                 });
 
             modelBuilder.Entity("PlayerRatings.Models.ApplicationUser", b =>
                 {
                     b.Navigation("Rankings");
+                });
+
+            modelBuilder.Entity("PlayerRatings.Models.League", b =>
+                {
+                    b.Navigation("Matches");
+
+                    b.Navigation("Tournaments");
+                });
+
+            modelBuilder.Entity("PlayerRatings.Models.Tournament", b =>
+                {
+                    b.Navigation("Matches");
+
+                    b.Navigation("TournamentPlayers");
                 });
 #pragma warning restore 612, 618
         }

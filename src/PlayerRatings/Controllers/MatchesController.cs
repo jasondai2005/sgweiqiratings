@@ -122,7 +122,7 @@ namespace PlayerRatings.Controllers
         }
 
         // GET: /<controller>/
-        public async Task<IActionResult> Create(Guid? leagueId, DateTimeOffset? lastMatchDateTime, string matchName, double? factor)
+        public async Task<IActionResult> Create(Guid? leagueId, DateTimeOffset? lastMatchDateTime, string matchName, double? factor, Guid? tournamentId)
         {
             var currentUser = await _userManager.GetUserAsync(User);
 
@@ -136,12 +136,26 @@ namespace PlayerRatings.Controllers
             var leagueIds = leagues.Select(l => l.Id).ToList();
             var players = GetUsers(leagueIds);
 
+            // Load tournaments for all leagues the user has access to
+            var tournaments = _context.Tournaments
+                .Where(t => leagueIds.Contains(t.LeagueId))
+                .OrderByDescending(t => t.StartDate)
+                .ToList()
+                .Select(t => new ViewModels.Match.TournamentSelectItem
+                {
+                    Id = t.Id,
+                    LeagueId = t.LeagueId,
+                    Name = t.FullName
+                })
+                .ToList();
 
             return View("Create", new NewResultViewModel(leagues, players, lastMatchDateTime, matchName, factor)
             {
-                LeagueId = leagues.First().Id,
+                LeagueId = leagueId ?? leagues.First().Id,
                 FirstPlayerId = currentUser.Id,
-                SecondPlayerId = players.Keys.Except(new [] { currentUser }).FirstOrDefault()?.Id
+                SecondPlayerId = players.Keys.Except(new [] { currentUser }).FirstOrDefault()?.Id,
+                Tournaments = tournaments,
+                TournamentId = tournamentId
             });
         }
 
@@ -189,10 +203,21 @@ namespace PlayerRatings.Controllers
                 if (league == null)
                 {
                     ModelState.AddModelError("", _localizer[nameof(LocalizationKey.LeagueNotFound)]);
-                    var leagues = GetLeagues(currentUser, null);
-                    var leagueIds = leagues.Select(l => l.Id).ToList();
-                    model.Leagues = leagues;
-                    model.Users = GetUsers(leagueIds);
+                    var allLeagues = GetLeagues(currentUser, null);
+                    var allLeagueIds = allLeagues.Select(l => l.Id).ToList();
+                    model.Leagues = allLeagues;
+                    model.Users = GetUsers(allLeagueIds);
+                    model.Tournaments = _context.Tournaments
+                        .Where(t => allLeagueIds.Contains(t.LeagueId))
+                        .OrderByDescending(t => t.StartDate)
+                        .ToList()
+                        .Select(t => new ViewModels.Match.TournamentSelectItem
+                        {
+                            Id = t.Id,
+                            LeagueId = t.LeagueId,
+                            Name = t.FullName
+                        })
+                        .ToList();
                     return View("Create", model);
                 }
 
@@ -211,7 +236,7 @@ namespace PlayerRatings.Controllers
                     return View("Create", model);
                 }
 
-                _context.Match.Add(new Match
+                var match = new Match
                 {
                     Id = Guid.NewGuid(),
                     Date = model.Date,
@@ -222,8 +247,49 @@ namespace PlayerRatings.Controllers
                     League = league,
                     CreatedByUser = currentUser,
                     MatchName = model.MatchName,
-                    Factor = model.Factor == 1 ? null : model.Factor
-                });
+                    Factor = model.Factor == 1 ? null : model.Factor,
+                    TournamentId = model.TournamentId,
+                    Round = model.Round
+                };
+
+                // If tournament is selected, update match name based on tournament info
+                if (model.TournamentId.HasValue)
+                {
+                    var tournament = _context.Tournaments.Find(model.TournamentId.Value);
+                    if (tournament != null && tournament.LeagueId == league.Id)
+                    {
+                        // Build match name: Organizer + Ordinal + Name + Group + Round
+                        var nameParts = new List<string>();
+                        if (!string.IsNullOrEmpty(tournament.Organizer))
+                            nameParts.Add(tournament.Organizer);
+                        if (!string.IsNullOrEmpty(tournament.Ordinal))
+                            nameParts.Add(tournament.Ordinal);
+                        nameParts.Add(tournament.Name);
+                        if (!string.IsNullOrEmpty(tournament.Group))
+                            nameParts.Add(tournament.Group);
+                        if (model.Round.HasValue)
+                            nameParts.Add($"R{model.Round.Value}");
+                        match.MatchName = string.Join(" ", nameParts);
+
+                        // Use tournament factor if match factor not set
+                        if (!match.Factor.HasValue && tournament.Factor.HasValue)
+                        {
+                            match.Factor = tournament.Factor;
+                        }
+
+                        // Add players to tournament if not already there
+                        if (!_context.TournamentPlayers.Any(tp => tp.TournamentId == tournament.Id && tp.PlayerId == firstPlayer.Id))
+                        {
+                            _context.TournamentPlayers.Add(new TournamentPlayer { TournamentId = tournament.Id, PlayerId = firstPlayer.Id });
+                        }
+                        if (!_context.TournamentPlayers.Any(tp => tp.TournamentId == tournament.Id && tp.PlayerId == secondPlayer.Id))
+                        {
+                            _context.TournamentPlayers.Add(new TournamentPlayer { TournamentId = tournament.Id, PlayerId = secondPlayer.Id });
+                        }
+                    }
+                }
+
+                _context.Match.Add(match);
                 _context.SaveChanges();
                 if (toRating)
                 {
@@ -231,12 +297,24 @@ namespace PlayerRatings.Controllers
                 }
                 else
                 {
-                    return RedirectToAction(nameof(Create), new { leagueId = model.LeagueId, lastMatchDateTime = model.Date, matchName = model.MatchName, factor = model.Factor });
+                    return RedirectToAction(nameof(Create), new { leagueId = model.LeagueId, lastMatchDateTime = model.Date, matchName = model.MatchName, factor = model.Factor, tournamentId = model.TournamentId });
                 }
             }
 
             model.Leagues = GetLeagues(currentUser, null);
-            model.Users = GetUsers(model.Leagues.Select(l => l.Id));
+            var availableLeagueIds = model.Leagues.Select(l => l.Id).ToList();
+            model.Users = GetUsers(availableLeagueIds);
+            model.Tournaments = _context.Tournaments
+                .Where(t => availableLeagueIds.Contains(t.LeagueId))
+                .OrderByDescending(t => t.StartDate)
+                .ToList()
+                .Select(t => new ViewModels.Match.TournamentSelectItem
+                {
+                    Id = t.Id,
+                    LeagueId = t.LeagueId,
+                    Name = t.FullName
+                })
+                .ToList();
             return View("Create", model);
         }
 

@@ -1,0 +1,54 @@
+@model PlayerRatings.Models.Tournament
+
+@{
+    ViewData["Title"] = "Delete Tournament";
+}
+
+<h3>@ViewData["Title"]</h3>
+
+<div class="alert alert-danger">
+    <strong>Are you sure you want to delete this tournament?</strong>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <dl>
+            <dt>Name</dt>
+            <dd>@Model.FullName</dd>
+            
+            @if (!string.IsNullOrEmpty(Model.Organizer))
+            {
+                <dt>Organizer</dt>
+                <dd>@Model.Organizer</dd>
+            }
+            
+            @if (Model.StartDate.HasValue)
+            {
+                <dt>Dates</dt>
+                <dd>
+                    @Model.StartDate.Value.ToString("dd MMM yyyy")
+                    @if (Model.EndDate.HasValue && Model.EndDate.Value.Date != Model.StartDate.Value.Date)
+                    {
+                        <text> - @Model.EndDate.Value.ToString("dd MMM yyyy")</text>
+                    }
+                </dd>
+            }
+        </dl>
+    </div>
+</div>
+
+<p class="text-muted">
+    <strong>Note:</strong> Deleting this tournament will:
+    <ul>
+        <li>Remove tournament information</li>
+        <li>Clear tournament assignments from matches (matches will remain)</li>
+        <li>Remove player positions and promotions from tournament</li>
+    </ul>
+</p>
+
+<form asp-action="Delete" method="post">
+    <input type="hidden" name="id" value="@Model.Id" />
+    <button type="submit" class="btn btn-danger">Delete Tournament</button>
+    <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary">Cancel</a>
+</form>
+

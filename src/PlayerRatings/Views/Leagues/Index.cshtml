@@ -35,6 +35,7 @@
         <td>
             <a asp-action="Rating" asp-route-id="@item.Id">@LocString[nameof(LocalizationKey.Rating)]</a> |
             <a asp-controller="Matches" asp-action="Index" asp-route-leagueId="@item.Id">@LocString[nameof(LocalizationKey.Matches)]</a> |
+            <a asp-controller="Tournaments" asp-action="Index" asp-route-leagueId="@item.Id">Tournaments</a> |
             <a asp-action="Details" asp-route-id="@item.Id">@LocString[nameof(LocalizationKey.Details)]</a> |
             <a asp-controller="Invites" asp-action="Create" asp-route-leagueId="@item.Id">@LocString[nameof(LocalizationKey.Invite)]</a> |
             <a asp-controller="Matches" asp-action="Import" asp-route-leagueId="@item.Id">@LocString[nameof(LocalizationKey.ImportMatches)]</a>

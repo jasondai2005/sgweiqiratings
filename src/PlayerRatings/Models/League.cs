@@ -21,5 +21,7 @@ namespace PlayerRatings.Models
         public ApplicationUser CreatedByUser { get; set; }
 
         public virtual ICollection<Match> Matches { get; set; }
+
+        public virtual ICollection<Tournament> Tournaments { get; set; }
     }
 }

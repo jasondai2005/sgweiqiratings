@@ -80,7 +80,7 @@ namespace PlayerRatings.UnitTests.Controllers
             };
 
             // Act
-            var result = await controller.Create(null, null, null, null);
+            var result = await controller.Create(null, null, null, null, null);
 
             // Assert
             result.Should().BeOfType<RedirectToActionResult>().Which.ControllerName.Should().Be("Leagues");

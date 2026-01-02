@@ -59,6 +59,12 @@ namespace PlayerRatings.ViewModels.Player
         public string RankingNote { get; set; }
         
         /// <summary>
+        /// Optional reference to the tournament where this ranking was achieved
+        /// </summary>
+        [Display(Name = "Tournament")]
+        public Guid? TournamentId { get; set; }
+        
+        /// <summary>
         /// Common organizations for dropdown
         /// </summary>
         public static List<string> CommonOrganizations => new List<string>
@@ -76,6 +82,15 @@ namespace PlayerRatings.ViewModels.Player
             "EGF",
             "Other"
         };
+    }
+    
+    /// <summary>
+    /// Simple model for tournament dropdown options
+    /// </summary>
+    public class TournamentOption
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; }
     }
 }
 

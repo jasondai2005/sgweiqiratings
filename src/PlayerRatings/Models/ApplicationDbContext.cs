@@ -23,6 +23,29 @@ namespace PlayerRatings.Models
                 entity.HasIndex(m => m.SecondPlayerId).HasDatabaseName("IX_Match_SecondPlayerId");
                 // Composite index for common query pattern: filter by league, order by date
                 entity.HasIndex(m => new { m.LeagueId, m.Date }).HasDatabaseName("IX_Match_LeagueId_Date");
+                // Index for tournament lookup
+                entity.HasIndex(m => m.TournamentId).HasDatabaseName("IX_Match_TournamentId");
+            });
+
+            // Performance indexes for Tournament table
+            builder.Entity<Tournament>(entity =>
+            {
+                entity.HasIndex(t => t.LeagueId).HasDatabaseName("IX_Tournament_LeagueId");
+                entity.HasIndex(t => new { t.LeagueId, t.StartDate }).HasDatabaseName("IX_Tournament_LeagueId_StartDate");
+            });
+
+            // TournamentPlayer composite primary key and indexes
+            builder.Entity<TournamentPlayer>(entity =>
+            {
+                entity.HasKey(tp => new { tp.TournamentId, tp.PlayerId });
+                entity.HasIndex(tp => tp.PlayerId).HasDatabaseName("IX_TournamentPlayer_PlayerId");
+            });
+
+            // Performance indexes for PlayerRanking table
+            builder.Entity<PlayerRanking>(entity =>
+            {
+                entity.HasIndex(pr => pr.PlayerId).HasDatabaseName("IX_PlayerRanking_PlayerId");
+                entity.HasIndex(pr => pr.TournamentId).HasDatabaseName("IX_PlayerRanking_TournamentId");
             });
 
             // Performance indexes for LeaguePlayer table
@@ -72,5 +95,9 @@ namespace PlayerRatings.Models
         public DbSet<Invite> Invites { get; set; }
 
         public DbSet<PlayerRanking> PlayerRankings { get; set; }
+
+        public DbSet<Tournament> Tournaments { get; set; }
+
+        public DbSet<TournamentPlayer> TournamentPlayers { get; set; }
     }
 }

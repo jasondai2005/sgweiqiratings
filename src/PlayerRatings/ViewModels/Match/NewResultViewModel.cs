@@ -24,6 +24,11 @@ namespace PlayerRatings.ViewModels.Match
 
         public Dictionary<Models.ApplicationUser, IEnumerable<Guid>> Users { get; set; }
 
+        /// <summary>
+        /// Available tournaments for the dropdown, grouped by league
+        /// </summary>
+        public List<TournamentSelectItem> Tournaments { get; set; } = new List<TournamentSelectItem>();
+
         [Required]
         public Guid LeagueId { get; set; }
 
@@ -48,5 +53,25 @@ namespace PlayerRatings.ViewModels.Match
 
         [Range(0, 1)]
         public double? Factor { get; set; }
+
+        /// <summary>
+        /// Optional tournament to link this match to
+        /// </summary>
+        public Guid? TournamentId { get; set; }
+
+        /// <summary>
+        /// Round number within the tournament
+        /// </summary>
+        public int? Round { get; set; }
+    }
+
+    /// <summary>
+    /// Tournament item for select dropdown
+    /// </summary>
+    public class TournamentSelectItem
+    {
+        public Guid Id { get; set; }
+        public Guid LeagueId { get; set; }
+        public string Name { get; set; }
     }
 }

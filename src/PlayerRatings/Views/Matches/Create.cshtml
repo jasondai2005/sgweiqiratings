@@ -74,6 +74,36 @@
             </div>
         </div>
         <div class="form-group">
+            <label asp-for="TournamentId" class="col-md-2 control-label">@LocString[nameof(LocalizationKey.Tournament)]</label>
+            <div class="col-md-10">
+                <div style="display: flex; gap: 5px; align-items: center;">
+                    <select asp-for="TournamentId" class="form-control tournament-selector" style="flex: 1;">
+                        <option value="">-- No Tournament --</option>
+                        @foreach (var tournament in Model.Tournaments)
+                        {
+                            if (Model.TournamentId == tournament.Id)
+                            {
+                                <option value="@tournament.Id" data-leagueid="@tournament.LeagueId" selected>@tournament.Name</option>
+                            }
+                            else
+                            {
+                                <option value="@tournament.Id" data-leagueid="@tournament.LeagueId">@tournament.Name</option>
+                            }
+                        }
+                    </select>
+                    <a asp-controller="Tournaments" asp-action="Create" asp-route-leagueId="@Model.LeagueId" class="btn btn-default create-tournament-link" title="Create New Tournament">+</a>
+                </div>
+                <span asp-validation-for="TournamentId" class="text-danger" />
+            </div>
+        </div>
+        <div class="form-group">
+            <label asp-for="Round" class="col-md-2 control-label">@LocString[nameof(LocalizationKey.Round)]</label>
+            <div class="col-md-10">
+                <input asp-for="Round" class="form-control" type="number" min="1" placeholder="e.g. 1, 2, 3..." />
+                <span asp-validation-for="Round" class="text-danger" />
+            </div>
+        </div>
+        <div class="form-group">
             <label asp-for="MatchName" class="col-md-2 control-label">@LocString[nameof(LocalizationKey.MatchName)]</label>
             <div class="col-md-10">
                 <input asp-for="MatchName" class="form-control" />
@@ -195,13 +225,47 @@
                 }
             }
 
+            // Tournament selector filtering
+            var tournamentSelector = $('.tournament-selector');
+            var tournamentInitialOptions = tournamentSelector.children().clone();
+            var createTournamentLink = $('.create-tournament-link');
+
+            function filterTournamentSelector(leagueId) {
+                var currentSelection = tournamentSelector.val();
+                tournamentSelector.empty();
+
+                for (var i = 0; i < tournamentInitialOptions.length; i++) {
+                    var option = $(tournamentInitialOptions[i]).clone();
+                    var optionLeagueId = option.data('leagueid');
+                    // Include options without leagueid (like "-- No Tournament --") or matching league
+                    if (!optionLeagueId || optionLeagueId === leagueId) {
+                        tournamentSelector.append(option);
+                    }
+                }
+
+                if (tournamentSelector.children("option[value='" + currentSelection + "']").length) {
+                    tournamentSelector.val(currentSelection);
+                } else {
+                    tournamentSelector.val('');
+                }
+
+                // Update create tournament link
+                var currentHref = createTournamentLink.attr('href');
+                if (currentHref) {
+                    currentHref = currentHref.replace(/leagueId=[^&]+/, 'leagueId=' + leagueId);
+                    createTournamentLink.attr('href', currentHref);
+                }
+            }
+
             $('.league-selector').each(function (index, element) {
                 filterPlayerSelectors(element.value);
+                filterTournamentSelector(element.value);
             });
 
             $('.league-selector').change(function (event) {
                 var leagueId = event.currentTarget.value;
                 filterPlayerSelectors(leagueId);
+                filterTournamentSelector(leagueId);
             });
         });
     </script>

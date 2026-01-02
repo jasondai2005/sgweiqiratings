@@ -47,10 +47,21 @@ namespace PlayerRatings.Models
         public string RankingNote { get; set; }
 
         /// <summary>
+        /// Foreign key to the tournament where this ranking was achieved (nullable)
+        /// </summary>
+        public Guid? TournamentId { get; set; }
+
+        /// <summary>
         /// Navigation property to the player
         /// </summary>
         [ForeignKey("PlayerId")]
         public virtual ApplicationUser Player { get; set; }
+
+        /// <summary>
+        /// Navigation property to the tournament
+        /// </summary>
+        [ForeignKey("TournamentId")]
+        public virtual Tournament Tournament { get; set; }
 
         /// <summary>
         /// Determines if this is a local (Singapore) ranking based on organization

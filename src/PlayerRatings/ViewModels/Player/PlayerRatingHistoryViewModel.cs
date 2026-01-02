@@ -39,6 +39,11 @@ namespace PlayerRatings.ViewModels.Player
         /// </summary>
         public string NextPlayerId { get; set; }
         
+        /// <summary>
+        /// Available tournaments for ranking selection dropdown.
+        /// </summary>
+        public List<TournamentOption> TournamentOptions { get; set; } = new List<TournamentOption>();
+        
         // ===== Statistics computed from GameRecords =====
         
         /// <summary>

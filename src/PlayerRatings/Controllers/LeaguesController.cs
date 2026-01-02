@@ -74,8 +74,8 @@ namespace PlayerRatings.Controllers
             if (!_cache.TryGetValue(cacheKey, out League league))
             {
                 league = _context.League
-                    .Include(l => l.Matches).ThenInclude(m => m.FirstPlayer).ThenInclude(p => p.Rankings)
-                    .Include(l => l.Matches).ThenInclude(m => m.SecondPlayer).ThenInclude(p => p.Rankings)
+                    .Include(l => l.Matches).ThenInclude(m => m.FirstPlayer).ThenInclude(p => p.Rankings).ThenInclude(r => r.Tournament).ThenInclude(t => t.TournamentPlayers)
+                    .Include(l => l.Matches).ThenInclude(m => m.SecondPlayer).ThenInclude(p => p.Rankings).ThenInclude(r => r.Tournament).ThenInclude(t => t.TournamentPlayers)
                     .SingleOrDefault(m => m.Id == leagueId);
 
                 if (league != null)
@@ -805,6 +805,8 @@ namespace PlayerRatings.Controllers
             {
                 player = await _context.Users
                     .Include(u => u.Rankings)
+                        .ThenInclude(r => r.Tournament)
+                            .ThenInclude(t => t.TournamentPlayers)
                     .FirstOrDefaultAsync(u => u.Id == playerId);
                 
                 if (player == null)
@@ -819,13 +821,25 @@ namespace PlayerRatings.Controllers
             // If player has no matches, show page with just their info (no rating history)
             if (!playerMatches.Any())
             {
+                // Load tournaments for ranking dropdown
+                var emptyTournamentOptions = await _context.Tournaments
+                    .Where(t => t.LeagueId == league.Id)
+                    .OrderByDescending(t => t.StartDate)
+                    .Select(t => new ViewModels.Player.TournamentOption
+                    {
+                        Id = t.Id,
+                        Name = t.FullName
+                    })
+                    .ToListAsync();
+                    
                 return View(new PlayerRatingHistoryViewModel
                 {
                     LeagueId = league.Id,
                     Player = player,
                     MonthlyRatings = new List<MonthlyRating>(),
                     SwaOnly = swaOnly,
-                    GameRecords = new List<GameRecord>()
+                    GameRecords = new List<GameRecord>(),
+                    TournamentOptions = emptyTournamentOptions
                 });
             }
 
@@ -1104,6 +1118,17 @@ namespace PlayerRatings.Controllers
                 });
             }
 
+            // Load tournaments for ranking dropdown
+            var tournamentOptions = await _context.Tournaments
+                .Where(t => t.LeagueId == id)
+                .OrderByDescending(t => t.StartDate)
+                .Select(t => new ViewModels.Player.TournamentOption
+                {
+                    Id = t.Id,
+                    Name = t.FullName
+                })
+                .ToListAsync();
+
             return View(new PlayerRatingHistoryViewModel
             {
                 Player = player,
@@ -1115,7 +1140,8 @@ namespace PlayerRatings.Controllers
                 Position = position,
                 TotalPlayers = totalPlayers,
                 PreviousPlayerId = previousPlayerId,
-                NextPlayerId = nextPlayerId
+                NextPlayerId = nextPlayerId,
+                TournamentOptions = tournamentOptions
             });
         }
 
@@ -1252,7 +1278,8 @@ namespace PlayerRatings.Controllers
                 RankingDate = model.RankingDate.HasValue 
                     ? new DateTimeOffset(model.RankingDate.Value, TimeSpan.Zero) 
                     : null,
-                RankingNote = model.RankingNote
+                RankingNote = model.RankingNote,
+                TournamentId = model.TournamentId
             };
 
             _context.PlayerRankings.Add(ranking);
@@ -1299,6 +1326,7 @@ namespace PlayerRatings.Controllers
                 ? new DateTimeOffset(model.RankingDate.Value, TimeSpan.Zero) 
                 : null;
             ranking.RankingNote = model.RankingNote;
+            ranking.TournamentId = model.TournamentId;
 
             _context.PlayerRankings.Update(ranking);
             await _context.SaveChangesAsync();

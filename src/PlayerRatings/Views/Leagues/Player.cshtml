@@ -164,7 +164,7 @@
                                     <label>@LocString[nameof(LocalizationKey.Ranking)]</label>
                                     <input type="text" class="form-control" name="Ranking" placeholder="e.g., 1D, 2K?" required pattern="^\d{1,2}[DKP]\??$" />
                                 </div>
-                                <div class="col-md-3 form-group">
+                                <div class="col-md-2 form-group">
                                     <label>@LocString[nameof(LocalizationKey.Organization)]</label>
                                     <select class="form-control" name="Organization" required>
                                         @foreach (var org in EditRankingViewModel.CommonOrganizations)
@@ -173,11 +173,21 @@
                                         }
                                     </select>
                                 </div>
-                                <div class="col-md-3 form-group">
+                                <div class="col-md-2 form-group">
                                     <label>@LocString[nameof(LocalizationKey.Date)]</label>
                                     <input type="date" class="form-control" name="RankingDate" />
                                 </div>
-                                <div class="col-md-4 form-group">
+                                <div class="col-md-3 form-group">
+                                    <label>Tournament</label>
+                                    <select class="form-control" name="TournamentId">
+                                        <option value="">-- None --</option>
+                                        @foreach (var t in Model.TournamentOptions)
+                                        {
+                                            <option value="@t.Id">@t.Name</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="col-md-3 form-group">
                                     <label>@LocString[nameof(LocalizationKey.Note)]</label>
                                     <input type="text" class="form-control" name="RankingNote" />
                                 </div>
@@ -198,6 +208,7 @@
                                     <th>@LocString[nameof(LocalizationKey.Ranking)]</th>
                                     <th>@LocString[nameof(LocalizationKey.Organization)]</th>
                                     <th>@LocString[nameof(LocalizationKey.Date)]</th>
+                                    <th>Tournament</th>
                                     <th>@LocString[nameof(LocalizationKey.Note)]</th>
                                     <th style="width: 100px;"></th>
                                 </tr>
@@ -212,6 +223,12 @@
                                         </td>
                                         <td>@ranking.Organization</td>
                                         <td>@(ranking.RankingDate?.ToString("dd/MM/yyyy") ?? "-")</td>
+                                        <td style="font-size: 0.85em;">
+                                            @if (ranking.Tournament != null)
+                                            {
+                                                <a asp-controller="Tournaments" asp-action="Details" asp-route-id="@ranking.TournamentId">@ranking.Tournament.FullName</a>
+                                            }
+                                        </td>
                                         <td style="font-size: 0.85em; color: #666;">@ranking.RankingNote</td>
                                         <td>
                                             <button class="btn btn-primary btn-xs" type="button" data-toggle="collapse" data-target="#@editFormId" title="Edit">
@@ -226,7 +243,7 @@
                                         </td>
                                     </tr>
                                     <tr class="collapse" id="@editFormId">
-                                        <td colspan="5" style="background-color: #f5f5f5; padding: 10px;">
+                                        <td colspan="6" style="background-color: #f5f5f5; padding: 10px;">
                                             <form asp-action="EditRanking" method="post" class="edit-ranking-form">
                                                 <input type="hidden" name="RankingId" value="@ranking.RankingId" />
                                                 <input type="hidden" name="PlayerId" value="@Model.Player.Id" />
@@ -255,10 +272,27 @@
                                                     <div class="col-md-2">
                                                         <input type="date" class="form-control input-sm" name="RankingDate" value="@(ranking.RankingDate?.ToString("yyyy-MM-dd"))" />
                                                     </div>
-                                                    <div class="col-md-3">
-                                                        <input type="text" class="form-control input-sm" name="RankingNote" value="@ranking.RankingNote" />
+                                                    <div class="col-md-2">
+                                                        <select class="form-control input-sm" name="TournamentId">
+                                                            <option value="">-- None --</option>
+                                                            @foreach (var t in Model.TournamentOptions)
+                                                            {
+                                                                var isSelected = ranking.TournamentId == t.Id;
+                                                                if (isSelected)
+                                                                {
+                                                                    <option value="@t.Id" selected>@t.Name</option>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <option value="@t.Id">@t.Name</option>
+                                                                }
+                                                            }
+                                                        </select>
                                                     </div>
-                                                    <div class="col-md-3">
+                                                    <div class="col-md-2">
+                                                        <input type="text" class="form-control input-sm" name="RankingNote" value="@ranking.RankingNote" placeholder="Note" />
+                                                    </div>
+                                                    <div class="col-md-2">
                                                         <button type="submit" class="btn btn-primary btn-xs">Save</button>
                                                         <button type="button" class="btn btn-default btn-xs" data-toggle="collapse" data-target="#@editFormId">Cancel</button>
                                                     </div>
@@ -286,11 +320,36 @@
         ? Model.MonthlyRatings.Min(r => r.Month) 
         : DateTime.MaxValue;
 
-    // Map each month to list of rankings with full date and sort date (multiple promotions per month supported)
-    var monthRankingLabels = new Dictionary<string, List<(string ranking, string date, DateTimeOffset sortDate, string org)>>();
+    // Map each month to list of rankings with full date, sort date, org, and tournament info
+    var monthRankingLabels = new Dictionary<string, List<(string ranking, string date, DateTimeOffset sortDate, string org, string tournamentDisplay)>>();
 
     // Rankings before first match (to show at bottom of table)
-    var earlyRankings = new List<(string ranking, string date, DateTimeOffset sortDate, string org)>();
+    var earlyRankings = new List<(string ranking, string date, DateTimeOffset sortDate, string org, string tournamentDisplay)>();
+
+    // Helper to get tournament display string: "Ordinal + Name + Group (Position)"
+    string GetTournamentDisplay(PlayerRanking ranking)
+    {
+        if (ranking.Tournament == null)
+            return "";
+        
+        var parts = new List<string>();
+        if (!string.IsNullOrEmpty(ranking.Tournament.Ordinal))
+            parts.Add(ranking.Tournament.Ordinal);
+        parts.Add(ranking.Tournament.Name);
+        if (!string.IsNullOrEmpty(ranking.Tournament.Group))
+            parts.Add(ranking.Tournament.Group);
+        
+        var tournamentName = string.Join(" ", parts);
+        
+        // Try to get player's position in the tournament
+        var tournamentPlayer = ranking.Tournament.TournamentPlayers?
+            .FirstOrDefault(tp => tp.PlayerId == ranking.PlayerId);
+        if (tournamentPlayer?.Position != null)
+        {
+            return $"{tournamentName} (#{tournamentPlayer.Position})";
+        }
+        return tournamentName;
+    }
 
     // Process all rankings from the Rankings table
     foreach (var ranking in playerRankings)
@@ -303,11 +362,12 @@
         
         var rankingDate = ranking.RankingDate ?? DateTimeOffset.MinValue;
         var fullDate = rankingDate != DateTimeOffset.MinValue ? rankingDate.ToString("dd/MM/yyyy") : "";
+        var tournamentDisplay = GetTournamentDisplay(ranking);
         
         if (rankingDate == DateTimeOffset.MinValue)
         {
             // Rankings without known dates go to early rankings
-            earlyRankings.Add((displayRanking, "", DateTimeOffset.MinValue, ranking.Organization ?? ""));
+            earlyRankings.Add((displayRanking, "", DateTimeOffset.MinValue, ranking.Organization ?? "", tournamentDisplay));
         }
         else
         {
@@ -319,15 +379,15 @@
             var firstMatchMonthKey = firstMatchDate.ToString("MMM yyyy");
             if (effectiveMonth < firstMatchDate && monthKey != firstMatchMonthKey)
             {
-                earlyRankings.Add((displayRanking, fullDate, rankingDate, ranking.Organization ?? ""));
+                earlyRankings.Add((displayRanking, fullDate, rankingDate, ranking.Organization ?? "", tournamentDisplay));
             }
             else
             {
                 if (!monthRankingLabels.ContainsKey(monthKey))
                 {
-                    monthRankingLabels[monthKey] = new List<(string ranking, string date, DateTimeOffset sortDate, string org)>();
+                    monthRankingLabels[monthKey] = new List<(string ranking, string date, DateTimeOffset sortDate, string org, string tournamentDisplay)>();
                 }
-                monthRankingLabels[monthKey].Add((displayRanking, fullDate, rankingDate, ranking.Organization ?? ""));
+                monthRankingLabels[monthKey].Add((displayRanking, fullDate, rankingDate, ranking.Organization ?? "", tournamentDisplay));
             }
         }
     }
@@ -459,6 +519,10 @@
                                 <div>
                                     <span style="color: rgb(255, 99, 132); font-weight: bold;">@rankingInfo.ranking</span>
                                     <span style="color: #666; font-size: 0.85em;">(@rankingInfo.date)</span>
+                                    @if (!string.IsNullOrEmpty(rankingInfo.tournamentDisplay))
+                                    {
+                                        <span style="color: #337ab7; font-size: 0.85em; margin-left: 4px;">@rankingInfo.tournamentDisplay</span>
+                                    }
                                 </div>
                                 @if (item.HasPromotionBonus)
                                 {

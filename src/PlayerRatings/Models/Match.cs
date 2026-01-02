@@ -33,6 +33,22 @@ namespace PlayerRatings.Models
 
         public string MatchName { get; set; }
 
+        /// <summary>
+        /// Foreign key to the tournament this match belongs to (null for standalone matches)
+        /// </summary>
+        public Guid? TournamentId { get; set; }
+
+        /// <summary>
+        /// Round number within the tournament (1 for R1, 2 for R2, etc.)
+        /// </summary>
+        public int? Round { get; set; }
+
+        /// <summary>
+        /// Navigation property to the tournament
+        /// </summary>
+        [ForeignKey("TournamentId")]
+        public virtual Tournament Tournament { get; set; }
+
         public virtual ApplicationUser CreatedByUser { get; set; }
 
         internal string OldFirstPlayerRating { get; set; }

@@ -1,0 +1,173 @@
+@using PlayerRatings.Localization
+@model PlayerRatings.ViewModels.Tournament.TournamentDetailsViewModel
+
+@{
+    ViewData["Title"] = Model.FullName;
+}
+
+<h3>@ViewData["Title"]</h3>
+
+<div class="mb-3">
+    <a asp-action="Index" asp-route-leagueId="@Model.LeagueId" class="btn btn-outline-secondary">
+        ← Back to Tournaments
+    </a>
+    @if (Model.IsAdmin)
+    {
+        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Edit</a>
+        <a asp-action="Delete" asp-route-id="@Model.Id" class="btn btn-outline-danger">Delete</a>
+    }
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <dl>
+                    <dt>Tournament Name</dt>
+                    <dd>@Model.Name</dd>
+                    
+                    @if (!string.IsNullOrEmpty(Model.Ordinal))
+                    {
+                        <dt>Ordinal</dt>
+                        <dd>@Model.Ordinal</dd>
+                    }
+                    
+                    @if (!string.IsNullOrEmpty(Model.Group))
+                    {
+                        <dt>Group</dt>
+                        <dd>@Model.Group</dd>
+                    }
+                    
+                    @if (!string.IsNullOrEmpty(Model.TournamentType))
+                    {
+                        <dt>Type</dt>
+                        <dd>@Model.TournamentType</dd>
+                    }
+                </dl>
+            </div>
+            <div class="col-md-6">
+                <dl>
+                    @if (!string.IsNullOrEmpty(Model.Organizer))
+                    {
+                        <dt>Organizer</dt>
+                        <dd>@Model.Organizer</dd>
+                    }
+                    
+                    @if (!string.IsNullOrEmpty(Model.Location))
+                    {
+                        <dt>Location</dt>
+                        <dd>@Model.Location</dd>
+                    }
+                    
+                    @if (Model.StartDate.HasValue)
+                    {
+                        <dt>Dates</dt>
+                        <dd>
+                            @Model.StartDate.Value.ToString("dd MMM yyyy")
+                            @if (Model.EndDate.HasValue && Model.EndDate.Value.Date != Model.StartDate.Value.Date)
+                            {
+                                <text> - @Model.EndDate.Value.ToString("dd MMM yyyy")</text>
+                            }
+                        </dd>
+                    }
+                    
+                    @if (Model.Factor.HasValue)
+                    {
+                        <dt>Factor</dt>
+                        <dd>@Model.Factor.Value.ToString("F1")</dd>
+                    }
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <h4>Matches (@Model.Matches.Count)</h4>
+        @if (!Model.Matches.Any())
+        {
+            <p class="text-muted">No matches in this tournament yet.</p>
+        }
+        else
+        {
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Round</th>
+                        <th>Player 1</th>
+                        <th class="text-center">Score</th>
+                        <th>Player 2</th>
+                        <th>Factor</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var m in Model.Matches)
+                    {
+                        var winner1 = m.FirstPlayerScore > m.SecondPlayerScore;
+                        var winner2 = m.SecondPlayerScore > m.FirstPlayerScore;
+                        <tr>
+                            <td>@m.Date.ToString("dd MMM")</td>
+                            <td>@(m.Round.HasValue ? $"R{m.Round}" : "-")</td>
+                            <td class="@(winner1 ? "fw-bold" : "")">
+                                <a asp-controller="Leagues" asp-action="Player" asp-route-id="@Model.LeagueId" asp-route-playerId="@m.FirstPlayerId">
+                                    @m.FirstPlayerName
+                                </a>
+                            </td>
+                            <td class="text-center">@m.FirstPlayerScore : @m.SecondPlayerScore</td>
+                            <td class="@(winner2 ? "fw-bold" : "")">
+                                <a asp-controller="Leagues" asp-action="Player" asp-route-id="@Model.LeagueId" asp-route-playerId="@m.SecondPlayerId">
+                                    @m.SecondPlayerName
+                                </a>
+                            </td>
+                            <td>@(m.Factor?.ToString("F1") ?? "-")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+    
+    <div class="col-md-4">
+        <h4>Players (@Model.Players.Count)</h4>
+        @if (!Model.Players.Any())
+        {
+            <p class="text-muted">No players in this tournament yet.</p>
+        }
+        else
+        {
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Pos</th>
+                        <th>Player</th>
+                        <th>W-L</th>
+                        <th>Promotion</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in Model.Players)
+                    {
+                        <tr>
+                            <td>@(p.Position?.ToString() ?? "-")</td>
+                            <td>
+                                <a asp-controller="Leagues" asp-action="Player" asp-route-id="@Model.LeagueId" asp-route-playerId="@p.PlayerId">
+                                    @p.PlayerName
+                                </a>
+                            </td>
+                            <td>@p.Wins-@p.Losses</td>
+                            <td>
+                                @if (!string.IsNullOrEmpty(p.PromotionRanking))
+                                {
+                                    <span class="badge bg-success">@p.PromotionRanking</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
