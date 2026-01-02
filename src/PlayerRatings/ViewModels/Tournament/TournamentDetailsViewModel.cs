@@ -124,6 +124,18 @@ namespace PlayerRatings.ViewModels.Tournament
         
         public string PromotionRanking { get; set; }
         
+        /// <summary>
+        /// Promotion bonus amount awarded (e.g., 3.2 for +3.2 rating boost)
+        /// </summary>
+        public double? PromotionBonus { get; set; }
+        
+        /// <summary>
+        /// Display string for promotion with bonus, e.g., "1D +3.2"
+        /// </summary>
+        public string PromotionDisplay => !string.IsNullOrEmpty(PromotionRanking) 
+            ? (PromotionBonus.HasValue ? $"{PromotionRanking} +{PromotionBonus.Value:F1}" : PromotionRanking)
+            : null;
+        
         public int MatchCount { get; set; }
         
         public int Wins { get; set; }
@@ -144,6 +156,44 @@ namespace PlayerRatings.ViewModels.Tournament
         /// SOSOS - Sum of Opponents' SOS (sum of opponents' SOS scores)
         /// </summary>
         public int SOSOS { get; set; }
+        
+        /// <summary>
+        /// Player's ELO rating before the tournament
+        /// </summary>
+        public int? RatingBefore { get; set; }
+        
+        /// <summary>
+        /// Player's ELO rating after the tournament
+        /// </summary>
+        public int? RatingAfter { get; set; }
+        
+        /// <summary>
+        /// Whether the player had an official ranking before the tournament
+        /// </summary>
+        public bool WasRankedBefore { get; set; }
+        
+        /// <summary>
+        /// Whether the player has an official ranking after the tournament
+        /// </summary>
+        public bool IsRankedAfter { get; set; }
+        
+        /// <summary>
+        /// Whether to show the "before" rating (player was ranked before tournament)
+        /// </summary>
+        public bool ShowRatingBefore => WasRankedBefore;
+        
+        /// <summary>
+        /// Whether to show the "after" rating (player is ranked after tournament)
+        /// </summary>
+        public bool ShowRatingAfter => IsRankedAfter;
+        
+        /// <summary>
+        /// Rating change during the tournament (RatingAfter - RatingBefore)
+        /// Only calculated if player was ranked both before and after
+        /// </summary>
+        public int? RatingChange => WasRankedBefore && IsRankedAfter && RatingBefore.HasValue && RatingAfter.HasValue 
+            ? RatingAfter.Value - RatingBefore.Value 
+            : null;
         
         /// <summary>
         /// True if player is undefeated (0 losses) - champion status

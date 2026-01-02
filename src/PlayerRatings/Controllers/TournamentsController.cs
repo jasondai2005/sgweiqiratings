@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using PlayerRatings.Engine.Rating;
 using PlayerRatings.Models;
 using PlayerRatings.Util;
 using PlayerRatings.ViewModels.Tournament;
@@ -229,8 +230,40 @@ namespace PlayerRatings.Controllers
             var playerRoundResults = new Dictionary<string, Dictionary<int, RoundResult>>();
             var maxRound = 0;
             
-            // Get the tournament start date for ranking lookup
+            // Get the tournament start/end dates for rating calculations
             var tournamentStartDate = tournament.StartDate ?? tournament.Matches.Min(m => m.Date);
+            var tournamentEndDate = tournament.EndDate ?? tournament.Matches.Max(m => m.Date);
+            
+            // Load all league matches for rating calculation
+            var leagueMatches = await _context.Match
+                .Where(m => m.LeagueId == tournament.LeagueId)
+                .Include(m => m.FirstPlayer).ThenInclude(p => p.Rankings)
+                .Include(m => m.SecondPlayer).ThenInclude(p => p.Rankings)
+                .OrderBy(m => m.Date)
+                .ToListAsync();
+            
+            // Get tournament player IDs for focused calculation
+            var tournamentPlayerIds = tournament.TournamentPlayers.Select(tp => tp.PlayerId).ToHashSet();
+            
+            // Player lookup function
+            ApplicationUser PlayerLookup(string playerId) => 
+                tournament.TournamentPlayers.FirstOrDefault(tp => tp.PlayerId == playerId)?.Player;
+            
+            // Determine league type for rating calculation
+            bool isSgLeague = tournament.League?.Name?.Contains("Singapore Weiqi") ?? false;
+            
+            // Calculate ratings and ranked status before and after tournament using shared helper
+            // Uses full rating calculation with match filtering and performance corrections
+            // "Ranked" means the player would appear in the Ratings page at that date
+            var ratingsBefore = RatingCalculationHelper.GetPlayerRatingsAndRankedStatus(
+                leagueMatches, tournamentStartDate, swaOnly: false, isSgLeague, tournamentPlayerIds, PlayerLookup);
+            
+            var ratingsAfter = RatingCalculationHelper.GetPlayerRatingsAndRankedStatus(
+                leagueMatches, tournamentEndDate.AddDays(1), swaOnly: false, isSgLeague, tournamentPlayerIds, PlayerLookup);
+            
+            // Get promotion bonuses awarded during/after the tournament (not before it started)
+            var promotionBonuses = RatingCalculationHelper.GetPromotionBonuses(
+                leagueMatches, tournamentStartDate, tournamentEndDate.AddDays(1), swaOnly: false, isSgLeague, tournamentPlayerIds);
             
             foreach (var match in tournament.Matches.Where(m => m.Round.HasValue))
             {
@@ -322,13 +355,19 @@ namespace PlayerRatings.Controllers
                             CalculatedPosition = calculatedPositions.TryGetValue(tp.PlayerId, out var calcPos) ? calcPos : 0,
                             PromotionId = tp.PromotionId,
                             PromotionRanking = tp.Promotion?.Ranking,
+                            PromotionBonus = promotionBonuses.TryGetValue(tp.PlayerId, out var bonus) ? bonus : null,
                             MatchCount = hasStats ? pStats.Wins + pStats.Losses : 0,
                             Wins = hasStats ? pStats.Wins : 0,
                             Losses = hasStats ? pStats.Losses : 0,
                             PointDiff = hasStats ? pStats.PointsFor - pStats.PointsAgainst : 0,
                             SOS = swissStats.SOS.TryGetValue(tp.PlayerId, out var sos) ? sos : 0,
                             SOSOS = swissStats.SOSOS.TryGetValue(tp.PlayerId, out var sosos) ? sosos : 0,
-                            RoundResults = playerRoundResults.TryGetValue(tp.PlayerId, out var rounds) ? rounds : new Dictionary<int, RoundResult>()
+                            RoundResults = playerRoundResults.TryGetValue(tp.PlayerId, out var rounds) ? rounds : new Dictionary<int, RoundResult>(),
+                            RatingBefore = ratingsBefore.TryGetValue(tp.PlayerId, out var rBefore) ? rBefore.rating : null,
+                            RatingAfter = ratingsAfter.TryGetValue(tp.PlayerId, out var rAfter) ? rAfter.rating : null,
+                            // Check if player was "ranked" (shown in ratings page) before and after tournament
+                            WasRankedBefore = ratingsBefore.TryGetValue(tp.PlayerId, out var beforeStatus) && beforeStatus.isRanked,
+                            IsRankedAfter = ratingsAfter.TryGetValue(tp.PlayerId, out var afterStatus) && afterStatus.isRanked
                         };
                     })
                     .OrderBy(p => p.DisplayPosition)

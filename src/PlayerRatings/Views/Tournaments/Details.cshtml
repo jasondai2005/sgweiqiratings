@@ -111,6 +111,9 @@
                         <th style="width: 40px; text-align: center;" title="Number of Wins">NbW</th>
                         <th style="width: 50px; text-align: center;" title="Sum of Opponents' Scores">SOS</th>
                         <th style="width: 60px; text-align: center;" title="Sum of Opponents' SOS">SOSOS</th>
+                        <th style="width: 55px; text-align: center;" title="Rating Before Tournament">Before</th>
+                        <th style="width: 55px; text-align: center;" title="Rating After Tournament">After</th>
+                        <th style="width: 45px; text-align: center;" title="Rating Change">+/-</th>
                         @if (hasAnyPromotion)
                         {
                             <th style="width: 70px;">Promotion</th>
@@ -122,8 +125,7 @@
                     @foreach (var p in Model.Players)
                     {
                         rowIdx++;
-                        var rowStyle = p.IsUndefeated ? "background-color: #fff9c4;" : "";
-                        <tr style="@rowStyle">
+                        <tr>
                             <td style="text-align: center; font-weight: bold;">@rowIdx</td>
                             <td style="text-align: center;">
                                 @if (p.IsCalculatedPosition)
@@ -133,10 +135,6 @@
                                 else
                                 {
                                     @p.DisplayPosition
-                                }
-                                @if (p.IsUndefeated)
-                                {
-                                    <span title="Undefeated">🏆</span>
                                 }
                             </td>
                             <td style="white-space: nowrap;">
@@ -163,12 +161,49 @@
                             <td style="text-align: center; font-weight: bold;">@p.Wins</td>
                             <td style="text-align: center;">@p.SOS</td>
                             <td style="text-align: center;">@p.SOSOS</td>
+                            <td style="text-align: center; font-size: 0.9em;">
+                                @if (p.ShowRatingBefore && p.RatingBefore.HasValue)
+                                {
+                                    @p.RatingBefore
+                                }
+                                else
+                                {
+                                    <span class="text-muted">-</span>
+                                }
+                            </td>
+                            <td style="text-align: center; font-size: 0.9em;">
+                                @if (p.ShowRatingAfter && p.RatingAfter.HasValue)
+                                {
+                                    @p.RatingAfter
+                                }
+                                else
+                                {
+                                    <span class="text-muted">-</span>
+                                }
+                            </td>
+                            <td style="text-align: center; font-size: 0.9em;">
+                                @if (p.RatingChange.HasValue)
+                                {
+                                    var change = p.RatingChange.Value;
+                                    var color = change > 0 ? "green" : (change < 0 ? "red" : "gray");
+                                    var prefix = change > 0 ? "+" : "";
+                                    <span style="color: @color; font-weight: bold;">@prefix@change</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">-</span>
+                                }
+                            </td>
                             @if (hasAnyPromotion)
                             {
                                 <td>
                                     @if (!string.IsNullOrEmpty(p.PromotionRanking))
                                     {
                                         <span class="label label-success">@p.PromotionRanking</span>
+                                        @if (p.PromotionBonus.HasValue)
+                                        {
+                                            <span style="color: #5cb85c; font-size: 0.85em; margin-left: 2px;">+@p.PromotionBonus.Value.ToString("F1")</span>
+                                        }
                                     }
                                 </td>
                             }

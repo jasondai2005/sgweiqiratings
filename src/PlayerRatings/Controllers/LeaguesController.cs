@@ -25,13 +25,13 @@ namespace PlayerRatings.Controllers
         private readonly IWebHostEnvironment _env;
         private readonly IMemoryCache _cache;
 
-        // Match type constants
+        // Match type constants (kept for local use, shared constants are in RatingCalculationHelper)
         private const string MATCH_SWA = "SWA ";
         private const string MATCH_TGA = "TGA ";
         private const string MATCH_SG = "SG ";
 
-        // Minimum date for rating calculations (matches before this date are not included in ratings)
-        private static readonly DateTimeOffset RATING_START_DATE = new DateTimeOffset(2023, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        // Reference shared constant for minimum date
+        private static readonly DateTimeOffset RATING_START_DATE = RatingCalculationHelper.RATING_START_DATE;
 
         /// <summary>
         /// Gets the last second of the month for the given date.
@@ -524,34 +524,7 @@ namespace PlayerRatings.Controllers
         }
 
         private static void AddUser(HashSet<ApplicationUser> activeUsers, Match match, ApplicationUser player)
-        {
-            if (player.FirstMatch == DateTimeOffset.MinValue)
-            {
-                player.FirstMatch = match.Date;
-            }
-
-            // Check for 2+ year gap (returning inactive player)
-            if (player.LastMatch != DateTimeOffset.MinValue)
-            {
-                var gap = match.Date - player.LastMatch;
-                if (gap.TotalDays > 365 * 2)
-                {
-                    // Detected a 2+ year gap, reset the counter
-                    player.MatchesSinceReturn = 1;
-                }
-                else if (player.MatchesSinceReturn > 0)
-                {
-                    // Already tracking since return, increment counter
-                    player.MatchesSinceReturn++;
-                }
-            }
-
-            player.PreviousMatchDate = player.LastMatch;
-            player.LastMatch = match.Date;
-            player.MatchCount++;
-
-            activeUsers.Add(player);
-        }
+            => RatingCalculationHelper.AddUser(activeUsers, match, player);
 
         /// <summary>
         /// Loads player statuses for filtering (blocked, hidden, always shown).
@@ -631,30 +604,10 @@ namespace PlayerRatings.Controllers
         /// This is important when using cached data to ensure each calculation starts fresh.
         /// </summary>
         private static void ResetPlayerState(IEnumerable<Match> matches)
-        {
-            var resetPlayers = new HashSet<string>();
-            foreach (var match in matches)
-            {
-                if (resetPlayers.Add(match.FirstPlayerId))
-                {
-                    ResetPlayer(match.FirstPlayer);
-                }
-                if (resetPlayers.Add(match.SecondPlayerId))
-                {
-                    ResetPlayer(match.SecondPlayer);
-                }
-            }
-        }
+            => RatingCalculationHelper.ResetPlayerState(matches);
 
         private static void ResetPlayer(ApplicationUser player)
-        {
-            player.MatchCount = 0;
-            player.FirstMatch = DateTimeOffset.MinValue;
-            player.LastMatch = DateTimeOffset.MinValue;
-            player.PreviousMatchDate = DateTimeOffset.MinValue;
-            player.MatchesSinceReturn = 0;
-            player.EstimatedInitialRating = null;
-        }
+            => RatingCalculationHelper.ResetPlayer(player);
 
         private int CompareByRatingAndName(ApplicationUser x, ApplicationUser y)
         {
