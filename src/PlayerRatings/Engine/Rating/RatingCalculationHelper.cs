@@ -212,7 +212,7 @@ namespace PlayerRatings.Engine.Rating
         /// <param name="playerIds">Player IDs to get ratings for</param>
         /// <param name="playerLookup">Function to lookup player by ID</param>
         /// <returns>Dictionary of player ID to (rating, isRanked)</returns>
-        public static Dictionary<string, (int rating, bool isRanked)> GetPlayerRatingsAndRankedStatus(
+        public static Dictionary<string, (double rating, bool isRanked)> GetPlayerRatingsAndRankedStatus(
             IEnumerable<Match> allMatches,
             DateTimeOffset cutoffDate,
             bool swaOnly,
@@ -220,7 +220,7 @@ namespace PlayerRatings.Engine.Rating
             IEnumerable<string> playerIds,
             Func<string, ApplicationUser> playerLookup)
         {
-            var results = new Dictionary<string, (int rating, bool isRanked)>();
+            var results = new Dictionary<string, (double rating, bool isRanked)>();
             
             // Calculate ratings with all filters and corrections
             var (eloStat, activeUsers) = CalculateRatings(allMatches, cutoffDate, swaOnly, isSgLeague);
@@ -237,7 +237,7 @@ namespace PlayerRatings.Engine.Rating
                 var player = playerLookup(playerId);
                 if (player != null)
                 {
-                    int rating = (int)Math.Round(eloStat[player]);
+                    double rating = eloStat[player];
                     
                     // Check if player would be "ranked" (shown in ratings page) at this date
                     // 1. Must be in activeUsers (has played matches)

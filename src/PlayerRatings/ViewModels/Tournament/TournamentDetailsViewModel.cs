@@ -78,6 +78,21 @@ namespace PlayerRatings.ViewModels.Tournament
         
         public string MatchName { get; set; }
         
+        /// <summary>
+        /// First player's rating before this match (from ELO calculation)
+        /// </summary>
+        public string FirstPlayerRatingBefore { get; set; }
+        
+        /// <summary>
+        /// Second player's rating before this match (from ELO calculation)
+        /// </summary>
+        public string SecondPlayerRatingBefore { get; set; }
+        
+        /// <summary>
+        /// Rating shift for the match (winner gains, loser loses)
+        /// </summary>
+        public string ShiftRating { get; set; }
+        
         public string GetScore() => $"{FirstPlayerScore} : {SecondPlayerScore}";
     }
     
@@ -160,12 +175,12 @@ namespace PlayerRatings.ViewModels.Tournament
         /// <summary>
         /// Player's ELO rating before the tournament
         /// </summary>
-        public int? RatingBefore { get; set; }
+        public double? RatingBefore { get; set; }
         
         /// <summary>
         /// Player's ELO rating after the tournament
         /// </summary>
-        public int? RatingAfter { get; set; }
+        public double? RatingAfter { get; set; }
         
         /// <summary>
         /// Whether the player had an official ranking before the tournament
@@ -191,7 +206,7 @@ namespace PlayerRatings.ViewModels.Tournament
         /// Rating change during the tournament (RatingAfter - RatingBefore)
         /// Only calculated if player was ranked both before and after
         /// </summary>
-        public int? RatingChange => WasRankedBefore && IsRankedAfter && RatingBefore.HasValue && RatingAfter.HasValue 
+        public double? RatingChange => WasRankedBefore && IsRankedAfter && RatingBefore.HasValue && RatingAfter.HasValue 
             ? RatingAfter.Value - RatingBefore.Value 
             : null;
         

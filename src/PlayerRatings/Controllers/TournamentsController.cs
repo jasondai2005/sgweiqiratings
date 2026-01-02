@@ -304,6 +304,18 @@ namespace PlayerRatings.Controllers
             
             // Build player lookup for display names
             var playerLookup = tournament.TournamentPlayers.ToDictionary(tp => tp.PlayerId, tp => tp.Player);
+            
+            // Run ELO calculation on league matches to populate OldFirstPlayerRating, OldSecondPlayerRating, ShiftRating
+            // This is the same calculation done in the Ratings page
+            RatingCalculationHelper.CalculateRatings(leagueMatches, tournamentEndDate.AddDays(1), swaOnly: false, isSgLeague);
+            
+            // Get tournament matches from the calculated league matches (same objects with populated ratings)
+            var tournamentMatchIds = tournament.Matches.Select(m => m.Id).ToHashSet();
+            var orderedMatches = leagueMatches
+                .Where(m => tournamentMatchIds.Contains(m.Id))
+                .OrderBy(m => m.Date)
+                .ThenBy(m => m.Round)
+                .ToList();
 
             var viewModel = new TournamentDetailsViewModel
             {
@@ -322,9 +334,7 @@ namespace PlayerRatings.Controllers
                 Factor = tournament.Factor,
                 IsAdmin = isAdmin,
                 MaxRounds = maxRound,
-                Matches = tournament.Matches
-                    .OrderBy(m => m.Date)
-                    .ThenBy(m => m.Round)
+                Matches = orderedMatches
                     .Select(m => new TournamentMatchViewModel
                     {
                         Id = m.Id,
@@ -339,7 +349,11 @@ namespace PlayerRatings.Controllers
                         FirstPlayerScore = m.FirstPlayerScore,
                         SecondPlayerScore = m.SecondPlayerScore,
                         Factor = m.Factor,
-                        MatchName = m.MatchName
+                        MatchName = m.MatchName,
+                        // Use ratings from ELO calculation (same as Ratings page)
+                        FirstPlayerRatingBefore = m.OldFirstPlayerRating,
+                        SecondPlayerRatingBefore = m.OldSecondPlayerRating,
+                        ShiftRating = m.ShiftRating
                     })
                     .ToList(),
                 Players = tournament.TournamentPlayers

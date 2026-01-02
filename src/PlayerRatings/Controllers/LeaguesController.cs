@@ -946,6 +946,16 @@ namespace PlayerRatings.Controllers
                     // Get any promotion bonuses applied this month for this player
                     var promotionBonuses = currentEloStat.ConsumePromotionBonuses(playerId, monthEnd);
                     
+                    // Filter out promotion bonuses that happened before the player's first match
+                    // (no bonus should be shown for pre-match promotions)
+                    var playerFirstMatch = player.FirstMatch;
+                    if (playerFirstMatch != DateTimeOffset.MinValue)
+                    {
+                        promotionBonuses = promotionBonuses
+                            .Where(b => !b.promotionDate.HasValue || b.promotionDate.Value >= playerFirstMatch)
+                            .ToList();
+                    }
+                    
                     monthlyRatings.Add(new MonthlyRating
                     {
                         Month = monthToCapture,

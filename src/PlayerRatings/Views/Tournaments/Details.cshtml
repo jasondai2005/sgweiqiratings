@@ -164,7 +164,7 @@
                             <td style="text-align: center; font-size: 0.9em;">
                                 @if (p.ShowRatingBefore && p.RatingBefore.HasValue)
                                 {
-                                    @p.RatingBefore
+                                    @p.RatingBefore.Value.ToString("F1")
                                 }
                                 else
                                 {
@@ -174,7 +174,7 @@
                             <td style="text-align: center; font-size: 0.9em;">
                                 @if (p.ShowRatingAfter && p.RatingAfter.HasValue)
                                 {
-                                    @p.RatingAfter
+                                    @p.RatingAfter.Value.ToString("F1")
                                 }
                                 else
                                 {
@@ -187,7 +187,7 @@
                                     var change = p.RatingChange.Value;
                                     var color = change > 0 ? "green" : (change < 0 ? "red" : "gray");
                                     var prefix = change > 0 ? "+" : "";
-                                    <span style="color: @color; font-weight: bold;">@prefix@change</span>
+                                    <span style="color: @color; font-weight: bold;">@prefix@change.ToString("F1")</span>
                                 }
                                 else
                                 {
@@ -215,47 +215,51 @@
     </div>
 }
 
-@if (Model.Matches.Any())
+@if (Model.IsAdmin && Model.Matches.Any())
 {
     <div style="margin-top: 20px;">
         <h4>Matches (@Model.Matches.Count)</h4>
-        <table class="table table-striped">
+        <table class="table table-striped table-condensed">
             <thead>
                 <tr>
                     <th>Match</th>
                     <th>Score</th>
-                    <th>Round</th>
+                    <th style="text-align: center;">Round</th>
                     <th>Date</th>
-                    <th>Factor</th>
-                    @if (Model.IsAdmin)
-                    {
-                        <th></th>
-                    }
+                    <th style="text-align: center;">Factor</th>
+                    <th style="text-align: center;">@LocString[nameof(LocalizationKey.ShiftRating)]</th>
+                    <th></th>
                 </tr>
             </thead>
             <tbody>
                 @foreach (var m in Model.Matches)
                 {
                     <tr>
-                        <td>
+                        <td style="white-space: nowrap;">
                             <a asp-controller="Leagues" asp-action="Player" asp-route-id="@Model.LeagueId" asp-route-playerId="@m.FirstPlayerId">@m.FirstPlayerName</a>
-                            <span style="color: #999; font-size: 0.85em;">@m.FirstPlayerRanking</span>
+                            @if (!string.IsNullOrEmpty(m.FirstPlayerRatingBefore))
+                            {
+                                <span style="color: #666; font-size: 0.85em;">(@m.FirstPlayerRatingBefore)</span>
+                            }
                             <span style="margin: 0 5px;">vs</span>
                             <a asp-controller="Leagues" asp-action="Player" asp-route-id="@Model.LeagueId" asp-route-playerId="@m.SecondPlayerId">@m.SecondPlayerName</a>
-                            <span style="color: #999; font-size: 0.85em;">@m.SecondPlayerRanking</span>
+                            @if (!string.IsNullOrEmpty(m.SecondPlayerRatingBefore))
+                            {
+                                <span style="color: #666; font-size: 0.85em;">(@m.SecondPlayerRatingBefore)</span>
+                            }
                         </td>
                         <td>@m.GetScore()</td>
-                        <td>@(m.Round.HasValue ? $"R{m.Round}" : "-")</td>
+                        <td style="text-align: center;">@(m.Round.HasValue ? $"R{m.Round}" : "-")</td>
                         <td>@m.Date.ToString("dd/MM/yyyy")</td>
-                        <td>@(m.Factor.HasValue ? m.Factor.Value.ToString("0.#") : "-")</td>
-                        @if (Model.IsAdmin)
-                        {
-                            <td>
-                                <a asp-controller="Matches" asp-action="Edit" asp-route-id="@m.Id">Edit</a>
-                                |
-                                <a asp-controller="Matches" asp-action="Delete" asp-route-id="@m.Id">Delete</a>
-                            </td>
-                        }
+                        <td style="text-align: center;">@(m.Factor.HasValue ? m.Factor.Value.ToString("0.#") : "-")</td>
+                        <td style="text-align: center;">
+                            @(string.IsNullOrEmpty(m.ShiftRating) ? "-" : m.ShiftRating)
+                        </td>
+                        <td>
+                            <a asp-controller="Matches" asp-action="Edit" asp-route-id="@m.Id">Edit</a>
+                            |
+                            <a asp-controller="Matches" asp-action="Delete" asp-route-id="@m.Id">Delete</a>
+                        </td>
                     </tr>
                 }
             </tbody>
