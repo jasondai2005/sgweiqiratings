@@ -85,6 +85,16 @@
                     </div>
                     }
                 </div>
+                @if (Model.ChampionshipCount > 0)
+                {
+                <div class="row" style="margin-top: 8px;">
+                    <div class="col-xs-12">
+                        <span style="color: #f0ad4e;">🏆</span>
+                        <strong style="color: #f0ad4e;">@Model.ChampionshipCount</strong>
+                        <span style="color: #666;">@(Model.ChampionshipCount == 1 ? "Championship" : "Championships")</span>
+                    </div>
+                </div>
+                }
                 }
                 
                 <!-- Edit Player Info Form (collapsed by default) -->
@@ -473,7 +483,7 @@
                 <th>@LocString[nameof(LocalizationKey.Month)]</th>
                 <th>№</th>
                 <th>@LocString[nameof(LocalizationKey.Rating)]</th>
-                <th>@LocString[nameof(LocalizationKey.Matches)]</th>
+                <th>@LocString[nameof(LocalizationKey.Tournaments)]</th>
                 <th>@LocString[nameof(LocalizationKey.Ranking)]</th>
             </tr>
         </thead>
@@ -503,6 +513,10 @@
                                     @if (match.TournamentId.HasValue)
                                     {
                                         <a asp-controller="Tournaments" asp-action="Details" asp-route-id="@match.TournamentId">@match.TournamentName</a>
+                                        @if (match.TournamentPosition.HasValue)
+                                        {
+                                            <span style="color: #f0ad4e; margin-left: 4px;">No. @match.TournamentPosition</span>
+                                        }
                                     }
                                     else if (!string.IsNullOrEmpty(match.MatchName))
                                     {
@@ -590,36 +604,25 @@
                     ? Model.Player.GetRatingBeforeDate(DateTimeOffset.MaxValue).ToString()
                     : null;
                 
-                // Get matches before the first month shown in the rating history (as unique MatchInfo objects)
-                var preEntryMatchInfos = new List<PlayerRatings.ViewModels.Player.MatchInfo>();
-                if (Model.MonthlyRatings.Any())
-                {
-                    var firstRatedMonth = Model.MonthlyRatings.Min(r => r.Month);
-                    var preEntryGames = Model.GameRecords
-                        .Where(g => g.Date.Year < firstRatedMonth.Year || 
-                                   (g.Date.Year == firstRatedMonth.Year && g.Date.Month < firstRatedMonth.Month))
-                        .ToList();
-                    
-                    // Get unique matches by tournament or match name
-                    var seen = new HashSet<string>();
-                    foreach (var g in preEntryGames.AsEnumerable().Reverse())
+                // Get unique tournaments/matches before the first month shown in the rating history
+                var firstRatedMonth = Model.MonthlyRatings.Any() ? Model.MonthlyRatings.Min(r => r.Month) : DateTime.MaxValue;
+                var preEntryMatches = Model.GameRecords
+                    .Where(g => g.Date.Year < firstRatedMonth.Year || 
+                               (g.Date.Year == firstRatedMonth.Year && g.Date.Month < firstRatedMonth.Month))
+                    .GroupBy(g => g.TournamentId?.ToString() ?? g.MatchName ?? "")
+                    .Select(grp => grp.First())
+                    .OrderByDescending(g => g.Date)
+                    .Select(g => new PlayerRatings.ViewModels.Player.MatchInfo
                     {
-                        var key = g.TournamentId?.ToString() ?? g.MatchName ?? "";
-                        if (!seen.Contains(key))
-                        {
-                            seen.Add(key);
-                            preEntryMatchInfos.Add(new PlayerRatings.ViewModels.Player.MatchInfo
-                            {
-                                MatchName = g.MatchName,
-                                TournamentId = g.TournamentId,
-                                TournamentName = g.TournamentName
-                            });
-                        }
-                    }
-                }
+                        MatchName = g.MatchName,
+                        TournamentId = g.TournamentId,
+                        TournamentName = g.TournamentName,
+                        TournamentPosition = g.TournamentPosition
+                    })
+                    .ToList();
                 
                 // Only show Pre-entry row if there's something meaningful to display
-                var showPreEntry = earlyRankings.Any() || preEntryMatchInfos.Any() || preEntryRating != null;
+                var showPreEntry = earlyRankings.Any() || preEntryMatches.Any() || preEntryRating != null;
             }
             @if (showPreEntry)
             {
@@ -628,14 +631,18 @@
                     <td>-</td>
                     <td>@(preEntryRating ?? "-")</td>
                     <td>
-                        @if (preEntryMatchInfos.Any())
+                        @if (preEntryMatches.Any())
                         {
-                            @foreach (var match in preEntryMatchInfos)
+                            @foreach (var match in preEntryMatches)
                             {
                                 <div style="font-size: 0.85em; color: #888;">
                                     @if (match.TournamentId.HasValue)
                                     {
                                         <a asp-controller="Tournaments" asp-action="Details" asp-route-id="@match.TournamentId">@match.TournamentName</a>
+                                        @if (match.TournamentPosition.HasValue)
+                                        {
+                                            <span style="color: #f0ad4e; margin-left: 4px;">No. @match.TournamentPosition</span>
+                                        }
                                     }
                                     else if (!string.IsNullOrEmpty(match.MatchName))
                                     {

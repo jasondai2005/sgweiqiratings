@@ -105,6 +105,11 @@ namespace PlayerRatings.ViewModels.Player
         /// Win rate for the previous calendar year as a percentage (0-100).
         /// </summary>
         public double LastYearWinRate => LastYearGames > 0 ? (double)LastYearWins / LastYearGames * 100 : 0;
+        
+        /// <summary>
+        /// Number of tournament championships (Position = 1).
+        /// </summary>
+        public int ChampionshipCount { get; set; }
     }
 
     public class MonthlyRating
@@ -159,6 +164,11 @@ namespace PlayerRatings.ViewModels.Player
         public int? Round { get; set; }
         
         /// <summary>
+        /// Player's position in the tournament (1-based, null if not available)
+        /// </summary>
+        public int? TournamentPosition { get; set; }
+        
+        /// <summary>
         /// Display name - tournament name if available, otherwise match name
         /// </summary>
         public string DisplayName => TournamentName ?? MatchName ?? "";
@@ -198,6 +208,11 @@ namespace PlayerRatings.ViewModels.Player
         /// Round number within the tournament.
         /// </summary>
         public int? Round { get; set; }
+        
+        /// <summary>
+        /// Player's position in the tournament (1-based, null if not available).
+        /// </summary>
+        public int? TournamentPosition { get; set; }
     }
 }
 

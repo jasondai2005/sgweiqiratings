@@ -328,6 +328,7 @@ namespace PlayerRatings.Localization
         public static readonly LocalizationKey Draw = new LocalizationKey("Draw", "Draw", "和");
         public static readonly LocalizationKey SWATournamentsOnly = new LocalizationKey("SWA Tournaments Only", "SWA Tournaments Only", "仅新加坡围棋协会赛事");
         public static readonly LocalizationKey Tournament = new LocalizationKey("Tournament", "Tournament", "赛事");
+        public static readonly LocalizationKey Tournaments = new LocalizationKey("Tournaments", "Tournaments", "赛事");
         public static readonly LocalizationKey Round = new LocalizationKey("Round", "Round", "轮次");
         public static readonly LocalizationKey BackToRating = new LocalizationKey("Back to Rating", "Back to Rating", "返回等级分");
         public static readonly LocalizationKey RatingHistoryChart = new LocalizationKey("Rating History Chart", "Rating History Chart", "等级分历史图表");

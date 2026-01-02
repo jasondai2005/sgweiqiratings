@@ -819,6 +819,11 @@ namespace PlayerRatings.Controllers
             // Find player's matches (all matches for intl leagues, filtered for local leagues)
             var playerMatches = FilterPlayerMatches(league.Matches, playerId, swaOnly, isSgLeague).ToList();
 
+            // Load player's tournament positions for display in rating history
+            var playerTournamentPositions = await _context.TournamentPlayers
+                .Where(tp => tp.PlayerId == playerId)
+                .ToDictionaryAsync(tp => tp.TournamentId, tp => tp.Position);
+
             // If player has no matches, show page with just their info (no rating history)
             if (!playerMatches.Any())
             {
@@ -913,12 +918,18 @@ namespace PlayerRatings.Controllers
                     var matchKey = match.TournamentId?.ToString() ?? match.MatchName ?? "";
                     if (!matchInfosInCurrentMonth.Any(m => (m.TournamentId?.ToString() ?? m.MatchName ?? "") == matchKey))
                     {
+                        int? tournamentPosition = null;
+                        if (match.TournamentId.HasValue && playerTournamentPositions.TryGetValue(match.TournamentId.Value, out var pos))
+                        {
+                            tournamentPosition = pos;
+                        }
                         matchInfosInCurrentMonth.Add(new MatchInfo
                         {
                             MatchName = match.MatchName,
                             TournamentId = match.TournamentId,
                             TournamentName = match.Tournament?.FullName,
-                            Round = match.Round
+                            Round = match.Round,
+                            TournamentPosition = tournamentPosition
                         });
                     }
                 }
@@ -1115,6 +1126,11 @@ namespace PlayerRatings.Controllers
                 // since promotions happen at the end of the day after all matches
                 var opponentRanking = opponent.GetCombinedRankingBeforeDate(match.Date.Date);
                 
+                int? tournamentPosition = null;
+                if (match.TournamentId.HasValue && playerTournamentPositions.TryGetValue(match.TournamentId.Value, out var pos))
+                {
+                    tournamentPosition = pos;
+                }
                 gameRecords.Add(new GameRecord
                 {
                     Date = match.Date,
@@ -1126,7 +1142,8 @@ namespace PlayerRatings.Controllers
                     Factor = match.Factor,
                     TournamentId = match.TournamentId,
                     TournamentName = match.Tournament?.FullName,
-                    Round = match.Round
+                    Round = match.Round,
+                    TournamentPosition = tournamentPosition
                 });
             }
 
@@ -1141,6 +1158,11 @@ namespace PlayerRatings.Controllers
                 })
                 .ToListAsync();
 
+            // Count championships (tournaments where player has Position = 1)
+            var championshipCount = await _context.TournamentPlayers
+                .Where(tp => tp.PlayerId == playerId && tp.Position == 1)
+                .CountAsync();
+
             return View(new PlayerRatingHistoryViewModel
             {
                 Player = player,
@@ -1153,7 +1175,8 @@ namespace PlayerRatings.Controllers
                 TotalPlayers = totalPlayers,
                 PreviousPlayerId = previousPlayerId,
                 NextPlayerId = nextPlayerId,
-                TournamentOptions = tournamentOptions
+                TournamentOptions = tournamentOptions,
+                ChampionshipCount = championshipCount
             });
         }
 
