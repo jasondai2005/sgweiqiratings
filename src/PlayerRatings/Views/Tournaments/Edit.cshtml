@@ -155,7 +155,7 @@
                 }
                 else
                 {
-                    <form asp-action="SavePositions" method="post" id="savePositionsForm">
+                    <form asp-controller="Tournaments" asp-action="SavePositions" method="post" id="savePositionsForm">
                         <input type="hidden" name="tournamentId" value="@Model.Id" />
                         <input type="hidden" name="filterMonth" value="@Model.FilterMonth" />
                         <input type="hidden" name="filterYear" value="@Model.FilterYear" />

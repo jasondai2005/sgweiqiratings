@@ -66,6 +66,7 @@
             <th>Score</th>
             <th>Tournament</th>
             <th>@LocString[nameof(LocalizationKey.Date)]</th>
+            <th>@LocString[nameof(LocalizationKey.Factor)]</th>
             <th></th>
         </tr>
     </thead>
@@ -101,6 +102,9 @@
             </td>
             <td>
                 @item.Date.ToString("dd/MM/yyyy")
+            </td>
+            <td>
+                @(item.Factor.HasValue ? item.Factor.Value.ToString("0.#") : "-")
             </td>
             <td>
                 @if (item.CreatedByUserId == appUser.Id || item.League.CreatedByUserId == appUser.Id)

@@ -108,6 +108,7 @@
                         {
                             <th style="width: 60px; text-align: center;">R@(r)</th>
                         }
+                        <th style="width: 40px; text-align: center;" title="Number of Wins">NbW</th>
                         <th style="width: 50px; text-align: center;" title="Sum of Opponents' Scores">SOS</th>
                         <th style="width: 60px; text-align: center;" title="Sum of Opponents' SOS">SOSOS</th>
                         @if (hasAnyPromotion)
@@ -159,6 +160,7 @@
                                     }
                                 </td>
                             }
+                            <td style="text-align: center; font-weight: bold;">@p.Wins</td>
                             <td style="text-align: center;">@p.SOS</td>
                             <td style="text-align: center;">@p.SOSOS</td>
                             @if (hasAnyPromotion)
@@ -189,6 +191,7 @@
                     <th>Score</th>
                     <th>Round</th>
                     <th>Date</th>
+                    <th>Factor</th>
                     @if (Model.IsAdmin)
                     {
                         <th></th>
@@ -209,6 +212,7 @@
                         <td>@m.GetScore()</td>
                         <td>@(m.Round.HasValue ? $"R{m.Round}" : "-")</td>
                         <td>@m.Date.ToString("dd/MM/yyyy")</td>
+                        <td>@(m.Factor.HasValue ? m.Factor.Value.ToString("0.#") : "-")</td>
                         @if (Model.IsAdmin)
                         {
                             <td>
