@@ -4,24 +4,6 @@
 
 @{
     ViewData["Title"] = LocString[nameof(LocalizationKey.EditTournament)];
-    
-    var months = new[] {
-        new { Value = 1, Text = "January" },
-        new { Value = 2, Text = "February" },
-        new { Value = 3, Text = "March" },
-        new { Value = 4, Text = "April" },
-        new { Value = 5, Text = "May" },
-        new { Value = 6, Text = "June" },
-        new { Value = 7, Text = "July" },
-        new { Value = 8, Text = "August" },
-        new { Value = 9, Text = "September" },
-        new { Value = 10, Text = "October" },
-        new { Value = 11, Text = "November" },
-        new { Value = 12, Text = "December" }
-    };
-    
-    var currentYear = DateTime.Now.Year;
-    var years = Enumerable.Range(currentYear - 5, 7).Reverse().ToList();
 }
 
 <div class="form-horizontal">
@@ -47,9 +29,6 @@
         <form asp-action="Edit" method="post" class="form-horizontal" id="editTournamentForm">
             <input type="hidden" asp-for="Id" />
             <input type="hidden" asp-for="LeagueId" />
-            <input type="hidden" asp-for="FilterMonth" />
-            <input type="hidden" asp-for="FilterYear" />
-            <input type="hidden" asp-for="FilterMatchName" />
             
             <div class="panel panel-default">
                 <div class="panel-heading">@LocString[nameof(LocalizationKey.TournamentInformation)]</div>
@@ -177,105 +156,130 @@
                     </div>
                 </div>
             </div>
-        
-            <!-- Players Section (inside main form) -->
-            <div class="panel panel-default">
-                <div class="panel-heading">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span>@LocString[nameof(LocalizationKey.Players)] (@Model.AvailablePlayers.Count)</span>
-                    </div>
-                </div>
-                <div class="panel-body" style="padding: 0;">
-                    @if (!Model.AvailablePlayers.Any())
-                    {
-                        <p class="text-muted" style="padding: 15px; margin: 0;">Add matches or players below.</p>
-                    }
-                    else
-                    {
-                        <div style="overflow-x: auto;">
-                            <table class="table table-condensed" style="margin-bottom: 0;">
-                                <thead>
-                                    <tr>
-                                        <th style="width: 50px;">@LocString[nameof(LocalizationKey.Pos)]</th>
-                                        <th>@LocString[nameof(LocalizationKey.Player)]</th>
-                                        <th style="width: 80px;">@LocString[nameof(LocalizationKey.Team)]</th>
-                                        <th style="width: 45px;" title="@LocString[nameof(LocalizationKey.TPos)]">@LocString[nameof(LocalizationKey.TPos)]</th>
-                                        <th style="width: 45px;" title="@LocString[nameof(LocalizationKey.FemaleAward)]">♀</th>
-                                        <th style="width: 30px;">@LocString[nameof(LocalizationKey.Win)]</th>
-                                        <th style="width: 30px;">@LocString[nameof(LocalizationKey.Loss)]</th>
-                                        <th style="width: 35px;" title="@LocString[nameof(LocalizationKey.SOS)]">@LocString[nameof(LocalizationKey.SOS)]</th>
-                                        <th style="width: 30px;"></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @{ var playerIdx = 0; }
-                                    @foreach (var p in Model.AvailablePlayers)
-                                    {
-                                        <tr>
-                                            <td>
-                                                <input type="hidden" name="PlayerIds[@playerIdx]" value="@p.PlayerId" />
-                                                <input type="number" name="PositionValues[@playerIdx]" 
-                                                       class="form-control input-sm" 
-                                                       value="@p.Position" 
-                                                       style="width: 45px; padding: 2px 4px;" />
-                                            </td>
-                                            <td style="white-space: nowrap;">
-                                                @p.PlayerName
-                                            </td>
-                                            <td>
-                                                <input type="text" name="TeamValues[@playerIdx]" 
-                                                       class="form-control input-sm" 
-                                                       value="@p.Team" 
-                                                       style="width: 70px; padding: 2px 4px;" 
-                                                       placeholder="Team" />
-                                            </td>
-                                            <td>
-                                                <input type="number" name="TeamPositionValues[@playerIdx]" 
-                                                       class="form-control input-sm" 
-                                                       value="@p.TeamPosition" 
-                                                       style="width: 40px; padding: 2px 4px;" />
-                                            </td>
-                                            <td>
-                                                @if (p.IsFemale)
-                                                {
-                                                    <input type="number" name="FemalePositionValues[@playerIdx]" 
-                                                           class="form-control input-sm" 
-                                                           value="@p.FemalePosition" 
-                                                           style="width: 40px; padding: 2px 4px;" />
-                                                }
-                                                else
-                                                {
-                                                    <input type="hidden" name="FemalePositionValues[@playerIdx]" value="" />
-                                                    <span class="text-muted">-</span>
-                                                }
-                                            </td>
-                                            <td>@(p.Wins % 1 == 0 ? ((int)p.Wins).ToString() : p.Wins.ToString("0.#"))</td>
-                                            <td>@p.Losses</td>
-                                            <td title="SOS: @(p.SOS % 1 == 0 ? ((int)p.SOS).ToString() : p.SOS.ToString("0.#")), SOSOS: @(p.SOSOS % 1 == 0 ? ((int)p.SOSOS).ToString() : p.SOSOS.ToString("0.#"))">@(p.SOS % 1 == 0 ? ((int)p.SOS).ToString() : p.SOS.ToString("0.#"))</td>
-                                            <td>
-                                                <button type="submit" form="removePlayer_@playerIdx" class="btn btn-xs btn-danger" title="@LocString[nameof(LocalizationKey.Remove)]">×</button>
-                                            </td>
-                                        </tr>
-                                        playerIdx++;
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
-                    }
+            
+        </form>
+    </div>
+    
+    <!-- Right Column: Matches and Players -->
+    <div class="col-md-7">
+        <!-- Matches Section -->
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>@LocString[nameof(LocalizationKey.Matches)]</span>
+                    <a asp-action="SelectMatches" asp-route-id="@Model.Id" class="btn btn-sm btn-primary">
+                        @LocString[nameof(LocalizationKey.SelectMatches)]
+                    </a>
                 </div>
             </div>
-        </form>
+            <div class="panel-body">
+                @if (Model.SelectedMatchIds != null && Model.SelectedMatchIds.Any())
+                {
+                    <span class="text-success">
+                        <strong>@Model.SelectedMatchIds.Count</strong> @LocString[nameof(LocalizationKey.Matches).ToLower()]
+                    </span>
+                }
+                else
+                {
+                    <span class="text-muted">@LocString[nameof(LocalizationKey.NoMatchesFound)]</span>
+                }
+            </div>
+        </div>
         
-        <!-- Remove player forms (outside main form to avoid nesting) -->
+        <!-- Players Section -->
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>@LocString[nameof(LocalizationKey.Players)] (@Model.AvailablePlayers.Count)</span>
+                </div>
+            </div>
+            <div class="panel-body" style="padding: 0;">
+                @if (!Model.AvailablePlayers.Any())
+                {
+                    <p class="text-muted" style="padding: 15px; margin: 0;">Add matches or players below.</p>
+                }
+                else
+                {
+                    <div style="overflow-x: auto;">
+                        <table class="table table-condensed" style="margin-bottom: 0;">
+                            <thead>
+                                <tr>
+                                    <th style="width: 50px;">@LocString[nameof(LocalizationKey.Pos)]</th>
+                                    <th>@LocString[nameof(LocalizationKey.Player)]</th>
+                                    <th style="width: 80px;">@LocString[nameof(LocalizationKey.Team)]</th>
+                                    <th style="width: 45px;" title="@LocString[nameof(LocalizationKey.TPos)]">@LocString[nameof(LocalizationKey.TPos)]</th>
+                                    <th style="width: 45px;" title="@LocString[nameof(LocalizationKey.FemaleAward)]">♀</th>
+                                    <th style="width: 30px;">@LocString[nameof(LocalizationKey.Win)]</th>
+                                    <th style="width: 30px;">@LocString[nameof(LocalizationKey.Loss)]</th>
+                                    <th style="width: 35px;" title="@LocString[nameof(LocalizationKey.SOS)]">@LocString[nameof(LocalizationKey.SOS)]</th>
+                                    <th style="width: 30px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @{ var playerIdx = 0; }
+                                @foreach (var p in Model.AvailablePlayers)
+                                {
+                                    <tr>
+                                        <td>
+                                            <input type="hidden" name="PlayerIds[@playerIdx]" form="editTournamentForm" value="@p.PlayerId" />
+                                            <input type="number" name="PositionValues[@playerIdx]" form="editTournamentForm"
+                                                   class="form-control input-sm" 
+                                                   value="@p.Position" 
+                                                   style="width: 45px; padding: 2px 4px;" />
+                                        </td>
+                                        <td style="white-space: nowrap;">
+                                            @p.PlayerName
+                                        </td>
+                                        <td>
+                                            <input type="text" name="TeamValues[@playerIdx]" form="editTournamentForm"
+                                                   class="form-control input-sm" 
+                                                   value="@p.Team" 
+                                                   style="width: 70px; padding: 2px 4px;" 
+                                                   placeholder="Team" />
+                                        </td>
+                                        <td>
+                                            <input type="number" name="TeamPositionValues[@playerIdx]" form="editTournamentForm"
+                                                   class="form-control input-sm" 
+                                                   value="@p.TeamPosition" 
+                                                   style="width: 40px; padding: 2px 4px;" />
+                                        </td>
+                                        <td>
+                                            @if (p.IsFemale)
+                                            {
+                                                <input type="number" name="FemalePositionValues[@playerIdx]" form="editTournamentForm"
+                                                       class="form-control input-sm" 
+                                                       value="@p.FemalePosition" 
+                                                       style="width: 40px; padding: 2px 4px;" />
+                                            }
+                                            else
+                                            {
+                                                <input type="hidden" name="FemalePositionValues[@playerIdx]" form="editTournamentForm" value="" />
+                                                <span class="text-muted">-</span>
+                                            }
+                                        </td>
+                                        <td>@(p.Wins % 1 == 0 ? ((int)p.Wins).ToString() : p.Wins.ToString("0.#"))</td>
+                                        <td>@p.Losses</td>
+                                        <td title="SOS: @(p.SOS % 1 == 0 ? ((int)p.SOS).ToString() : p.SOS.ToString("0.#")), SOSOS: @(p.SOSOS % 1 == 0 ? ((int)p.SOSOS).ToString() : p.SOSOS.ToString("0.#"))">@(p.SOS % 1 == 0 ? ((int)p.SOS).ToString() : p.SOS.ToString("0.#"))</td>
+                                        <td>
+                                            <button type="submit" form="removePlayer_@playerIdx" class="btn btn-xs btn-danger" title="@LocString[nameof(LocalizationKey.Remove)]">×</button>
+                                        </td>
+                                    </tr>
+                                    playerIdx++;
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+        
+        <!-- Remove player forms -->
         @{ var removeIdx = 0; }
         @foreach (var p in Model.AvailablePlayers)
         {
             <form id="removePlayer_@removeIdx" asp-action="RemovePlayer" method="post" style="display: none;">
                 <input type="hidden" name="tournamentId" value="@Model.Id" />
                 <input type="hidden" name="playerId" value="@p.PlayerId" />
-                <input type="hidden" name="filterMonth" value="@Model.FilterMonth" />
-                <input type="hidden" name="filterYear" value="@Model.FilterYear" />
-                <input type="hidden" name="filterMatchName" value="@Model.FilterMatchName" />
             </form>
             removeIdx++;
         }
@@ -288,9 +292,6 @@
                 <div class="panel-body">
                     <form asp-action="AddPlayer" method="post" class="form-inline">
                         <input type="hidden" name="tournamentId" value="@Model.Id" />
-                        <input type="hidden" name="filterMonth" value="@Model.FilterMonth" />
-                        <input type="hidden" name="filterYear" value="@Model.FilterYear" />
-                        <input type="hidden" name="filterMatchName" value="@Model.FilterMatchName" />
                         <select name="playerId" class="form-control input-sm" style="width: 180px;">
                             @foreach (var p in Model.LeaguePlayers)
                             {
@@ -302,15 +303,12 @@
                 </div>
             </div>
         }
-
+        
         <div style="margin-top: 15px; display: flex; gap: 10px;">
             @if (Model.AvailablePlayers.Any())
             {
                 <form asp-action="CalculatePositions" method="post" style="display: inline;">
                     <input type="hidden" name="tournamentId" value="@Model.Id" />
-                    <input type="hidden" name="filterMonth" value="@Model.FilterMonth" />
-                    <input type="hidden" name="filterYear" value="@Model.FilterYear" />
-                    <input type="hidden" name="filterMatchName" value="@Model.FilterMatchName" />
                     <button type="submit" class="btn btn-default" title="@LocString[nameof(LocalizationKey.SwissSystemTooltip)]">
                         @LocString[nameof(LocalizationKey.CalculatePositions)]
                     </button>
@@ -319,259 +317,8 @@
             <button type="submit" form="editTournamentForm" class="btn btn-primary">@LocString[nameof(LocalizationKey.SaveChanges)]</button>
         </div>
     </div>
-    
-    <!-- Right Column: Match Selection -->
-    <div class="col-md-7">
-        <div class="panel panel-default">
-            <div class="panel-heading">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span>@LocString[nameof(LocalizationKey.SelectMatches)]</span>
-                    <form asp-action="Edit" method="get" style="display: flex; gap: 5px; flex-wrap: wrap;">
-                        <input type="hidden" name="id" value="@Model.Id" />
-                        <select name="filterMonth" class="form-control input-sm" style="width: 110px;">
-                            @foreach (var m in months)
-                            {
-                                <option value="@m.Value" selected="@(m.Value == Model.FilterMonth)">@m.Text</option>
-                            }
-                        </select>
-                        <select name="filterYear" class="form-control input-sm" style="width: 80px;">
-                            @foreach (var y in years)
-                            {
-                                <option value="@y" selected="@(y == Model.FilterYear)">@y</option>
-                            }
-                        </select>
-                        <input type="text" name="filterMatchName" value="@Model.FilterMatchName" class="form-control input-sm" placeholder="Match name..." style="width: 120px;" />
-                        <button type="submit" class="btn btn-sm btn-default">Filter</button>
-                    </form>
-                </div>
-            </div>
-            <div class="panel-body" style="padding: 0;">
-                <form asp-action="AddMatches" method="post" id="addMatchesForm">
-                    <input type="hidden" name="tournamentId" value="@Model.Id" />
-                    <input type="hidden" name="filterMonth" value="@Model.FilterMonth" />
-                    <input type="hidden" name="filterYear" value="@Model.FilterYear" />
-                    <input type="hidden" name="filterMatchName" value="@Model.FilterMatchName" />
-                    
-                    @if (!Model.AvailableMatches.Any())
-                    {
-                        <p class="text-muted" style="padding: 15px; margin: 0;">No matches found for the selected month.</p>
-                    }
-                    else
-                    {
-                        <!-- Bulk Actions -->
-                        <div style="padding: 10px; background: #f5f5f5; border-bottom: 1px solid #ddd;">
-                            <div style="display: flex; align-items: center; gap: 15px;">
-                                <label style="margin: 0;">
-                                    <input type="checkbox" id="selectAllMatches" /> Select All
-                                </label>
-                                <span style="color: #999;">|</span>
-                                <label style="margin: 0;">Set Round for selected:</label>
-                                <input type="number" id="bulkRoundInput" class="form-control input-sm" style="width: 60px;" placeholder="R#" />
-                                <button type="button" id="applyBulkRound" class="btn btn-xs btn-default">Apply</button>
-                            </div>
-                        </div>
-                        
-                        <table class="table table-condensed table-hover" style="margin-bottom: 0;">
-                            <thead>
-                                <tr>
-                                    <th style="width: 40px;"></th>
-                                    <th>@LocString[nameof(LocalizationKey.Date)]</th>
-                                    <th>@LocString[nameof(LocalizationKey.Match)]</th>
-                                    <th class="text-center">@LocString[nameof(LocalizationKey.Score)]</th>
-                                    <th style="width: 60px;">@LocString[nameof(LocalizationKey.Round)]</th>
-                                    <th>@LocString[nameof(LocalizationKey.Status)]</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @{ var index = 0; }
-                                @foreach (var m in Model.AvailableMatches)
-                                {
-                                    var isInOther = m.CurrentTournamentId.HasValue && m.CurrentTournamentId != Model.Id;
-                                    var isInThis = m.IsSelected;
-                                    var rowClass = isInThis ? "success" : (isInOther ? "active" : "");
-                                    
-                                    <tr class="@rowClass">
-                                        <td>
-                                            @if (!isInOther)
-                                            {
-                                                <input type="checkbox" name="matchIds" value="@m.Id" class="match-checkbox" 
-                                                       checked="@isInThis" data-index="@index" />
-                                            }
-                                        </td>
-                                        <td>@m.Date.ToString("dd MMM")</td>
-                                        <td>
-                                            @(string.IsNullOrEmpty(m.FirstPlayerName) ? "BYE" : m.FirstPlayerName) vs @(string.IsNullOrEmpty(m.SecondPlayerName) ? "BYE" : m.SecondPlayerName)
-                                            @if (!string.IsNullOrEmpty(m.MatchName))
-                                            {
-                                                <br /><small class="text-muted">@m.MatchName</small>
-                                            }
-                                        </td>
-                                        <td class="text-center">@m.FirstPlayerScore : @m.SecondPlayerScore</td>
-                                        <td>
-                                            @if (!isInOther)
-                                            {
-                                                <input type="number" name="rounds" value="@m.Round" class="form-control input-sm round-input"
-                                                       style="width: 50px;" data-index="@index" placeholder="R#" />
-                                            }
-                                        </td>
-                                        <td>
-                                            @if (isInThis)
-                                            {
-                                                <span class="label label-success">In Tournament</span>
-                                                <form asp-action="RemoveMatch" method="post" style="display: inline;">
-                                                    <input type="hidden" name="tournamentId" value="@Model.Id" />
-                                                    <input type="hidden" name="matchId" value="@m.Id" />
-                                                    <input type="hidden" name="filterMonth" value="@Model.FilterMonth" />
-                                                    <input type="hidden" name="filterYear" value="@Model.FilterYear" />
-                                                    <input type="hidden" name="filterMatchName" value="@Model.FilterMatchName" />
-                                                    <button type="submit" class="btn btn-xs btn-link text-danger" style="padding: 0;">Remove</button>
-                                                </form>
-                                            }
-                                            else if (isInOther)
-                                            {
-                                                <span class="label label-default" title="@m.CurrentTournamentName">In Another</span>
-                                            }
-                                        </td>
-                                    </tr>
-                                    index++;
-                                }
-                            </tbody>
-                        </table>
-                    }
-                </form>
-            </div>
-            @if (Model.AvailableMatches.Any(m => !m.CurrentTournamentId.HasValue || m.CurrentTournamentId == Model.Id))
-            {
-                <div class="panel-footer">
-                    <button type="submit" form="addMatchesForm" class="btn btn-primary">Add Selected Matches</button>
-                    @if (Model.AvailableMatches.Any(m => m.IsSelected))
-                    {
-                        <button type="button" id="saveRoundsBtn" class="btn btn-success" style="margin-left: 10px;">Save Rounds</button>
-                        <span style="margin-left: 20px; border-left: 1px solid #ddd; padding-left: 20px;">
-                            <label style="font-weight: normal;">Shift selected by</label>
-                            <input type="number" id="shiftHours" class="form-control" style="width: 70px; display: inline-block; margin: 0 5px;" value="0" />
-                            <label style="font-weight: normal;">hours</label>
-                            <button type="button" id="shiftTimesBtn" class="btn btn-default" style="margin-left: 5px;">Apply</button>
-                        </span>
-                    }
-                    <br /><small class="text-muted">Check matches and set round numbers, then click Add. Use "Save Rounds" to update rounds for existing matches.</small>
-                </div>
-            }
-        </div>
-    </div>
 </div>
-
-<!-- Hidden form for Save Rounds -->
-<form asp-controller="Tournaments" asp-action="SaveRounds" method="post" id="saveRoundsForm">
-    <input type="hidden" name="tournamentId" value="@Model.Id" />
-    <input type="hidden" name="filterMonth" value="@Model.FilterMonth" />
-    <input type="hidden" name="filterYear" value="@Model.FilterYear" />
-    <input type="hidden" name="filterMatchName" value="@Model.FilterMatchName" />
-    @{ var saveIdx = 0; }
-    @foreach (var m in Model.AvailableMatches.Where(x => x.IsSelected))
-    {
-        <input type="hidden" name="matchIds[@saveIdx]" value="@m.Id" class="save-round-match-id" data-match-id="@m.Id" />
-        <input type="hidden" name="rounds[@saveIdx]" value="@m.Round" class="save-round-value" data-match-id="@m.Id" />
-        saveIdx++;
-    }
-</form>
-
-<!-- Hidden form for Shift Match Times -->
-<form asp-controller="Tournaments" asp-action="ShiftMatchTimes" method="post" id="shiftTimesForm">
-    @Html.AntiForgeryToken()
-    <input type="hidden" name="tournamentId" value="@Model.Id" />
-    <input type="hidden" name="filterMonth" value="@Model.FilterMonth" />
-    <input type="hidden" name="filterYear" value="@Model.FilterYear" />
-    <input type="hidden" name="filterMatchName" value="@Model.FilterMatchName" />
-    <input type="hidden" name="hours" id="shiftHoursValue" value="0" />
-    <div id="shiftMatchIds"></div>
-</form>
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
-    
-    <script>
-        $(function() {
-            // Select All functionality
-            $('#selectAllMatches').on('change', function() {
-                var isChecked = this.checked;
-                $('.match-checkbox').each(function() {
-                    this.checked = isChecked;
-                });
-            });
-            
-            // Update "Select All" checkbox state when individual checkboxes change
-            $('.match-checkbox').on('change', function() {
-                var allChecked = $('.match-checkbox').length === $('.match-checkbox:checked').length;
-                $('#selectAllMatches').prop('checked', allChecked);
-            });
-            
-            // Apply bulk round to selected matches
-            $('#applyBulkRound').on('click', function() {
-                var roundValue = $('#bulkRoundInput').val();
-                if (roundValue === '') {
-                    alert('Please enter a round number first.');
-                    return;
-                }
-                
-                $('.match-checkbox:checked').each(function() {
-                    var index = $(this).data('index');
-                    $('.round-input[data-index="' + index + '"]').val(roundValue);
-                });
-            });
-            
-            // Save Rounds button - sync values from main form and submit
-            $('#saveRoundsBtn').on('click', function() {
-                // Update hidden form values from the visible round inputs
-                $('.save-round-value').each(function() {
-                    var matchId = $(this).data('match-id');
-                    // Find the corresponding round input by matching the checkbox value
-                    var checkbox = $('input.match-checkbox[value="' + matchId + '"]');
-                    if (checkbox.length > 0) {
-                        var idx = checkbox.data('index');
-                        var roundInput = $('.round-input[data-index="' + idx + '"]');
-                        if (roundInput.length > 0) {
-                            $(this).val(roundInput.val());
-                        }
-                    }
-                });
-                $('#saveRoundsForm').submit();
-            });
-            
-            // Shift Match Times button - collect selected match IDs and submit
-            $('#shiftTimesBtn').on('click', function() {
-                var hours = parseInt($('#shiftHours').val()) || 0;
-                if (hours === 0) {
-                    alert('Please enter a non-zero number of hours.');
-                    return;
-                }
-                
-                // Get checked matches that are in the tournament (IsSelected)
-                var matchIds = [];
-                $('.match-checkbox:checked').each(function() {
-                    var matchId = $(this).val();
-                    // Only include matches that are already in the tournament
-                    var isInTournament = $(this).closest('tr').find('.label-success').length > 0;
-                    if (isInTournament) {
-                        matchIds.push(matchId);
-                    }
-                });
-                
-                if (matchIds.length === 0) {
-                    alert('Please select matches that are already in the tournament.');
-                    return;
-                }
-                
-                // Update hidden form
-                $('#shiftHoursValue').val(hours);
-                var container = $('#shiftMatchIds');
-                container.empty();
-                matchIds.forEach(function(id, idx) {
-                    container.append('<input type="hidden" name="matchIds[' + idx + ']" value="' + id + '" />');
-                });
-                
-                $('#shiftTimesForm').submit();
-            });
-        });
-    </script>
 }

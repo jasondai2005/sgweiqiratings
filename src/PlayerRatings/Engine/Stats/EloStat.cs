@@ -213,7 +213,16 @@ namespace PlayerRatings.Engine.Stats
             }
 
             // Apply floor if current rating is lower
-            double currentRating = _dict.TryGetValue(player.Id, out var cached) ? cached : 0;
+            // Only apply bonus if we have a cached rating from processed matches
+            // If no matches processed yet, skip the bonus - the player will enter with their
+            // current ranking's rating, and any future promotions will be handled correctly
+            if (!_dict.TryGetValue(player.Id, out var currentRating))
+            {
+                // No matches processed yet - don't apply promotion bonus
+                // This prevents incorrect bonuses when "previousRanking" is actually from years ago
+                return;
+            }
+            
             if (currentRating < ratingFloor)
             {
                 double bonusAmount = ratingFloor - currentRating;

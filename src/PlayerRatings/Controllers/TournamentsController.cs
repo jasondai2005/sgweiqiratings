@@ -1114,16 +1114,13 @@ namespace PlayerRatings.Controllers
         }
 
         // GET: Tournaments/Edit/5
-        public async Task<IActionResult> Edit(Guid id, int? filterMonth, int? filterYear, string filterMatchName)
+        public async Task<IActionResult> Edit(Guid id)
         {
             var currentUser = await User.GetApplicationUser(_userManager);
 
             var tournament = await _context.Tournaments
                 .Include(t => t.League)
                 .Include(t => t.Matches)
-                    .ThenInclude(m => m.FirstPlayer)
-                .Include(t => t.Matches)
-                    .ThenInclude(m => m.SecondPlayer)
                 .Include(t => t.TournamentPlayers)
                     .ThenInclude(tp => tp.Player)
                 .Include(t => t.TournamentPlayers)
@@ -1134,37 +1131,6 @@ namespace PlayerRatings.Controllers
             {
                 return NotFound();
             }
-
-            // Default filter to tournament dates or current month
-            if (!filterYear.HasValue)
-            {
-                filterYear = tournament.StartDate?.Year ?? DateTimeOffset.Now.Year;
-            }
-            if (!filterMonth.HasValue)
-            {
-                filterMonth = tournament.StartDate?.Month ?? DateTimeOffset.Now.Month;
-            }
-
-            var filterStart = new DateTimeOffset(filterYear.Value, filterMonth.Value, 1, 0, 0, 0, TimeSpan.Zero);
-            var filterEnd = filterStart.AddMonths(1);
-
-            // Get available matches for selection (in the filtered month, from this league)
-            var matchQuery = _context.Match
-                .Include(m => m.FirstPlayer)
-                .Include(m => m.SecondPlayer)
-                .Include(m => m.Tournament)
-                .Where(m => m.LeagueId == tournament.LeagueId
-                    && m.Date >= filterStart && m.Date < filterEnd);
-            
-            // Apply match name filter if provided
-            if (!string.IsNullOrWhiteSpace(filterMatchName))
-            {
-                matchQuery = matchQuery.Where(m => m.MatchName != null && m.MatchName.Contains(filterMatchName));
-            }
-            
-            var availableMatches = await matchQuery
-                .OrderBy(m => m.Date)
-                .ToListAsync();
 
             var selectedMatchIds = tournament.Matches.Select(m => m.Id).ToHashSet();
 
@@ -1205,27 +1171,7 @@ namespace PlayerRatings.Controllers
                 SupportsPersonalAward = tournament.SupportsPersonalAward,
                 SupportsTeamAward = tournament.SupportsTeamAward,
                 SupportsFemaleAward = tournament.SupportsFemaleAward,
-                FilterMonth = filterMonth,
-                FilterYear = filterYear,
-                FilterMatchName = filterMatchName,
                 SelectedMatchIds = selectedMatchIds.ToList(),
-                AvailableMatches = availableMatches.Select(m => new MatchSelectionItem
-                {
-                    Id = m.Id,
-                    Date = m.Date,
-                    FirstPlayerName = m.FirstPlayer?.DisplayName,
-                    SecondPlayerName = m.SecondPlayer?.DisplayName,
-                    FirstPlayerScore = m.FirstPlayerScore,
-                    SecondPlayerScore = m.SecondPlayerScore,
-                    MatchName = m.MatchName,
-                    Factor = m.Factor,
-                    IsSelected = selectedMatchIds.Contains(m.Id),
-                    CurrentTournamentId = m.TournamentId,
-                    CurrentTournamentName = m.TournamentId.HasValue && m.TournamentId != tournament.Id 
-                        ? m.Tournament?.FullName 
-                        : null,
-                    Round = m.Round
-                }).ToList(),
                 SelectedPlayers = tournament.TournamentPlayers.Select(tp => new TournamentPlayerEditModel
                 {
                     PlayerId = tp.PlayerId,
@@ -1339,7 +1285,90 @@ namespace PlayerRatings.Controllers
 
             await _context.SaveChangesAsync();
 
-            return RedirectToAction(nameof(Edit), new { id = tournament.Id, filterMonth = model.FilterMonth, filterYear = model.FilterYear, filterMatchName = model.FilterMatchName });
+            return RedirectToAction(nameof(Edit), new { id = tournament.Id });
+        }
+
+        // GET: Tournaments/SelectMatches/5
+        public async Task<IActionResult> SelectMatches(Guid id, int? filterMonth, int? filterYear, string filterMatchName)
+        {
+            var currentUser = await User.GetApplicationUser(_userManager);
+
+            var tournament = await _context.Tournaments
+                .Include(t => t.League)
+                .Include(t => t.Matches)
+                    .ThenInclude(m => m.FirstPlayer)
+                .Include(t => t.Matches)
+                    .ThenInclude(m => m.SecondPlayer)
+                .FirstOrDefaultAsync(t => t.Id == id);
+
+            if (tournament == null || tournament.League.CreatedByUserId != currentUser.Id)
+            {
+                return NotFound();
+            }
+
+            // Default filter to tournament dates or current month
+            if (!filterYear.HasValue)
+            {
+                filterYear = tournament.StartDate?.Year ?? DateTimeOffset.Now.Year;
+            }
+            if (!filterMonth.HasValue)
+            {
+                filterMonth = tournament.StartDate?.Month ?? DateTimeOffset.Now.Month;
+            }
+
+            var filterStart = new DateTimeOffset(filterYear.Value, filterMonth.Value, 1, 0, 0, 0, TimeSpan.Zero);
+            var filterEnd = filterStart.AddMonths(1);
+
+            // Get available matches for selection (in the filtered month, from this league)
+            var matchQuery = _context.Match
+                .Include(m => m.FirstPlayer)
+                .Include(m => m.SecondPlayer)
+                .Include(m => m.Tournament)
+                .Where(m => m.LeagueId == tournament.LeagueId
+                    && m.Date >= filterStart && m.Date < filterEnd);
+            
+            // Apply match name filter if provided
+            if (!string.IsNullOrWhiteSpace(filterMatchName))
+            {
+                matchQuery = matchQuery.Where(m => m.MatchName != null && m.MatchName.Contains(filterMatchName));
+            }
+            
+            var availableMatches = await matchQuery
+                .OrderBy(m => m.Date)
+                .ToListAsync();
+
+            var selectedMatchIds = tournament.Matches.Select(m => m.Id).ToHashSet();
+
+            var viewModel = new TournamentEditViewModel
+            {
+                Id = tournament.Id,
+                LeagueId = tournament.LeagueId,
+                LeagueName = tournament.League.Name,
+                Name = tournament.Name,
+                FilterMonth = filterMonth,
+                FilterYear = filterYear,
+                FilterMatchName = filterMatchName,
+                SelectedMatchIds = selectedMatchIds.ToList(),
+                AvailableMatches = availableMatches.Select(m => new MatchSelectionItem
+                {
+                    Id = m.Id,
+                    Date = m.Date,
+                    FirstPlayerName = m.FirstPlayer?.DisplayName,
+                    SecondPlayerName = m.SecondPlayer?.DisplayName,
+                    FirstPlayerScore = m.FirstPlayerScore,
+                    SecondPlayerScore = m.SecondPlayerScore,
+                    MatchName = m.MatchName,
+                    Factor = m.Factor,
+                    IsSelected = selectedMatchIds.Contains(m.Id),
+                    CurrentTournamentId = m.TournamentId,
+                    CurrentTournamentName = m.TournamentId.HasValue && m.TournamentId != tournament.Id 
+                        ? m.Tournament?.FullName 
+                        : null,
+                    Round = m.Round
+                }).ToList()
+            };
+
+            return View(viewModel);
         }
 
         // POST: Tournaments/AddMatches
@@ -1361,7 +1390,7 @@ namespace PlayerRatings.Controllers
 
             if (matchIds == null || !matchIds.Any())
             {
-                return RedirectToAction(nameof(Edit), new { id = tournamentId, filterMonth, filterYear, filterMatchName });
+                return RedirectToAction(nameof(SelectMatches), new { id = tournamentId, filterMonth, filterYear, filterMatchName });
             }
 
             var matches = await _context.Match
@@ -1446,7 +1475,7 @@ namespace PlayerRatings.Controllers
 
             await _context.SaveChangesAsync();
 
-            return RedirectToAction(nameof(Edit), new { id = tournamentId, filterMonth, filterYear, filterMatchName });
+            return RedirectToAction(nameof(SelectMatches), new { id = tournamentId, filterMonth, filterYear, filterMatchName });
         }
 
         // POST: Tournaments/SaveRounds
@@ -1467,7 +1496,7 @@ namespace PlayerRatings.Controllers
 
             if (matchIds == null || !matchIds.Any())
             {
-                return RedirectToAction(nameof(Edit), new { id = tournamentId, filterMonth, filterYear, filterMatchName });
+                return RedirectToAction(nameof(SelectMatches), new { id = tournamentId, filterMonth, filterYear, filterMatchName });
             }
 
             // Only update matches that are already in this tournament
@@ -1502,7 +1531,7 @@ namespace PlayerRatings.Controllers
 
             await _context.SaveChangesAsync();
 
-            return RedirectToAction(nameof(Edit), new { id = tournamentId, filterMonth, filterYear, filterMatchName });
+            return RedirectToAction(nameof(SelectMatches), new { id = tournamentId, filterMonth, filterYear, filterMatchName });
         }
 
         // POST: Tournaments/ShiftMatchTimes - shift selected match times by X hours
@@ -1523,7 +1552,7 @@ namespace PlayerRatings.Controllers
 
             if (hours == 0 || matchIds == null || !matchIds.Any())
             {
-                return RedirectToAction(nameof(Edit), new { id = tournamentId, filterMonth, filterYear, filterMatchName });
+                return RedirectToAction(nameof(SelectMatches), new { id = tournamentId, filterMonth, filterYear, filterMatchName });
             }
 
             // Load and shift selected matches
@@ -1538,7 +1567,7 @@ namespace PlayerRatings.Controllers
 
             await _context.SaveChangesAsync();
 
-            return RedirectToAction(nameof(Edit), new { id = tournamentId, filterMonth, filterYear, filterMatchName });
+            return RedirectToAction(nameof(SelectMatches), new { id = tournamentId, filterMonth, filterYear, filterMatchName });
         }
 
         // POST: Tournaments/RemoveMatch
@@ -1566,13 +1595,13 @@ namespace PlayerRatings.Controllers
                 await _context.SaveChangesAsync();
             }
 
-            return RedirectToAction(nameof(Edit), new { id = tournamentId, filterMonth, filterYear, filterMatchName });
+            return RedirectToAction(nameof(SelectMatches), new { id = tournamentId, filterMonth, filterYear, filterMatchName });
         }
 
         // POST: Tournaments/RemovePlayer
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> RemovePlayer(Guid tournamentId, string playerId, int? filterMonth, int? filterYear, string filterMatchName)
+        public async Task<IActionResult> RemovePlayer(Guid tournamentId, string playerId)
         {
             var currentUser = await User.GetApplicationUser(_userManager);
 
@@ -1594,13 +1623,13 @@ namespace PlayerRatings.Controllers
                 await _context.SaveChangesAsync();
             }
 
-            return RedirectToAction(nameof(Edit), new { id = tournamentId, filterMonth, filterYear, filterMatchName });
+            return RedirectToAction(nameof(Edit), new { id = tournamentId });
         }
 
         // POST: Tournaments/AddPlayer - manually add a player to tournament
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> AddPlayer(Guid tournamentId, string playerId, int? filterMonth, int? filterYear, string filterMatchName)
+        public async Task<IActionResult> AddPlayer(Guid tournamentId, string playerId)
         {
             var currentUser = await User.GetApplicationUser(_userManager);
 
@@ -1634,14 +1663,14 @@ namespace PlayerRatings.Controllers
                 await _context.SaveChangesAsync();
             }
 
-            return RedirectToAction(nameof(Edit), new { id = tournamentId, filterMonth, filterYear, filterMatchName });
+            return RedirectToAction(nameof(Edit), new { id = tournamentId });
         }
 
         // POST: Tournaments/CalculatePositions
         // Uses Swiss-system: undefeated players are champions, then rank by wins → SOS → SOSOS
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> CalculatePositions(Guid tournamentId, int? filterMonth, int? filterYear, string filterMatchName)
+        public async Task<IActionResult> CalculatePositions(Guid tournamentId)
         {
             var currentUser = await User.GetApplicationUser(_userManager);
 
@@ -1803,7 +1832,7 @@ namespace PlayerRatings.Controllers
 
             await _context.SaveChangesAsync();
 
-            return RedirectToAction(nameof(Edit), new { id = tournamentId, filterMonth, filterYear, filterMatchName });
+            return RedirectToAction(nameof(Edit), new { id = tournamentId });
         }
 
         // GET: Tournaments/Delete/5
