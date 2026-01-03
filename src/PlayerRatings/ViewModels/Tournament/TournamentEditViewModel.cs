@@ -86,6 +86,11 @@ namespace PlayerRatings.ViewModels.Tournament
         public int? FilterYear { get; set; }
         
         /// <summary>
+        /// Match name filter for match selection (filters by MatchName containing this value)
+        /// </summary>
+        public string FilterMatchName { get; set; }
+        
+        /// <summary>
         /// Available matches for selection (populated by controller)
         /// </summary>
         public List<MatchSelectionItem> AvailableMatches { get; set; } = new List<MatchSelectionItem>();

@@ -141,6 +141,7 @@
                                 <input type="hidden" name="tournamentId" value="@Model.Id" />
                                 <input type="hidden" name="filterMonth" value="@Model.FilterMonth" />
                                 <input type="hidden" name="filterYear" value="@Model.FilterYear" />
+                                <input type="hidden" name="filterMatchName" value="@Model.FilterMatchName" />
                                 <button type="submit" class="btn btn-xs btn-default" title="Swiss-system: Undefeated first, then wins → SOS → SOSOS">
                                     Calculate
                                 </button>
@@ -160,6 +161,7 @@
                         <input type="hidden" name="tournamentId" value="@Model.Id" />
                         <input type="hidden" name="filterMonth" value="@Model.FilterMonth" />
                         <input type="hidden" name="filterYear" value="@Model.FilterYear" />
+                        <input type="hidden" name="filterMatchName" value="@Model.FilterMatchName" />
                         <table class="table table-condensed" style="margin-bottom: 0;">
                             <thead>
                                 <tr>
@@ -200,6 +202,7 @@
                                                 <input type="hidden" name="playerId" value="@p.PlayerId" />
                                                 <input type="hidden" name="filterMonth" value="@Model.FilterMonth" />
                                                 <input type="hidden" name="filterYear" value="@Model.FilterYear" />
+                                                <input type="hidden" name="filterMatchName" value="@Model.FilterMatchName" />
                                                 <button type="submit" class="btn btn-xs btn-danger" title="Remove">×</button>
                                             </form>
                                         </td>
@@ -229,6 +232,7 @@
                         <input type="hidden" name="tournamentId" value="@Model.Id" />
                         <input type="hidden" name="filterMonth" value="@Model.FilterMonth" />
                         <input type="hidden" name="filterYear" value="@Model.FilterYear" />
+                        <input type="hidden" name="filterMatchName" value="@Model.FilterMatchName" />
                         <select name="playerId" class="form-control input-sm" style="width: 180px;">
                             @foreach (var p in Model.LeaguePlayers)
                             {
@@ -248,7 +252,7 @@
             <div class="panel-heading">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <span>Select Matches</span>
-                    <form asp-action="Edit" method="get" style="display: flex; gap: 5px;">
+                    <form asp-action="Edit" method="get" style="display: flex; gap: 5px; flex-wrap: wrap;">
                         <input type="hidden" name="id" value="@Model.Id" />
                         <select name="filterMonth" class="form-control input-sm" style="width: 110px;">
                             @foreach (var m in months)
@@ -262,6 +266,7 @@
                                 <option value="@y" selected="@(y == Model.FilterYear)">@y</option>
                             }
                         </select>
+                        <input type="text" name="filterMatchName" value="@Model.FilterMatchName" class="form-control input-sm" placeholder="Match name..." style="width: 120px;" />
                         <button type="submit" class="btn btn-sm btn-default">Filter</button>
                     </form>
                 </div>
@@ -271,6 +276,7 @@
                     <input type="hidden" name="tournamentId" value="@Model.Id" />
                     <input type="hidden" name="filterMonth" value="@Model.FilterMonth" />
                     <input type="hidden" name="filterYear" value="@Model.FilterYear" />
+                    <input type="hidden" name="filterMatchName" value="@Model.FilterMatchName" />
                     
                     @if (!Model.AvailableMatches.Any())
                     {
@@ -343,6 +349,7 @@
                                                     <input type="hidden" name="matchId" value="@m.Id" />
                                                     <input type="hidden" name="filterMonth" value="@Model.FilterMonth" />
                                                     <input type="hidden" name="filterYear" value="@Model.FilterYear" />
+                                                    <input type="hidden" name="filterMatchName" value="@Model.FilterMatchName" />
                                                     <button type="submit" class="btn btn-xs btn-link text-danger" style="padding: 0;">Remove</button>
                                                 </form>
                                             }
@@ -385,6 +392,7 @@
     <input type="hidden" name="tournamentId" value="@Model.Id" />
     <input type="hidden" name="filterMonth" value="@Model.FilterMonth" />
     <input type="hidden" name="filterYear" value="@Model.FilterYear" />
+    <input type="hidden" name="filterMatchName" value="@Model.FilterMatchName" />
     @{ var saveIdx = 0; }
     @foreach (var m in Model.AvailableMatches.Where(x => x.IsSelected))
     {
@@ -399,6 +407,7 @@
     <input type="hidden" name="tournamentId" value="@Model.Id" />
     <input type="hidden" name="filterMonth" value="@Model.FilterMonth" />
     <input type="hidden" name="filterYear" value="@Model.FilterYear" />
+    <input type="hidden" name="filterMatchName" value="@Model.FilterMatchName" />
     <input type="hidden" name="hours" id="shiftHoursValue" value="0" />
     <div id="shiftMatchIds"></div>
 </form>
