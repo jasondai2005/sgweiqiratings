@@ -191,6 +191,330 @@ namespace PlayerRatings.Controllers
             public Dictionary<string, double> SOSOS { get; set; }
         }
 
+        /// <summary>
+        /// Calculate team standings based on tournament type:
+        /// - If SupportsPersonalAward: sum of top 3 players' positions per team
+        /// - If not SupportsPersonalAward: Swiss-system ranking based on team results (3+ wins = team win, 2 wins = draw, etc.)
+        /// </summary>
+        private List<TeamStandingViewModel> CalculateTeamStandings(
+            Tournament tournament, 
+            SwissStats playerSwissStats, 
+            Dictionary<string, int> playerPositions,
+            Dictionary<string, Dictionary<int, RoundResult>> playerRoundResults,
+            int maxRound)
+        {
+            // Group players by team
+            var playersByTeam = tournament.TournamentPlayers
+                .Where(tp => !string.IsNullOrEmpty(tp.Team))
+                .GroupBy(tp => tp.Team)
+                .ToDictionary(g => g.Key, g => g.ToList());
+            
+            if (!playersByTeam.Any())
+                return new List<TeamStandingViewModel>();
+
+            var teamStandings = new List<TeamStandingViewModel>();
+            
+            if (tournament.SupportsPersonalAward)
+            {
+                // Personal award mode: rank teams by sum of top 3 players' positions
+                foreach (var teamGroup in playersByTeam)
+                {
+                    var teamName = teamGroup.Key;
+                    var players = teamGroup.Value
+                        .OrderBy(tp => tp.Position ?? playerPositions.GetValueOrDefault(tp.PlayerId, int.MaxValue))
+                        .ToList();
+                    
+                    // Get top 3 (or less if team has fewer players)
+                    var countingPlayers = players.Take(3).ToList();
+                    var hasStats = playerSwissStats.PlayerStats;
+                    
+                    // Calculate sum of positions
+                    int sumOfPositions = 0;
+                    double totalWins = 0;
+                    
+                    // If team has fewer than 3 players, add penalty (number of all players)
+                    int playerPenalty = countingPlayers.Count < 3 
+                        ? (3 - countingPlayers.Count) * tournament.TournamentPlayers.Count 
+                        : 0;
+                    
+                    var teamPlayers = new List<TeamPlayerViewModel>();
+                    foreach (var tp in players)
+                    {
+                        var pos = tp.Position ?? playerPositions.GetValueOrDefault(tp.PlayerId, 0);
+                        var countsForAward = countingPlayers.Contains(tp);
+                        
+                        if (countsForAward)
+                            sumOfPositions += pos;
+                        
+                        if (hasStats.TryGetValue(tp.PlayerId, out var pStats))
+                            totalWins += pStats.Wins;
+                        
+                        teamPlayers.Add(new TeamPlayerViewModel
+                        {
+                            PlayerId = tp.PlayerId,
+                            PlayerName = tp.Player?.DisplayName,
+                            PersonalPosition = pos,
+                            CountsForTeamAward = countsForAward,
+                            RoundResults = playerRoundResults.TryGetValue(tp.PlayerId, out var rounds) 
+                                ? rounds 
+                                : new Dictionary<int, RoundResult>()
+                        });
+                    }
+                    
+                    sumOfPositions += playerPenalty;
+                    
+                    teamStandings.Add(new TeamStandingViewModel
+                    {
+                        TeamName = teamName,
+                        Players = teamPlayers,
+                        TotalPlayerWins = totalWins,
+                        SumOfPlayerPositions = sumOfPositions
+                    });
+                }
+                
+                // Rank by sum of positions (lower is better)
+                var ranked = teamStandings
+                    .OrderBy(t => t.SumOfPlayerPositions)
+                    .ThenByDescending(t => t.TotalPlayerWins)
+                    .ToList();
+                
+                for (int i = 0; i < ranked.Count; i++)
+                {
+                    ranked[i].Index = i + 1;
+                    ranked[i].Position = i + 1;
+                    
+                    // Handle ties
+                    if (i > 0 && ranked[i].SumOfPlayerPositions == ranked[i - 1].SumOfPlayerPositions 
+                              && ranked[i].TotalPlayerWins == ranked[i - 1].TotalPlayerWins)
+                    {
+                        ranked[i].Position = ranked[i - 1].Position;
+                    }
+                }
+                
+                return ranked;
+            }
+            else
+            {
+                // Team mode: Swiss-system based on team results per round
+                // Assuming teams have 4 players: 3 wins = team win, 2 wins = draw, 1 or 0 wins = loss
+                // 2 wins 1 draw = win
+                
+                // Build team round results
+                var teamRoundWins = new Dictionary<string, Dictionary<int, (double wins, double losses, double draws, string opponentTeam)>>();
+                
+                // For each round, determine team results based on player matchups
+                for (int round = 1; round <= maxRound; round++)
+                {
+                    // Get all matches in this round
+                    var roundMatches = tournament.Matches.Where(m => m.Round == round).ToList();
+                    
+                    // Track wins per team in this round
+                    var teamWinsInRound = new Dictionary<string, double>();
+                    var teamOpponents = new Dictionary<string, HashSet<string>>();
+                    
+                    foreach (var match in roundMatches)
+                    {
+                        var player1Team = tournament.TournamentPlayers.FirstOrDefault(tp => tp.PlayerId == match.FirstPlayerId)?.Team;
+                        var player2Team = tournament.TournamentPlayers.FirstOrDefault(tp => tp.PlayerId == match.SecondPlayerId)?.Team;
+                        
+                        if (string.IsNullOrEmpty(player1Team) || string.IsNullOrEmpty(player2Team))
+                            continue;
+                        
+                        // Track opponents
+                        if (!teamOpponents.ContainsKey(player1Team))
+                            teamOpponents[player1Team] = new HashSet<string>();
+                        if (!teamOpponents.ContainsKey(player2Team))
+                            teamOpponents[player2Team] = new HashSet<string>();
+                        teamOpponents[player1Team].Add(player2Team);
+                        teamOpponents[player2Team].Add(player1Team);
+                        
+                        // Initialize wins
+                        if (!teamWinsInRound.ContainsKey(player1Team))
+                            teamWinsInRound[player1Team] = 0;
+                        if (!teamWinsInRound.ContainsKey(player2Team))
+                            teamWinsInRound[player2Team] = 0;
+                        
+                        // Determine winner
+                        if (match.FirstPlayerScore > match.SecondPlayerScore)
+                            teamWinsInRound[player1Team]++;
+                        else if (match.SecondPlayerScore > match.FirstPlayerScore)
+                            teamWinsInRound[player2Team]++;
+                        else
+                        {
+                            // Draw: 0.5 each
+                            teamWinsInRound[player1Team] += 0.5;
+                            teamWinsInRound[player2Team] += 0.5;
+                        }
+                    }
+                    
+                    // Now determine team vs team results
+                    foreach (var team in teamWinsInRound.Keys)
+                    {
+                        if (!teamRoundWins.ContainsKey(team))
+                            teamRoundWins[team] = new Dictionary<int, (double, double, double, string)>();
+                        
+                        var wins = teamWinsInRound[team];
+                        var opponents = teamOpponents.GetValueOrDefault(team, new HashSet<string>());
+                        var opponentTeam = opponents.FirstOrDefault() ?? "";
+                        
+                        // Determine team result: 3+ wins = win, 2 wins = draw, <2 wins = loss
+                        // For 4 player teams: 2 wins 1 draw = 2.5 = win
+                        double teamWin = 0, teamLoss = 0, teamDraw = 0;
+                        if (wins >= 2.5)
+                            teamWin = 1;
+                        else if (wins >= 2)
+                            teamDraw = 1;
+                        else
+                            teamLoss = 1;
+                        
+                        teamRoundWins[team][round] = (teamWin, teamLoss, teamDraw, opponentTeam);
+                    }
+                }
+                
+                // Now calculate team swiss stats
+                var teamStats = new Dictionary<string, (double wins, int losses, int draws)>();
+                foreach (var team in playersByTeam.Keys)
+                {
+                    double totalWins = 0;
+                    int totalLosses = 0;
+                    int totalDraws = 0;
+                    
+                    if (teamRoundWins.TryGetValue(team, out var rounds))
+                    {
+                        foreach (var r in rounds.Values)
+                        {
+                            totalWins += r.wins;
+                            if (r.losses > 0) totalLosses++;
+                            if (r.draws > 0) totalDraws++;
+                        }
+                    }
+                    
+                    teamStats[team] = (totalWins, totalLosses, totalDraws);
+                }
+                
+                // Calculate team SOS
+                var teamSOS = new Dictionary<string, double>();
+                var teamOpponentsList = new Dictionary<string, List<string>>();
+                foreach (var team in playersByTeam.Keys)
+                {
+                    var opponents = new List<string>();
+                    if (teamRoundWins.TryGetValue(team, out var rounds))
+                    {
+                        foreach (var r in rounds.Values)
+                        {
+                            if (!string.IsNullOrEmpty(r.opponentTeam))
+                                opponents.Add(r.opponentTeam);
+                        }
+                    }
+                    teamOpponentsList[team] = opponents;
+                    teamSOS[team] = opponents.Sum(opp => teamStats.TryGetValue(opp, out var oppStats) ? oppStats.wins : 0);
+                }
+                
+                // Calculate team SOSOS
+                var teamSOSOS = new Dictionary<string, double>();
+                foreach (var team in playersByTeam.Keys)
+                {
+                    var opponents = teamOpponentsList.GetValueOrDefault(team, new List<string>());
+                    teamSOSOS[team] = opponents.Sum(opp => teamSOS.GetValueOrDefault(opp, 0));
+                }
+                
+                // Build team standings
+                foreach (var teamGroup in playersByTeam)
+                {
+                    var teamName = teamGroup.Key;
+                    var hasStats = playerSwissStats.PlayerStats;
+                    double totalPlayerWins = 0;
+                    
+                    var teamPlayers = teamGroup.Value.Select(tp => {
+                        if (hasStats.TryGetValue(tp.PlayerId, out var pStats))
+                            totalPlayerWins += pStats.Wins;
+                        
+                        return new TeamPlayerViewModel
+                        {
+                            PlayerId = tp.PlayerId,
+                            PlayerName = tp.Player?.DisplayName,
+                            PersonalPosition = null, // Not used in team mode
+                            CountsForTeamAward = true, // All players count in team mode
+                            RoundResults = playerRoundResults.TryGetValue(tp.PlayerId, out var rounds) 
+                                ? rounds 
+                                : new Dictionary<int, RoundResult>()
+                        };
+                    }).ToList();
+                    
+                    // Build team round results
+                    var teamRoundResults = new Dictionary<int, TeamRoundResult>();
+                    if (teamRoundWins.TryGetValue(teamName, out var roundWins))
+                    {
+                        foreach (var kvp in roundWins)
+                        {
+                            var round = kvp.Key;
+                            var (wins, losses, draws, oppTeam) = kvp.Value;
+                            bool? won = wins > 0 ? true : (draws > 0 ? (bool?)null : false);
+                            
+                            teamRoundResults[round] = new TeamRoundResult
+                            {
+                                OpponentTeamName = oppTeam,
+                                OpponentTeamIndex = 0, // Will be set after ranking
+                                Won = won,
+                                Score = $"{wins}:{losses}"
+                            };
+                        }
+                    }
+                    
+                    var stats = teamStats.GetValueOrDefault(teamName, (0, 0, 0));
+                    teamStandings.Add(new TeamStandingViewModel
+                    {
+                        TeamName = teamName,
+                        Players = teamPlayers,
+                        TeamWins = stats.wins,
+                        TeamSOS = teamSOS.GetValueOrDefault(teamName, 0),
+                        TeamSOSOS = teamSOSOS.GetValueOrDefault(teamName, 0),
+                        TotalPlayerWins = totalPlayerWins,
+                        TeamRoundResults = teamRoundResults
+                    });
+                }
+                
+                // Rank teams by Swiss system
+                var ranked = teamStandings
+                    .OrderByDescending(t => t.TeamWins)
+                    .ThenByDescending(t => t.TeamSOS)
+                    .ThenByDescending(t => t.TeamSOSOS)
+                    .ThenByDescending(t => t.TotalPlayerWins)
+                    .ToList();
+                
+                // Assign indices and positions
+                var teamIndexLookup = new Dictionary<string, int>();
+                for (int i = 0; i < ranked.Count; i++)
+                {
+                    ranked[i].Index = i + 1;
+                    ranked[i].Position = i + 1;
+                    teamIndexLookup[ranked[i].TeamName] = i + 1;
+                    
+                    // Handle ties
+                    if (i > 0 && ranked[i].TeamWins == ranked[i - 1].TeamWins 
+                              && ranked[i].TeamSOS == ranked[i - 1].TeamSOS
+                              && ranked[i].TeamSOSOS == ranked[i - 1].TeamSOSOS)
+                    {
+                        ranked[i].Position = ranked[i - 1].Position;
+                    }
+                }
+                
+                // Update opponent team indices
+                foreach (var team in ranked)
+                {
+                    foreach (var roundResult in team.TeamRoundResults.Values)
+                    {
+                        if (!string.IsNullOrEmpty(roundResult.OpponentTeamName))
+                        {
+                            roundResult.OpponentTeamIndex = teamIndexLookup.GetValueOrDefault(roundResult.OpponentTeamName, 0);
+                        }
+                    }
+                }
+                
+                return ranked;
+            }
+        }
+
         // GET: Tournaments?leagueId=xxx
         public async Task<IActionResult> Index(Guid leagueId)
         {
@@ -407,6 +731,50 @@ namespace PlayerRatings.Controllers
                 .ThenBy(m => m.Round)
                 .ToList();
 
+            // Calculate female positions if SupportsFemaleAward is enabled
+            // Female positions are derived from personal positions (not separate Swiss ranking)
+            var femalePositions = new Dictionary<string, int>();
+            if (tournament.SupportsFemaleAward && tournament.SupportsPersonalAward)
+            {
+                var femalePlayers = tournament.TournamentPlayers
+                    .Where(tp => tp.Player?.DisplayName?.Contains("♀") == true)
+                    .OrderBy(tp => tp.Position ?? calculatedPositions.GetValueOrDefault(tp.PlayerId, int.MaxValue))
+                    .ThenByDescending(tp => swissStats.PlayerStats.TryGetValue(tp.PlayerId, out var s) ? s.Wins : 0)
+                    .ToList();
+                
+                int femaleRank = 1;
+                for (int i = 0; i < femalePlayers.Count; i++)
+                {
+                    var player = femalePlayers[i];
+                    var playerPos = player.Position ?? calculatedPositions.GetValueOrDefault(player.PlayerId, int.MaxValue);
+                    
+                    // Handle ties - if same personal position, give same female position
+                    if (i > 0)
+                    {
+                        var prevPlayer = femalePlayers[i - 1];
+                        var prevPos = prevPlayer.Position ?? calculatedPositions.GetValueOrDefault(prevPlayer.PlayerId, int.MaxValue);
+                        if (playerPos != prevPos)
+                        {
+                            femaleRank = i + 1;
+                        }
+                    }
+                    
+                    femalePositions[player.PlayerId] = femaleRank;
+                }
+            }
+            
+            // Calculate team standings if SupportsTeamAward is enabled
+            var teamStandings = new List<TeamStandingViewModel>();
+            if (tournament.SupportsTeamAward)
+            {
+                teamStandings = CalculateTeamStandings(
+                    tournament, 
+                    swissStats, 
+                    calculatedPositions, 
+                    playerRoundResults, 
+                    maxRound);
+            }
+
             var viewModel = new TournamentDetailsViewModel
             {
                 Id = tournament.Id,
@@ -422,9 +790,17 @@ namespace PlayerRatings.Controllers
                 EndDate = tournament.EndDate,
                 TournamentType = tournament.TournamentType,
                 Factor = tournament.Factor,
+                Notes = tournament.Notes,
+                ExternalLinks = tournament.ExternalLinks,
+                Photo = tournament.Photo,
+                StandingsPhoto = tournament.StandingsPhoto,
+                SupportsPersonalAward = tournament.SupportsPersonalAward,
+                SupportsTeamAward = tournament.SupportsTeamAward,
+                SupportsFemaleAward = tournament.SupportsFemaleAward,
                 IsAdmin = isAdmin,
                 MaxRounds = maxRound,
                 RoundDates = roundDates,
+                TeamStandings = teamStandings,
                 Matches = orderedMatches
                     .Select(m => new TournamentMatchViewModel
                     {
@@ -450,6 +826,7 @@ namespace PlayerRatings.Controllers
                 Players = tournament.TournamentPlayers
                     .Select(tp => {
                         var hasStats = swissStats.PlayerStats.TryGetValue(tp.PlayerId, out var pStats);
+                        var isFemale = tp.Player?.DisplayName?.Contains("♀") == true;
                         return new TournamentPlayerViewModel
                         {
                             PlayerId = tp.PlayerId,
@@ -472,7 +849,12 @@ namespace PlayerRatings.Controllers
                             RatingAfter = ratingsAfter.TryGetValue(tp.PlayerId, out var rAfter) ? rAfter.rating : null,
                             // Check if player was "ranked" (shown in ratings page) before and after tournament
                             WasRankedBefore = ratingsBefore.TryGetValue(tp.PlayerId, out var beforeStatus) && beforeStatus.isRanked,
-                            IsRankedAfter = ratingsAfter.TryGetValue(tp.PlayerId, out var afterStatus) && afterStatus.isRanked
+                            IsRankedAfter = ratingsAfter.TryGetValue(tp.PlayerId, out var afterStatus) && afterStatus.isRanked,
+                            // Team and female-specific fields
+                            Team = tp.Team,
+                            TeamPosition = tp.TeamPosition,
+                            FemalePosition = tp.FemalePosition ?? (femalePositions.TryGetValue(tp.PlayerId, out var femPos) ? femPos : (int?)null),
+                            IsFemale = isFemale
                         };
                     })
                     .OrderBy(p => p.DisplayPosition)
@@ -539,7 +921,15 @@ namespace PlayerRatings.Controllers
                     ? new DateTimeOffset(model.EndDate.Value.Date.AddDays(1).AddSeconds(-1), TimeSpan.Zero) 
                     : null,
                 TournamentType = model.TournamentType,
-                Factor = model.Factor
+                Factor = model.Factor,
+                Notes = model.Notes,
+                ExternalLinks = model.ExternalLinks,
+                Photo = model.Photo,
+                StandingsPhoto = model.StandingsPhoto,
+                SupportsPersonalAward = model.SupportsPersonalAward,
+                SupportsTeamAward = model.SupportsTeamAward,
+                // SupportsFemaleAward only valid if SupportsPersonalAward is true
+                SupportsFemaleAward = model.SupportsPersonalAward && model.SupportsFemaleAward
             };
 
             _context.Tournaments.Add(tournament);
@@ -633,6 +1023,13 @@ namespace PlayerRatings.Controllers
                 EndDate = tournament.EndDate?.DateTime,
                 TournamentType = tournament.TournamentType,
                 Factor = tournament.Factor,
+                Notes = tournament.Notes,
+                ExternalLinks = tournament.ExternalLinks,
+                Photo = tournament.Photo,
+                StandingsPhoto = tournament.StandingsPhoto,
+                SupportsPersonalAward = tournament.SupportsPersonalAward,
+                SupportsTeamAward = tournament.SupportsTeamAward,
+                SupportsFemaleAward = tournament.SupportsFemaleAward,
                 FilterMonth = filterMonth,
                 FilterYear = filterYear,
                 FilterMatchName = filterMatchName,
@@ -676,7 +1073,11 @@ namespace PlayerRatings.Controllers
                             Wins = hasStats ? pStats.Wins : 0,
                             Losses = hasStats ? pStats.Losses : 0,
                             SOS = swissStats.SOS.TryGetValue(tp.PlayerId, out var sos) ? sos : 0,
-                            SOSOS = swissStats.SOSOS.TryGetValue(tp.PlayerId, out var sosos) ? sosos : 0
+                            SOSOS = swissStats.SOSOS.TryGetValue(tp.PlayerId, out var sosos) ? sosos : 0,
+                            Team = tp.Team,
+                            TeamPosition = tp.TeamPosition,
+                            FemalePosition = tp.FemalePosition,
+                            IsFemale = tp.Player?.DisplayName?.Contains("♀") == true
                         };
                     }).ToList(),
                 LeaguePlayers = leaguePlayers
@@ -723,10 +1124,41 @@ namespace PlayerRatings.Controllers
                 : null;
             tournament.TournamentType = model.TournamentType;
             tournament.Factor = model.Factor;
+            tournament.Notes = model.Notes;
+            tournament.ExternalLinks = model.ExternalLinks;
+            tournament.Photo = model.Photo;
+            tournament.StandingsPhoto = model.StandingsPhoto;
+            tournament.SupportsPersonalAward = model.SupportsPersonalAward;
+            tournament.SupportsTeamAward = model.SupportsTeamAward;
+            // SupportsFemaleAward only valid if SupportsPersonalAward is true
+            tournament.SupportsFemaleAward = model.SupportsPersonalAward && model.SupportsFemaleAward;
+
+            // Save player data if provided
+            if (model.PlayerIds != null && model.PlayerIds.Count > 0)
+            {
+                for (int i = 0; i < model.PlayerIds.Count; i++)
+                {
+                    var tournamentPlayer = tournament.TournamentPlayers.FirstOrDefault(tp => tp.PlayerId == model.PlayerIds[i]);
+                    if (tournamentPlayer != null)
+                    {
+                        if (model.PositionValues != null && i < model.PositionValues.Count)
+                            tournamentPlayer.Position = model.PositionValues[i];
+                        
+                        if (model.TeamValues != null && i < model.TeamValues.Count)
+                            tournamentPlayer.Team = string.IsNullOrWhiteSpace(model.TeamValues[i]) ? null : model.TeamValues[i].Trim();
+                        
+                        if (model.TeamPositionValues != null && i < model.TeamPositionValues.Count)
+                            tournamentPlayer.TeamPosition = model.TeamPositionValues[i];
+                        
+                        if (model.FemalePositionValues != null && i < model.FemalePositionValues.Count)
+                            tournamentPlayer.FemalePosition = model.FemalePositionValues[i];
+                    }
+                }
+            }
 
             await _context.SaveChangesAsync();
 
-            return RedirectToAction(nameof(Edit), new { id = tournament.Id, filterMonth = model.FilterMonth, filterYear = model.FilterYear });
+            return RedirectToAction(nameof(Edit), new { id = tournament.Id, filterMonth = model.FilterMonth, filterYear = model.FilterYear, filterMatchName = model.FilterMatchName });
         }
 
         // POST: Tournaments/AddMatches
@@ -1024,39 +1456,6 @@ namespace PlayerRatings.Controllers
             return RedirectToAction(nameof(Edit), new { id = tournamentId, filterMonth, filterYear, filterMatchName });
         }
 
-        // POST: Tournaments/SavePositions - save all positions at once
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> SavePositions(Guid tournamentId, List<string> playerIds, List<int?> positionValues, int? filterMonth, int? filterYear, string filterMatchName)
-        {
-            var currentUser = await User.GetApplicationUser(_userManager);
-
-            var tournament = await _context.Tournaments
-                .Include(t => t.League)
-                .Include(t => t.TournamentPlayers)
-                .FirstOrDefaultAsync(t => t.Id == tournamentId);
-
-            if (tournament == null || tournament.League.CreatedByUserId != currentUser.Id)
-            {
-                return NotFound();
-            }
-
-            if (playerIds != null && positionValues != null)
-            {
-                for (int i = 0; i < playerIds.Count && i < positionValues.Count; i++)
-                {
-                    var tournamentPlayer = tournament.TournamentPlayers.FirstOrDefault(tp => tp.PlayerId == playerIds[i]);
-                    if (tournamentPlayer != null)
-                    {
-                        tournamentPlayer.Position = positionValues[i];
-                    }
-                }
-                await _context.SaveChangesAsync();
-            }
-
-            return RedirectToAction(nameof(Edit), new { id = tournamentId, filterMonth, filterYear, filterMatchName });
-        }
-
         // POST: Tournaments/CalculatePositions
         // Uses Swiss-system: undefeated players are champions, then rank by wins → SOS → SOSOS
         [HttpPost]
@@ -1069,6 +1468,7 @@ namespace PlayerRatings.Controllers
                 .Include(t => t.League)
                 .Include(t => t.Matches)
                 .Include(t => t.TournamentPlayers)
+                    .ThenInclude(tp => tp.Player)
                 .FirstOrDefaultAsync(t => t.Id == tournamentId);
 
             if (tournament == null || tournament.League.CreatedByUserId != currentUser.Id)
@@ -1076,17 +1476,144 @@ namespace PlayerRatings.Controllers
                 return NotFound();
             }
 
-            // Calculate positions using Swiss-system
+            // Calculate personal positions using Swiss-system
             var swissStats = CalculateSwissStats(tournament.Matches);
             var positions = CalculateSwissPositions(swissStats);
 
-            // Update positions in database
+            // Update personal positions in database
             foreach (var kvp in positions)
             {
                 var tournamentPlayer = tournament.TournamentPlayers.FirstOrDefault(tp => tp.PlayerId == kvp.Key);
                 if (tournamentPlayer != null)
                 {
                     tournamentPlayer.Position = kvp.Value;
+                }
+            }
+
+            // Calculate female positions (only if SupportsFemaleAward is true)
+            if (tournament.SupportsFemaleAward)
+            {
+                // Female players are ranked by their personal position order
+                var femalePlayers = tournament.TournamentPlayers
+                    .Where(tp => tp.Player?.DisplayName?.Contains("♀") == true)
+                    .OrderBy(tp => tp.Position ?? positions.GetValueOrDefault(tp.PlayerId, int.MaxValue))
+                    .ThenByDescending(tp => swissStats.PlayerStats.TryGetValue(tp.PlayerId, out var s) ? s.Wins : 0)
+                    .ToList();
+
+                int femaleRank = 1;
+                for (int i = 0; i < femalePlayers.Count; i++)
+                {
+                    var player = femalePlayers[i];
+                    var playerPos = player.Position ?? positions.GetValueOrDefault(player.PlayerId, int.MaxValue);
+
+                    // Handle ties - if same personal position, give same female position
+                    if (i > 0)
+                    {
+                        var prevPlayer = femalePlayers[i - 1];
+                        var prevPos = prevPlayer.Position ?? positions.GetValueOrDefault(prevPlayer.PlayerId, int.MaxValue);
+                        if (playerPos != prevPos)
+                        {
+                            femaleRank = i + 1;
+                        }
+                    }
+
+                    player.FemalePosition = femaleRank;
+                }
+            }
+
+            // Calculate team positions (only if SupportsTeamAward is true)
+            if (tournament.SupportsTeamAward)
+            {
+                var playersByTeam = tournament.TournamentPlayers
+                    .Where(tp => !string.IsNullOrEmpty(tp.Team))
+                    .GroupBy(tp => tp.Team)
+                    .ToDictionary(g => g.Key, g => g.ToList());
+
+                if (playersByTeam.Any())
+                {
+                    if (tournament.SupportsPersonalAward)
+                    {
+                        // Personal award mode: rank teams by sum of top 3 players' positions
+                        // Teams with only 1 player are not qualified
+                        var teamScores = new List<(string TeamName, int SumPositions, double TotalWins, List<TournamentPlayer> CountingPlayers)>();
+
+                        foreach (var teamGroup in playersByTeam)
+                        {
+                            var teamName = teamGroup.Key;
+                            var players = teamGroup.Value
+                                .OrderBy(tp => tp.Position ?? positions.GetValueOrDefault(tp.PlayerId, int.MaxValue))
+                                .ToList();
+
+                            // Skip teams with only 1 player - not qualified
+                            if (players.Count < 2)
+                                continue;
+
+                            var countingPlayers = players.Take(3).ToList();
+                            int sumOfPositions = countingPlayers.Sum(tp => tp.Position ?? positions.GetValueOrDefault(tp.PlayerId, 0));
+
+                            // Penalty for teams with only 2 players
+                            if (countingPlayers.Count < 3)
+                                sumOfPositions += (3 - countingPlayers.Count) * tournament.TournamentPlayers.Count;
+
+                            double totalWins = countingPlayers.Sum(tp =>
+                                swissStats.PlayerStats.TryGetValue(tp.PlayerId, out var s) ? s.Wins : 0);
+
+                            teamScores.Add((teamName, sumOfPositions, totalWins, countingPlayers));
+                        }
+
+                        // Rank teams
+                        var rankedTeams = teamScores
+                            .OrderBy(t => t.SumPositions)
+                            .ThenByDescending(t => t.TotalWins)
+                            .ToList();
+
+                        for (int i = 0; i < rankedTeams.Count; i++)
+                        {
+                            int teamPosition = i + 1;
+                            // Handle ties
+                            if (i > 0 && rankedTeams[i].SumPositions == rankedTeams[i - 1].SumPositions
+                                      && rankedTeams[i].TotalWins == rankedTeams[i - 1].TotalWins)
+                            {
+                                teamPosition = rankedTeams[i - 1].CountingPlayers.First().TeamPosition ?? i;
+                            }
+
+                            // Assign team position to counting players only (best 3)
+                            foreach (var player in rankedTeams[i].CountingPlayers)
+                            {
+                                player.TeamPosition = teamPosition;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Team mode: Swiss-system based on team results
+                        // Teams with only 1 player are not qualified
+                        var matchesWithRounds = tournament.Matches.Where(m => m.Round.HasValue).ToList();
+                        var maxRound = matchesWithRounds.Any() ? matchesWithRounds.Max(m => m.Round) ?? 0 : 0;
+                        var teamStandings = CalculateTeamStandings(
+                            tournament, swissStats, positions,
+                            new Dictionary<string, Dictionary<int, RoundResult>>(),
+                            maxRound);
+
+                        foreach (var team in teamStandings)
+                        {
+                            // Get top 3 players by position for this team
+                            var teamPlayers = tournament.TournamentPlayers
+                                .Where(tp => tp.Team == team.TeamName)
+                                .OrderBy(tp => tp.Position ?? positions.GetValueOrDefault(tp.PlayerId, int.MaxValue))
+                                .Take(3)
+                                .ToList();
+
+                            // Only assign if team has more than 1 player
+                            if (teamPlayers.Count >= 2)
+                            {
+                                foreach (var player in teamPlayers)
+                                {
+                                    player.TeamPosition = team.Position;
+                                }
+                            }
+                        }
+                    }
                 }
             }
 

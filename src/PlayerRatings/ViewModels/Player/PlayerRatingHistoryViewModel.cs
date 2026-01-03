@@ -110,6 +110,16 @@ namespace PlayerRatings.ViewModels.Player
         /// Number of tournament championships (Position = 1).
         /// </summary>
         public int ChampionshipCount { get; set; }
+        
+        /// <summary>
+        /// Number of team championships (TeamPosition = 1).
+        /// </summary>
+        public int TeamChampionshipCount { get; set; }
+        
+        /// <summary>
+        /// Number of female championships (FemalePosition = 1).
+        /// </summary>
+        public int FemaleChampionshipCount { get; set; }
     }
 
     public class MonthlyRating
@@ -169,6 +179,16 @@ namespace PlayerRatings.ViewModels.Player
         public int? TournamentPosition { get; set; }
         
         /// <summary>
+        /// Player's female position in the tournament (1-based, null if not available or not female)
+        /// </summary>
+        public int? FemalePosition { get; set; }
+        
+        /// <summary>
+        /// Player's team position in the tournament (1-based, null if not available or no team)
+        /// </summary>
+        public int? TeamPosition { get; set; }
+        
+        /// <summary>
         /// Display name - tournament name if available, otherwise match name
         /// </summary>
         public string DisplayName => TournamentName ?? MatchName ?? "";
@@ -213,6 +233,16 @@ namespace PlayerRatings.ViewModels.Player
         /// Player's position in the tournament (1-based, null if not available).
         /// </summary>
         public int? TournamentPosition { get; set; }
+        
+        /// <summary>
+        /// Player's female position in the tournament (1-based, null if not available or not female).
+        /// </summary>
+        public int? FemalePosition { get; set; }
+        
+        /// <summary>
+        /// Player's team position in the tournament (1-based, null if not available or no team).
+        /// </summary>
+        public int? TeamPosition { get; set; }
     }
 }
 

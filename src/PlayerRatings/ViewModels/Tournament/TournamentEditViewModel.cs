@@ -53,6 +53,36 @@ namespace PlayerRatings.ViewModels.Tournament
         [Range(0, 10)]
         public double? Factor { get; set; }
         
+        [Display(Name = "Notes")]
+        public string Notes { get; set; }
+        
+        [Display(Name = "External Links (URLs separated by semicolons)")]
+        public string ExternalLinks { get; set; }
+        
+        [MaxLength(500)]
+        [Display(Name = "Photo URL")]
+        public string Photo { get; set; }
+        
+        [MaxLength(500)]
+        [Display(Name = "Standings Photo URL")]
+        public string StandingsPhoto { get; set; }
+        
+        [Display(Name = "Supports Personal Award")]
+        public bool SupportsPersonalAward { get; set; }
+        
+        [Display(Name = "Supports Team Award")]
+        public bool SupportsTeamAward { get; set; }
+        
+        [Display(Name = "Supports Female Award")]
+        public bool SupportsFemaleAward { get; set; }
+        
+        // Player data for saving with the form
+        public List<string> PlayerIds { get; set; } = new List<string>();
+        public List<int?> PositionValues { get; set; } = new List<int?>();
+        public List<string> TeamValues { get; set; } = new List<string>();
+        public List<int?> TeamPositionValues { get; set; } = new List<int?>();
+        public List<int?> FemalePositionValues { get; set; } = new List<int?>();
+        
         /// <summary>
         /// Common tournament types for dropdown
         /// </summary>
@@ -194,6 +224,26 @@ namespace PlayerRatings.ViewModels.Tournament
         /// True if player is undefeated (0 losses) - champion status
         /// </summary>
         public bool IsUndefeated => Losses == 0 && Wins > 0;
+        
+        /// <summary>
+        /// Team name
+        /// </summary>
+        public string Team { get; set; }
+        
+        /// <summary>
+        /// Team position (for top 3 players)
+        /// </summary>
+        public int? TeamPosition { get; set; }
+        
+        /// <summary>
+        /// Female position
+        /// </summary>
+        public int? FemalePosition { get; set; }
+        
+        /// <summary>
+        /// Whether this player is female (DisplayName contains '♀')
+        /// </summary>
+        public bool IsFemale { get; set; }
     }
     
     /// <summary>

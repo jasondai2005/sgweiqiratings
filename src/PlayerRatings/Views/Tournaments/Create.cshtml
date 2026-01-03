@@ -1,8 +1,9 @@
 @using PlayerRatings.Localization
 @model PlayerRatings.ViewModels.Tournament.TournamentEditViewModel
+@inject Microsoft.Extensions.Localization.IStringLocalizer<LocalizationKey> LocString
 
 @{
-    ViewData["Title"] = "Create Tournament";
+    ViewData["Title"] = LocString[nameof(LocalizationKey.CreateTournament)];
 }
 
 <form asp-action="Create" method="post">
@@ -13,14 +14,14 @@
         <input type="hidden" asp-for="LeagueId" />
         
         <div class="form-group">
-            <label asp-for="Ordinal" class="col-md-2 control-label">Ordinal</label>
+            <label asp-for="Ordinal" class="col-md-2 control-label">@LocString[nameof(LocalizationKey.Ordinal)]</label>
             <div class="col-md-10">
                 <input asp-for="Ordinal" class="form-control" placeholder="e.g., 4th or 2026" />
             </div>
         </div>
         
         <div class="form-group">
-            <label asp-for="Name" class="col-md-2 control-label">Name</label>
+            <label asp-for="Name" class="col-md-2 control-label">@LocString[nameof(LocalizationKey.TournamentName)]</label>
             <div class="col-md-10">
                 <input asp-for="Name" class="form-control" placeholder="e.g., SWA Dan Certification" />
                 <span asp-validation-for="Name" class="text-danger"></span>
@@ -28,14 +29,14 @@
         </div>
         
         <div class="form-group">
-            <label asp-for="Group" class="col-md-2 control-label">Group</label>
+            <label asp-for="Group" class="col-md-2 control-label">@LocString[nameof(LocalizationKey.Group)]</label>
             <div class="col-md-10">
                 <input asp-for="Group" class="form-control" placeholder="e.g., Group A, Dan Group" />
             </div>
         </div>
         
         <div class="form-group">
-            <label asp-for="TournamentType" class="col-md-2 control-label">Type</label>
+            <label asp-for="TournamentType" class="col-md-2 control-label">@LocString[nameof(LocalizationKey.Type)]</label>
             <div class="col-md-10">
                 <select asp-for="TournamentType" class="form-control">
                     <option value="">-- Select Type --</option>
@@ -48,44 +49,102 @@
         </div>
         
         <div class="form-group">
-            <label asp-for="Organizer" class="col-md-2 control-label">Organizer</label>
+            <label asp-for="Organizer" class="col-md-2 control-label">@LocString[nameof(LocalizationKey.Organizer)]</label>
             <div class="col-md-10">
                 <input asp-for="Organizer" class="form-control" placeholder="e.g., Singapore Weiqi Association" />
             </div>
         </div>
         
         <div class="form-group">
-            <label asp-for="Location" class="col-md-2 control-label">Location</label>
+            <label asp-for="Location" class="col-md-2 control-label">@LocString[nameof(LocalizationKey.Location)]</label>
             <div class="col-md-10">
                 <input asp-for="Location" class="form-control" placeholder="e.g., SWA Club" />
             </div>
         </div>
         
         <div class="form-group">
-            <label asp-for="StartDate" class="col-md-2 control-label">Start Date</label>
+            <label asp-for="StartDate" class="col-md-2 control-label">@LocString[nameof(LocalizationKey.Start)]</label>
             <div class="col-md-10">
                 <input asp-for="StartDate" type="date" class="form-control" />
             </div>
         </div>
         
         <div class="form-group">
-            <label asp-for="EndDate" class="col-md-2 control-label">End Date</label>
+            <label asp-for="EndDate" class="col-md-2 control-label">@LocString[nameof(LocalizationKey.End)]</label>
             <div class="col-md-10">
                 <input asp-for="EndDate" type="date" class="form-control" />
             </div>
         </div>
         
         <div class="form-group">
-            <label asp-for="Factor" class="col-md-2 control-label">Factor</label>
+            <label asp-for="Factor" class="col-md-2 control-label">@LocString[nameof(LocalizationKey.Factor)]</label>
             <div class="col-md-10">
                 <input asp-for="Factor" type="number" step="0.1" class="form-control" placeholder="Leave empty for default" />
             </div>
         </div>
         
         <div class="form-group">
+            <label asp-for="Photo" class="col-md-2 control-label">@LocString[nameof(LocalizationKey.PhotoUrl)]</label>
+            <div class="col-md-10">
+                <input asp-for="Photo" class="form-control" placeholder="URL to tournament photo" />
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label asp-for="StandingsPhoto" class="col-md-2 control-label">@LocString[nameof(LocalizationKey.StandingsPhoto)]</label>
+            <div class="col-md-10">
+                <input asp-for="StandingsPhoto" class="form-control" placeholder="URL to original standings image" />
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label asp-for="ExternalLinks" class="col-md-2 control-label">@LocString[nameof(LocalizationKey.ExternalLinks)]</label>
+            <div class="col-md-10">
+                <input asp-for="ExternalLinks" class="form-control" placeholder="URLs separated by semicolons" />
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label asp-for="Notes" class="col-md-2 control-label">@LocString[nameof(LocalizationKey.Notes)]</label>
+            <div class="col-md-10">
+                <textarea asp-for="Notes" class="form-control" rows="3"></textarea>
+            </div>
+        </div>
+        
+        <div class="form-group">
             <div class="col-md-offset-2 col-md-10">
-                <button type="submit" class="btn btn-default">Create Tournament</button>
-                <a asp-action="Index" asp-route-leagueId="@Model.LeagueId" class="btn btn-default">Cancel</a>
+                <div class="checkbox">
+                    <label>
+                        <input asp-for="SupportsPersonalAward" /> @LocString[nameof(LocalizationKey.PersonalAward)]
+                    </label>
+                </div>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <div class="col-md-offset-2 col-md-10">
+                <div class="checkbox">
+                    <label>
+                        <input asp-for="SupportsTeamAward" /> @LocString[nameof(LocalizationKey.TeamAward)]
+                    </label>
+                </div>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <div class="col-md-offset-2 col-md-10">
+                <div class="checkbox">
+                    <label>
+                        <input asp-for="SupportsFemaleAward" /> @LocString[nameof(LocalizationKey.FemaleAward)]
+                    </label>
+                </div>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <div class="col-md-offset-2 col-md-10">
+                <button type="submit" class="btn btn-default">@LocString[nameof(LocalizationKey.CreateTournament)]</button>
+                <a asp-action="Index" asp-route-leagueId="@Model.LeagueId" class="btn btn-default">@LocString[nameof(LocalizationKey.Cancel)]</a>
             </div>
         </div>
     </div>

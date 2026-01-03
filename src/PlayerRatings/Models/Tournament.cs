@@ -74,6 +74,43 @@ namespace PlayerRatings.Models
         public double? Factor { get; set; }
 
         /// <summary>
+        /// Additional notes about the tournament
+        /// </summary>
+        public string Notes { get; set; }
+
+        /// <summary>
+        /// External links related to the tournament (multiple URLs separated by semicolons)
+        /// </summary>
+        public string ExternalLinks { get; set; }
+
+        /// <summary>
+        /// Photo URL/path for the tournament (similar to player photo)
+        /// </summary>
+        [MaxLength(500)]
+        public string Photo { get; set; }
+
+        /// <summary>
+        /// Original standings photo URL/path (shown beside the Standings section)
+        /// </summary>
+        [MaxLength(500)]
+        public string StandingsPhoto { get; set; }
+
+        /// <summary>
+        /// When true, calculate and save personal positions for players
+        /// </summary>
+        public bool SupportsPersonalAward { get; set; }
+
+        /// <summary>
+        /// When true, calculate and save team positions
+        /// </summary>
+        public bool SupportsTeamAward { get; set; }
+
+        /// <summary>
+        /// When true, calculate and save female player positions (requires SupportsPersonalAward)
+        /// </summary>
+        public bool SupportsFemaleAward { get; set; }
+
+        /// <summary>
         /// Navigation property to the league
         /// </summary>
         [ForeignKey("LeagueId")]

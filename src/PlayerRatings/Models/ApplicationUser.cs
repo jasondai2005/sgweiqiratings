@@ -60,10 +60,10 @@ namespace PlayerRatings.Models
         /// Returns the place name without the year.
         /// </summary>
         public string GetResidenceAt(DateTimeOffset date)
-        {
-            if (string.IsNullOrEmpty(Residence))
-                return string.Empty;
-
+            {
+                if (string.IsNullOrEmpty(Residence))
+                    return string.Empty;
+                
             // Parse residence history entries (most recent first)
             var entries = Residence.Split(';')
                 .Select(e => e.Trim())

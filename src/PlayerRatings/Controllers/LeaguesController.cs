@@ -776,7 +776,7 @@ namespace PlayerRatings.Controllers
             // Load player's tournament positions for display in rating history
             var playerTournamentPositions = await _context.TournamentPlayers
                 .Where(tp => tp.PlayerId == playerId)
-                .ToDictionaryAsync(tp => tp.TournamentId, tp => tp.Position);
+                .ToDictionaryAsync(tp => tp.TournamentId, tp => new { tp.Position, tp.FemalePosition, tp.TeamPosition });
 
             // If player has no matches, show page with just their info (no rating history)
             if (!playerMatches.Any())
@@ -875,9 +875,13 @@ namespace PlayerRatings.Controllers
                     if (!matchInfosInCurrentMonth.Any(m => (m.TournamentId?.ToString() ?? m.MatchName ?? "") == matchKey))
                     {
                         int? tournamentPosition = null;
-                        if (match.TournamentId.HasValue && playerTournamentPositions.TryGetValue(match.TournamentId.Value, out var pos))
+                        int? femalePosition = null;
+                        int? teamPosition = null;
+                        if (match.TournamentId.HasValue && playerTournamentPositions.TryGetValue(match.TournamentId.Value, out var posInfo))
                         {
-                            tournamentPosition = pos;
+                            tournamentPosition = posInfo.Position;
+                            femalePosition = posInfo.FemalePosition;
+                            teamPosition = posInfo.TeamPosition;
                         }
                         matchInfosInCurrentMonth.Add(new MatchInfo
                         {
@@ -885,7 +889,9 @@ namespace PlayerRatings.Controllers
                             TournamentId = match.TournamentId,
                             TournamentName = match.Tournament?.FullName,
                             Round = match.Round,
-                            TournamentPosition = tournamentPosition
+                            TournamentPosition = tournamentPosition,
+                            FemalePosition = femalePosition,
+                            TeamPosition = teamPosition
                         });
                     }
                 }
@@ -1093,9 +1099,13 @@ namespace PlayerRatings.Controllers
                 var opponentRanking = opponent?.GetCombinedRankingBeforeDate(match.Date.Date);
                 
                 int? tournamentPosition = null;
-                if (match.TournamentId.HasValue && playerTournamentPositions.TryGetValue(match.TournamentId.Value, out var pos))
+                int? femalePosition = null;
+                int? teamPosition = null;
+                if (match.TournamentId.HasValue && playerTournamentPositions.TryGetValue(match.TournamentId.Value, out var posInfo))
                 {
-                    tournamentPosition = pos;
+                    tournamentPosition = posInfo.Position;
+                    femalePosition = posInfo.FemalePosition;
+                    teamPosition = posInfo.TeamPosition;
                 }
                 gameRecords.Add(new GameRecord
                 {
@@ -1109,7 +1119,9 @@ namespace PlayerRatings.Controllers
                     TournamentId = match.TournamentId,
                     TournamentName = match.Tournament?.FullName,
                     Round = match.Round,
-                    TournamentPosition = tournamentPosition
+                    TournamentPosition = tournamentPosition,
+                    FemalePosition = femalePosition,
+                    TeamPosition = teamPosition
                 });
             }
 
@@ -1128,6 +1140,16 @@ namespace PlayerRatings.Controllers
             var championshipCount = await _context.TournamentPlayers
                 .Where(tp => tp.PlayerId == playerId && tp.Position == 1)
                 .CountAsync();
+            
+            // Count team championships (tournaments where player has TeamPosition = 1)
+            var teamChampionshipCount = await _context.TournamentPlayers
+                .Where(tp => tp.PlayerId == playerId && tp.TeamPosition == 1)
+                .CountAsync();
+            
+            // Count female championships (tournaments where player has FemalePosition = 1)
+            var femaleChampionshipCount = await _context.TournamentPlayers
+                .Where(tp => tp.PlayerId == playerId && tp.FemalePosition == 1)
+                .CountAsync();
 
             return View(new PlayerRatingHistoryViewModel
             {
@@ -1142,7 +1164,9 @@ namespace PlayerRatings.Controllers
                 PreviousPlayerId = previousPlayerId,
                 NextPlayerId = nextPlayerId,
                 TournamentOptions = tournamentOptions,
-                ChampionshipCount = championshipCount
+                ChampionshipCount = championshipCount,
+                TeamChampionshipCount = teamChampionshipCount,
+                FemaleChampionshipCount = femaleChampionshipCount
             });
         }
 

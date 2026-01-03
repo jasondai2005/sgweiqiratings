@@ -1,8 +1,9 @@
 @using PlayerRatings.Localization
 @model PlayerRatings.ViewModels.Tournament.TournamentEditViewModel
+@inject Microsoft.Extensions.Localization.IStringLocalizer<LocalizationKey> LocString
 
 @{
-    ViewData["Title"] = "Edit Tournament";
+    ViewData["Title"] = LocString[nameof(LocalizationKey.EditTournament)];
     
     var months = new[] {
         new { Value = 1, Text = "January" },
@@ -31,10 +32,10 @@
     <div class="form-group">
         <div class="col-md-12">
             <a asp-action="Index" asp-route-leagueId="@Model.LeagueId" class="btn btn-default">
-                ← Back to Tournaments
+                ← @LocString[nameof(LocalizationKey.BackToTournaments)]
             </a>
             <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-default">
-                View Details
+                @LocString[nameof(LocalizationKey.Details)]
             </a>
         </div>
     </div>
@@ -43,17 +44,18 @@
 <div class="row" style="margin-top: 20px;">
     <!-- Left Column: Tournament Info -->
     <div class="col-md-5">
-        <form asp-action="Edit" method="post" class="form-horizontal">
+        <form asp-action="Edit" method="post" class="form-horizontal" id="editTournamentForm">
             <input type="hidden" asp-for="Id" />
             <input type="hidden" asp-for="LeagueId" />
             <input type="hidden" asp-for="FilterMonth" />
             <input type="hidden" asp-for="FilterYear" />
+            <input type="hidden" asp-for="FilterMatchName" />
             
             <div class="panel panel-default">
-                <div class="panel-heading">Tournament Information</div>
+                <div class="panel-heading">@LocString[nameof(LocalizationKey.TournamentInformation)]</div>
                 <div class="panel-body">
                     <div class="form-group">
-                        <label asp-for="Name" class="col-sm-3 control-label">Name</label>
+                        <label asp-for="Name" class="col-sm-3 control-label">@LocString[nameof(LocalizationKey.TournamentName)]</label>
                         <div class="col-sm-9">
                             <input asp-for="Name" class="form-control" />
                             <span asp-validation-for="Name" class="text-danger"></span>
@@ -61,21 +63,21 @@
                     </div>
                     
                     <div class="form-group">
-                        <label asp-for="Ordinal" class="col-sm-3 control-label">Ordinal</label>
+                        <label asp-for="Ordinal" class="col-sm-3 control-label">@LocString[nameof(LocalizationKey.Ordinal)]</label>
                         <div class="col-sm-9">
                             <input asp-for="Ordinal" class="form-control" placeholder="e.g., 4th or 2026" />
                         </div>
                     </div>
                     
                     <div class="form-group">
-                        <label asp-for="Group" class="col-sm-3 control-label">Group</label>
+                        <label asp-for="Group" class="col-sm-3 control-label">@LocString[nameof(LocalizationKey.Group)]</label>
                         <div class="col-sm-9">
                             <input asp-for="Group" class="form-control" />
                         </div>
                     </div>
                     
                     <div class="form-group">
-                        <label asp-for="TournamentType" class="col-sm-3 control-label">Type</label>
+                        <label asp-for="TournamentType" class="col-sm-3 control-label">@LocString[nameof(LocalizationKey.Type)]</label>
                         <div class="col-sm-9">
                             <select asp-for="TournamentType" class="form-control">
                                 <option value="">--</option>
@@ -88,145 +90,201 @@
                     </div>
                     
                     <div class="form-group">
-                        <label asp-for="Organizer" class="col-sm-3 control-label">Organizer</label>
+                        <label asp-for="Organizer" class="col-sm-3 control-label">@LocString[nameof(LocalizationKey.Organizer)]</label>
                         <div class="col-sm-9">
                             <input asp-for="Organizer" class="form-control" />
                         </div>
                     </div>
                     
                     <div class="form-group">
-                        <label asp-for="Location" class="col-sm-3 control-label">Location</label>
+                        <label asp-for="Location" class="col-sm-3 control-label">@LocString[nameof(LocalizationKey.Location)]</label>
                         <div class="col-sm-9">
                             <input asp-for="Location" class="form-control" />
                         </div>
                     </div>
                     
                     <div class="form-group">
-                        <label asp-for="StartDate" class="col-sm-3 control-label">Start</label>
+                        <label asp-for="StartDate" class="col-sm-3 control-label">@LocString[nameof(LocalizationKey.Start)]</label>
                         <div class="col-sm-9">
                             <input asp-for="StartDate" type="date" class="form-control" />
                         </div>
                     </div>
                     
                     <div class="form-group">
-                        <label asp-for="EndDate" class="col-sm-3 control-label">End</label>
+                        <label asp-for="EndDate" class="col-sm-3 control-label">@LocString[nameof(LocalizationKey.End)]</label>
                         <div class="col-sm-9">
                             <input asp-for="EndDate" type="date" class="form-control" />
                         </div>
                     </div>
                     
                     <div class="form-group">
-                        <label asp-for="Factor" class="col-sm-3 control-label">Factor</label>
+                        <label asp-for="Factor" class="col-sm-3 control-label">@LocString[nameof(LocalizationKey.Factor)]</label>
                         <div class="col-sm-9">
                             <input asp-for="Factor" type="number" step="0.1" class="form-control" />
                         </div>
                     </div>
+                    
+                    <div class="form-group">
+                        <label asp-for="Photo" class="col-sm-3 control-label">@LocString[nameof(LocalizationKey.PhotoUrl)]</label>
+                        <div class="col-sm-9">
+                            <input asp-for="Photo" class="form-control" placeholder="Photo URL" />
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label asp-for="StandingsPhoto" class="col-sm-3 control-label">@LocString[nameof(LocalizationKey.StandingsPhoto)]</label>
+                        <div class="col-sm-9">
+                            <input asp-for="StandingsPhoto" class="form-control" placeholder="Standings photo URL" />
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label asp-for="ExternalLinks" class="col-sm-3 control-label">@LocString[nameof(LocalizationKey.Links)]</label>
+                        <div class="col-sm-9">
+                            <input asp-for="ExternalLinks" class="form-control" placeholder="URLs; separated" />
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label asp-for="Notes" class="col-sm-3 control-label">@LocString[nameof(LocalizationKey.Notes)]</label>
+                        <div class="col-sm-9">
+                            <textarea asp-for="Notes" class="form-control" rows="2"></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <div class="col-sm-offset-3 col-sm-9">
+                            <div class="checkbox" style="margin-top: 0;">
+                                <label><input asp-for="SupportsPersonalAward" /> @LocString[nameof(LocalizationKey.PersonalAward)]</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <div class="col-sm-offset-3 col-sm-9">
+                            <div class="checkbox" style="margin-top: 0;">
+                                <label><input asp-for="SupportsTeamAward" /> @LocString[nameof(LocalizationKey.TeamAward)]</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <div class="col-sm-offset-3 col-sm-9">
+                            <div class="checkbox" style="margin-top: 0;">
+                                <label><input asp-for="SupportsFemaleAward" /> @LocString[nameof(LocalizationKey.FemaleAward)]</label>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="panel-footer">
-                    <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        
+            <!-- Players Section (inside main form) -->
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>@LocString[nameof(LocalizationKey.Players)] (@Model.AvailablePlayers.Count)</span>
+                    </div>
+                </div>
+                <div class="panel-body" style="padding: 0;">
+                    @if (!Model.AvailablePlayers.Any())
+                    {
+                        <p class="text-muted" style="padding: 15px; margin: 0;">Add matches or players below.</p>
+                    }
+                    else
+                    {
+                        <div style="overflow-x: auto;">
+                            <table class="table table-condensed" style="margin-bottom: 0;">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 50px;">@LocString[nameof(LocalizationKey.Pos)]</th>
+                                        <th>@LocString[nameof(LocalizationKey.Player)]</th>
+                                        <th style="width: 80px;">@LocString[nameof(LocalizationKey.Team)]</th>
+                                        <th style="width: 45px;" title="@LocString[nameof(LocalizationKey.TPos)]">@LocString[nameof(LocalizationKey.TPos)]</th>
+                                        <th style="width: 45px;" title="@LocString[nameof(LocalizationKey.FemaleAward)]">♀</th>
+                                        <th style="width: 30px;">@LocString[nameof(LocalizationKey.Win)]</th>
+                                        <th style="width: 30px;">@LocString[nameof(LocalizationKey.Loss)]</th>
+                                        <th style="width: 35px;" title="@LocString[nameof(LocalizationKey.SOS)]">@LocString[nameof(LocalizationKey.SOS)]</th>
+                                        <th style="width: 30px;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @{ var playerIdx = 0; }
+                                    @foreach (var p in Model.AvailablePlayers)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <input type="hidden" name="PlayerIds[@playerIdx]" value="@p.PlayerId" />
+                                                <input type="number" name="PositionValues[@playerIdx]" 
+                                                       class="form-control input-sm" 
+                                                       value="@p.Position" 
+                                                       style="width: 45px; padding: 2px 4px;" />
+                                            </td>
+                                            <td style="white-space: nowrap;">
+                                                @p.PlayerName
+                                            </td>
+                                            <td>
+                                                <input type="text" name="TeamValues[@playerIdx]" 
+                                                       class="form-control input-sm" 
+                                                       value="@p.Team" 
+                                                       style="width: 70px; padding: 2px 4px;" 
+                                                       placeholder="Team" />
+                                            </td>
+                                            <td>
+                                                <input type="number" name="TeamPositionValues[@playerIdx]" 
+                                                       class="form-control input-sm" 
+                                                       value="@p.TeamPosition" 
+                                                       style="width: 40px; padding: 2px 4px;" />
+                                            </td>
+                                            <td>
+                                                @if (p.IsFemale)
+                                                {
+                                                    <input type="number" name="FemalePositionValues[@playerIdx]" 
+                                                           class="form-control input-sm" 
+                                                           value="@p.FemalePosition" 
+                                                           style="width: 40px; padding: 2px 4px;" />
+                                                }
+                                                else
+                                                {
+                                                    <input type="hidden" name="FemalePositionValues[@playerIdx]" value="" />
+                                                    <span class="text-muted">-</span>
+                                                }
+                                            </td>
+                                            <td>@(p.Wins % 1 == 0 ? ((int)p.Wins).ToString() : p.Wins.ToString("0.#"))</td>
+                                            <td>@p.Losses</td>
+                                            <td title="SOS: @(p.SOS % 1 == 0 ? ((int)p.SOS).ToString() : p.SOS.ToString("0.#")), SOSOS: @(p.SOSOS % 1 == 0 ? ((int)p.SOSOS).ToString() : p.SOSOS.ToString("0.#"))">@(p.SOS % 1 == 0 ? ((int)p.SOS).ToString() : p.SOS.ToString("0.#"))</td>
+                                            <td>
+                                                <button type="submit" form="removePlayer_@playerIdx" class="btn btn-xs btn-danger" title="@LocString[nameof(LocalizationKey.Remove)]">×</button>
+                                            </td>
+                                        </tr>
+                                        playerIdx++;
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
                 </div>
             </div>
         </form>
         
-        
-        <!-- Players Section -->
-        <div class="panel panel-default">
-            <div class="panel-heading">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span>Players (@Model.AvailablePlayers.Count)</span>
-                    <div>
-                        @if (Model.AvailablePlayers.Any())
-                        {
-                            <form asp-action="CalculatePositions" method="post" style="display: inline;">
-                                <input type="hidden" name="tournamentId" value="@Model.Id" />
-                                <input type="hidden" name="filterMonth" value="@Model.FilterMonth" />
-                                <input type="hidden" name="filterYear" value="@Model.FilterYear" />
-                                <input type="hidden" name="filterMatchName" value="@Model.FilterMatchName" />
-                                <button type="submit" class="btn btn-xs btn-default" title="Swiss-system: Undefeated first, then wins → SOS → SOSOS">
-                                    Calculate
-                                </button>
-                            </form>
-                        }
-                    </div>
-                </div>
-            </div>
-            <div class="panel-body" style="padding: 0;">
-                @if (!Model.AvailablePlayers.Any())
-                {
-                    <p class="text-muted" style="padding: 15px; margin: 0;">Add matches or players below.</p>
-                }
-                else
-                {
-                    <form asp-controller="Tournaments" asp-action="SavePositions" method="post" id="savePositionsForm">
-                        <input type="hidden" name="tournamentId" value="@Model.Id" />
-                        <input type="hidden" name="filterMonth" value="@Model.FilterMonth" />
-                        <input type="hidden" name="filterYear" value="@Model.FilterYear" />
-                        <input type="hidden" name="filterMatchName" value="@Model.FilterMatchName" />
-                        <table class="table table-condensed" style="margin-bottom: 0;">
-                            <thead>
-                                <tr>
-                                    <th style="width: 55px;">Pos</th>
-                                    <th>Player</th>
-                                    <th style="width: 30px;">W</th>
-                                    <th style="width: 30px;">L</th>
-                                    <th style="width: 35px;" title="SOS">SOS</th>
-                                    <th style="width: 30px;"></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @{ var playerIdx = 0; }
-                                @foreach (var p in Model.AvailablePlayers)
-                                {
-                                    var rowStyle = p.IsUndefeated ? "background-color: #fff9c4;" : "";
-                                    <tr style="@rowStyle">
-                                        <td>
-                                            <input type="hidden" name="playerIds[@playerIdx]" value="@p.PlayerId" />
-                                            <input type="number" name="positionValues[@playerIdx]" 
-                                                   class="form-control input-sm" 
-                                                   value="@p.Position" 
-                                                   style="width: 45px; padding: 2px 4px;" />
-                                        </td>
-                                        <td style="white-space: nowrap;">
-                                            @p.PlayerName
-                                            @if (p.IsUndefeated)
-                                            {
-                                                <span title="Undefeated">🏆</span>
-                                            }
-                                        </td>
-                                        <td>@(p.Wins % 1 == 0 ? ((int)p.Wins).ToString() : p.Wins.ToString("0.#"))</td>
-                                        <td>@p.Losses</td>
-                                        <td title="SOS: @(p.SOS % 1 == 0 ? ((int)p.SOS).ToString() : p.SOS.ToString("0.#")), SOSOS: @(p.SOSOS % 1 == 0 ? ((int)p.SOSOS).ToString() : p.SOSOS.ToString("0.#"))">@(p.SOS % 1 == 0 ? ((int)p.SOS).ToString() : p.SOS.ToString("0.#"))</td>
-                                        <td>
-                                            <form asp-action="RemovePlayer" method="post" style="display: inline;">
-                                                <input type="hidden" name="tournamentId" value="@Model.Id" />
-                                                <input type="hidden" name="playerId" value="@p.PlayerId" />
-                                                <input type="hidden" name="filterMonth" value="@Model.FilterMonth" />
-                                                <input type="hidden" name="filterYear" value="@Model.FilterYear" />
-                                                <input type="hidden" name="filterMatchName" value="@Model.FilterMatchName" />
-                                                <button type="submit" class="btn btn-xs btn-danger" title="Remove">×</button>
-                                            </form>
-                                        </td>
-                                    </tr>
-                                    playerIdx++;
-                                }
-                            </tbody>
-                        </table>
-                    </form>
-                }
-            </div>
-            @if (Model.AvailablePlayers.Any())
-            {
-                <div class="panel-footer">
-                    <button type="submit" form="savePositionsForm" class="btn btn-sm btn-primary">Save Positions</button>
-                </div>
-            }
-        </div>
+        <!-- Remove player forms (outside main form to avoid nesting) -->
+        @{ var removeIdx = 0; }
+        @foreach (var p in Model.AvailablePlayers)
+        {
+            <form id="removePlayer_@removeIdx" asp-action="RemovePlayer" method="post" style="display: none;">
+                <input type="hidden" name="tournamentId" value="@Model.Id" />
+                <input type="hidden" name="playerId" value="@p.PlayerId" />
+                <input type="hidden" name="filterMonth" value="@Model.FilterMonth" />
+                <input type="hidden" name="filterYear" value="@Model.FilterYear" />
+                <input type="hidden" name="filterMatchName" value="@Model.FilterMatchName" />
+            </form>
+            removeIdx++;
+        }
         
         <!-- Add Player Section -->
         @if (Model.LeaguePlayers.Any())
         {
             <div class="panel panel-default">
-                <div class="panel-heading">Add Player</div>
+                <div class="panel-heading">@LocString[nameof(LocalizationKey.AddPlayer)]</div>
                 <div class="panel-body">
                     <form asp-action="AddPlayer" method="post" class="form-inline">
                         <input type="hidden" name="tournamentId" value="@Model.Id" />
@@ -239,11 +297,27 @@
                                 <option value="@p.PlayerId">@p.PlayerName</option>
                             }
                         </select>
-                        <button type="submit" class="btn btn-sm btn-default">Add</button>
+                        <button type="submit" class="btn btn-sm btn-default">@LocString[nameof(LocalizationKey.Add)]</button>
                     </form>
                 </div>
             </div>
         }
+
+        <div style="margin-top: 15px; display: flex; gap: 10px;">
+            @if (Model.AvailablePlayers.Any())
+            {
+                <form asp-action="CalculatePositions" method="post" style="display: inline;">
+                    <input type="hidden" name="tournamentId" value="@Model.Id" />
+                    <input type="hidden" name="filterMonth" value="@Model.FilterMonth" />
+                    <input type="hidden" name="filterYear" value="@Model.FilterYear" />
+                    <input type="hidden" name="filterMatchName" value="@Model.FilterMatchName" />
+                    <button type="submit" class="btn btn-default" title="@LocString[nameof(LocalizationKey.SwissSystemTooltip)]">
+                        @LocString[nameof(LocalizationKey.CalculatePositions)]
+                    </button>
+                </form>
+            }
+            <button type="submit" form="editTournamentForm" class="btn btn-primary">@LocString[nameof(LocalizationKey.SaveChanges)]</button>
+        </div>
     </div>
     
     <!-- Right Column: Match Selection -->
@@ -251,7 +325,7 @@
         <div class="panel panel-default">
             <div class="panel-heading">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span>Select Matches</span>
+                    <span>@LocString[nameof(LocalizationKey.SelectMatches)]</span>
                     <form asp-action="Edit" method="get" style="display: flex; gap: 5px; flex-wrap: wrap;">
                         <input type="hidden" name="id" value="@Model.Id" />
                         <select name="filterMonth" class="form-control input-sm" style="width: 110px;">
@@ -301,11 +375,11 @@
                             <thead>
                                 <tr>
                                     <th style="width: 40px;"></th>
-                                    <th>Date</th>
-                                    <th>Match</th>
-                                    <th class="text-center">Score</th>
-                                    <th style="width: 60px;">Round</th>
-                                    <th>Status</th>
+                                    <th>@LocString[nameof(LocalizationKey.Date)]</th>
+                                    <th>@LocString[nameof(LocalizationKey.Match)]</th>
+                                    <th class="text-center">@LocString[nameof(LocalizationKey.Score)]</th>
+                                    <th style="width: 60px;">@LocString[nameof(LocalizationKey.Round)]</th>
+                                    <th>@LocString[nameof(LocalizationKey.Status)]</th>
                                 </tr>
                             </thead>
                             <tbody>

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace PlayerRatings.Models
@@ -48,6 +49,23 @@ namespace PlayerRatings.Models
         /// </summary>
         [ForeignKey("TournamentId")]
         public virtual Tournament Tournament { get; set; }
+
+        /// <summary>
+        /// Photo URL/path for the match (e.g., players playing)
+        /// </summary>
+        [MaxLength(500)]
+        public string MatchPhoto { get; set; }
+
+        /// <summary>
+        /// Photo URL/path showing the match result
+        /// </summary>
+        [MaxLength(500)]
+        public string MatchResultPhoto { get; set; }
+
+        /// <summary>
+        /// SGF or other game record data/URL
+        /// </summary>
+        public string GameRecord { get; set; }
 
         public virtual ApplicationUser CreatedByUser { get; set; }
 

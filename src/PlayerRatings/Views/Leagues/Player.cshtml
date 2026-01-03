@@ -85,13 +85,28 @@
                     </div>
                     }
                 </div>
-                @if (Model.ChampionshipCount > 0)
+                @if (Model.ChampionshipCount > 0 || Model.TeamChampionshipCount > 0 || Model.FemaleChampionshipCount > 0)
                 {
                 <div class="row" style="margin-top: 8px;">
                     <div class="col-xs-12">
-                        <span style="color: #f0ad4e;">🏆</span>
-                        <strong style="color: #f0ad4e;">@Model.ChampionshipCount</strong>
-                        <span style="color: #666;">@(Model.ChampionshipCount == 1 ? "Championship" : "Championships")</span>
+                        @if (Model.ChampionshipCount > 0)
+                        {
+                            <span style="color: #f0ad4e;">🏆</span>
+                            <strong style="color: #f0ad4e;">@Model.ChampionshipCount</strong>
+                            <span style="color: #666;">@(Model.ChampionshipCount == 1 ? "Championship" : "Championships")</span>
+                        }
+                        @if (Model.TeamChampionshipCount > 0)
+                        {
+                            <span style="margin-left: 10px; color: #337ab7;">🏅</span>
+                            <strong style="color: #337ab7;">@Model.TeamChampionshipCount</strong>
+                            <span style="color: #666;">Team @(Model.TeamChampionshipCount == 1 ? "Champion" : "Champions")</span>
+                        }
+                        @if (Model.FemaleChampionshipCount > 0)
+                        {
+                            <span style="margin-left: 10px; color: #d63384;">👑</span>
+                            <strong style="color: #d63384;">@Model.FemaleChampionshipCount</strong>
+                            <span style="color: #666;">Female @(Model.FemaleChampionshipCount == 1 ? "Champion" : "Champions")</span>
+                        }
                     </div>
                 </div>
                 }
@@ -517,6 +532,14 @@
                                         {
                                             <span style="color: #f0ad4e; margin-left: 4px;">No. @match.TournamentPosition</span>
                                         }
+                                        @if (match.FemalePosition.HasValue)
+                                        {
+                                            <span style="color: #d63384; margin-left: 4px;">Female No. @match.FemalePosition</span>
+                                        }
+                                        @if (match.TeamPosition.HasValue)
+                                        {
+                                            <span style="color: #337ab7; margin-left: 4px;">Team No. @match.TeamPosition</span>
+                                        }
                                     }
                                     else if (!string.IsNullOrEmpty(match.MatchName))
                                     {
@@ -613,7 +636,9 @@
                         MatchName = g.MatchName,
                         TournamentId = g.TournamentId,
                         TournamentName = g.TournamentName,
-                        TournamentPosition = g.TournamentPosition
+                        TournamentPosition = g.TournamentPosition,
+                        FemalePosition = g.FemalePosition,
+                        TeamPosition = g.TeamPosition
                     })
                     .ToList();
                 
@@ -638,6 +663,21 @@
                                         @if (match.TournamentPosition.HasValue)
                                         {
                                             <span style="color: #f0ad4e; margin-left: 4px;">No. @match.TournamentPosition</span>
+                                        }
+                                        @if (match.FemalePosition.HasValue)
+                                        {
+                                            @if (match.FemalePosition == 1)
+                                            {
+                                                <span style="color: #d63384; margin-left: 4px;" title="Female Champion">👑</span>
+                                            }
+                                            else
+                                            {
+                                                <span style="color: #d63384; margin-left: 4px;">Female No. @match.FemalePosition</span>
+                                            }
+                                        }
+                                        @if (match.TeamPosition.HasValue)
+                                        {
+                                            <span style="color: #337ab7; margin-left: 4px;">Team No. @match.TeamPosition</span>
                                         }
                                     }
                                     else if (!string.IsNullOrEmpty(match.MatchName))
