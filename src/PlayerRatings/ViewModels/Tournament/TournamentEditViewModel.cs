@@ -166,9 +166,9 @@ namespace PlayerRatings.ViewModels.Tournament
         public string PromotionRanking { get; set; }
         
         /// <summary>
-        /// Number of wins in this tournament
+        /// Number of wins in this tournament (draws count as 0.5)
         /// </summary>
-        public int Wins { get; set; }
+        public double Wins { get; set; }
         
         /// <summary>
         /// Number of losses in this tournament
@@ -176,14 +176,14 @@ namespace PlayerRatings.ViewModels.Tournament
         public int Losses { get; set; }
         
         /// <summary>
-        /// SOS - Sum of Opponents' Scores (sum of opponents' wins)
+        /// SOS - Sum of Opponents' Scores (sum of opponents' wins, draws count as 0.5)
         /// </summary>
-        public int SOS { get; set; }
+        public double SOS { get; set; }
         
         /// <summary>
         /// SOSOS - Sum of Opponents' SOS (sum of opponents' SOS scores)
         /// </summary>
-        public int SOSOS { get; set; }
+        public double SOSOS { get; set; }
         
         /// <summary>
         /// True if player is undefeated (0 losses) - champion status

@@ -191,9 +191,9 @@
                                                 <span title="Undefeated">🏆</span>
                                             }
                                         </td>
-                                        <td>@p.Wins</td>
+                                        <td>@(p.Wins % 1 == 0 ? ((int)p.Wins).ToString() : p.Wins.ToString("0.#"))</td>
                                         <td>@p.Losses</td>
-                                        <td title="SOS: @p.SOS, SOSOS: @p.SOSOS">@p.SOS</td>
+                                        <td title="SOS: @(p.SOS % 1 == 0 ? ((int)p.SOS).ToString() : p.SOS.ToString("0.#")), SOSOS: @(p.SOSOS % 1 == 0 ? ((int)p.SOSOS).ToString() : p.SOSOS.ToString("0.#"))">@(p.SOS % 1 == 0 ? ((int)p.SOS).ToString() : p.SOS.ToString("0.#"))</td>
                                         <td>
                                             <form asp-action="RemovePlayer" method="post" style="display: inline;">
                                                 <input type="hidden" name="tournamentId" value="@Model.Id" />

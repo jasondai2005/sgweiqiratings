@@ -182,9 +182,9 @@
                                     }
                                 </td>
                             }
-                            <td style="text-align: center; font-weight: bold;">@p.Wins</td>
-                            <td style="text-align: center;">@p.SOS</td>
-                            <td style="text-align: center;">@p.SOSOS</td>
+                            <td style="text-align: center; font-weight: bold;">@(p.Wins % 1 == 0 ? ((int)p.Wins).ToString() : p.Wins.ToString("0.#"))</td>
+                            <td style="text-align: center;">@(p.SOS % 1 == 0 ? ((int)p.SOS).ToString() : p.SOS.ToString("0.#"))</td>
+                            <td style="text-align: center;">@(p.SOSOS % 1 == 0 ? ((int)p.SOSOS).ToString() : p.SOSOS.ToString("0.#"))</td>
                             <td style="text-align: center; font-size: 0.9em;">
                                 @if (p.ShowRatingBefore && p.RatingBefore.HasValue)
                                 {

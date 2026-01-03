@@ -159,7 +159,10 @@ namespace PlayerRatings.ViewModels.Tournament
         
         public int MatchCount { get; set; }
         
-        public int Wins { get; set; }
+        /// <summary>
+        /// Number of wins (draws count as 0.5)
+        /// </summary>
+        public double Wins { get; set; }
         
         public int Losses { get; set; }
         
@@ -169,14 +172,14 @@ namespace PlayerRatings.ViewModels.Tournament
         public int PointDiff { get; set; }
         
         /// <summary>
-        /// SOS - Sum of Opponents' Scores (sum of opponents' wins)
+        /// SOS - Sum of Opponents' Scores (sum of opponents' wins, draws count as 0.5)
         /// </summary>
-        public int SOS { get; set; }
+        public double SOS { get; set; }
         
         /// <summary>
         /// SOSOS - Sum of Opponents' SOS (sum of opponents' SOS scores)
         /// </summary>
-        public int SOSOS { get; set; }
+        public double SOSOS { get; set; }
         
         /// <summary>
         /// Player's ELO rating before the tournament

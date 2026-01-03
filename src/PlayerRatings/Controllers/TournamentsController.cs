@@ -81,7 +81,7 @@ namespace PlayerRatings.Controllers
                 stats2.PointsFor += match.SecondPlayerScore;
                 stats2.PointsAgainst += match.FirstPlayerScore;
 
-                // Determine winner
+                // Determine winner or draw
                 if (match.FirstPlayerScore > match.SecondPlayerScore)
                 {
                     stats1.Wins++;
@@ -92,10 +92,18 @@ namespace PlayerRatings.Controllers
                     stats1.Losses++;
                     stats2.Wins++;
                 }
+                else
+                {
+                    // Draw: award 0.5 points to each player
+                    stats1.Wins += 0.5;
+                    stats2.Wins += 0.5;
+                    stats1.Draws++;
+                    stats2.Draws++;
+                }
             }
 
             // Calculate SOS (Sum of Opponents' Scores)
-            var sosScores = new Dictionary<string, int>();
+            var sosScores = new Dictionary<string, double>();
             foreach (var player in playerStats)
             {
                 sosScores[player.Key] = player.Value.Opponents.Sum(oppId =>
@@ -103,7 +111,7 @@ namespace PlayerRatings.Controllers
             }
 
             // Calculate SOSOS (Sum of Opponents' SOS)
-            var sososScores = new Dictionary<string, int>();
+            var sososScores = new Dictionary<string, double>();
             foreach (var player in playerStats)
             {
                 sososScores[player.Key] = player.Value.Opponents.Sum(oppId =>
@@ -168,8 +176,9 @@ namespace PlayerRatings.Controllers
 
         private class PlayerMatchStats
         {
-            public int Wins { get; set; }
+            public double Wins { get; set; }  // Use double to support draws (0.5 points each)
             public int Losses { get; set; }
+            public int Draws { get; set; }
             public int PointsFor { get; set; }
             public int PointsAgainst { get; set; }
             public List<string> Opponents { get; } = new List<string>();
@@ -178,8 +187,8 @@ namespace PlayerRatings.Controllers
         private class SwissStats
         {
             public Dictionary<string, PlayerMatchStats> PlayerStats { get; set; }
-            public Dictionary<string, int> SOS { get; set; }
-            public Dictionary<string, int> SOSOS { get; set; }
+            public Dictionary<string, double> SOS { get; set; }  // Use double to support draws
+            public Dictionary<string, double> SOSOS { get; set; }
         }
 
         // GET: Tournaments?leagueId=xxx
@@ -451,7 +460,7 @@ namespace PlayerRatings.Controllers
                             PromotionId = tp.PromotionId,
                             PromotionRanking = tp.Promotion?.Ranking,
                             PromotionBonus = promotionBonuses.TryGetValue(tp.PlayerId, out var bonus) ? bonus : null,
-                            MatchCount = hasStats ? pStats.Wins + pStats.Losses : 0,
+                            MatchCount = hasStats ? pStats.Opponents.Count : 0,
                             Wins = hasStats ? pStats.Wins : 0,
                             Losses = hasStats ? pStats.Losses : 0,
                             PointDiff = hasStats ? pStats.PointsFor - pStats.PointsAgainst : 0,
