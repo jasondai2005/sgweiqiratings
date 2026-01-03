@@ -70,6 +70,26 @@
                             <span style="color: #d9534f; margin-left: 4px;">@Model.CurrentYearLosses L</span>
                             <span style="margin-left: 8px; font-weight: bold;">(@Model.CurrentYearWinRate.ToString("F1")%)</span>
                         </div>
+                        @if (Model.CurrentYearChampionshipCount > 0 || Model.CurrentYearTeamChampionshipCount > 0 || Model.CurrentYearFemaleChampionshipCount > 0)
+                        {
+                            <div style="margin-top: 4px;">
+                                @if (Model.CurrentYearChampionshipCount > 0)
+                                {
+                                    <span style="color: #f0ad4e;">🏆</span>
+                                    <strong style="color: #f0ad4e;">@Model.CurrentYearChampionshipCount</strong>
+                                }
+                                @if (Model.CurrentYearTeamChampionshipCount > 0)
+                                {
+                                    <span style="margin-left: 6px; color: #337ab7;">🏅</span>
+                                    <strong style="color: #337ab7;">@Model.CurrentYearTeamChampionshipCount</strong>
+                                }
+                                @if (Model.CurrentYearFemaleChampionshipCount > 0)
+                                {
+                                    <span style="margin-left: 6px; color: #d63384;">👑</span>
+                                    <strong style="color: #d63384;">@Model.CurrentYearFemaleChampionshipCount</strong>
+                                }
+                            </div>
+                        }
                     </div>
                     }
                     @if (Model.LastYearGames > 0)
@@ -82,6 +102,26 @@
                             <span style="color: #d9534f; margin-left: 4px;">@Model.LastYearLosses L</span>
                             <span style="margin-left: 8px; font-weight: bold;">(@Model.LastYearWinRate.ToString("F1")%)</span>
                         </div>
+                        @if (Model.LastYearChampionshipCount > 0 || Model.LastYearTeamChampionshipCount > 0 || Model.LastYearFemaleChampionshipCount > 0)
+                        {
+                            <div style="margin-top: 4px;">
+                                @if (Model.LastYearChampionshipCount > 0)
+                                {
+                                    <span style="color: #f0ad4e;">🏆</span>
+                                    <strong style="color: #f0ad4e;">@Model.LastYearChampionshipCount</strong>
+                                }
+                                @if (Model.LastYearTeamChampionshipCount > 0)
+                                {
+                                    <span style="margin-left: 6px; color: #337ab7;">🏅</span>
+                                    <strong style="color: #337ab7;">@Model.LastYearTeamChampionshipCount</strong>
+                                }
+                                @if (Model.LastYearFemaleChampionshipCount > 0)
+                                {
+                                    <span style="margin-left: 6px; color: #d63384;">👑</span>
+                                    <strong style="color: #d63384;">@Model.LastYearFemaleChampionshipCount</strong>
+                                }
+                            </div>
+                        }
                     </div>
                     }
                 </div>

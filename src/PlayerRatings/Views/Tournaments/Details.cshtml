@@ -516,14 +516,28 @@
                                         {
                                             <div style="border-bottom: 1px solid #ddd; padding-bottom: 2px; margin-bottom: 2px;">&nbsp;</div>
                                         }
-                                        @(player.RatingBefore.HasValue ? player.RatingBefore.Value.ToString("F1") : "-")
+                                        @if (player.ShowRatingBefore && player.RatingBefore.HasValue)
+                                        {
+                                            @player.RatingBefore.Value.ToString("F1")
+                                        }
+                                        else
+                                        {
+                                            <span>-</span>
+                                        }
                                     </td>
                                     <td style="text-align: center; font-size: 0.85em;">
                                         @if (isFirstRow)
                                         {
                                             <div style="border-bottom: 1px solid #ddd; padding-bottom: 2px; margin-bottom: 2px;">&nbsp;</div>
                                         }
-                                        @(player.RatingAfter.HasValue ? player.RatingAfter.Value.ToString("F1") : "-")
+                                        @if (player.ShowRatingAfter && player.RatingAfter.HasValue)
+                                        {
+                                            @player.RatingAfter.Value.ToString("F1")
+                                        }
+                                        else
+                                        {
+                                            <span>-</span>
+                                        }
                                     </td>
                                     <td style="text-align: center; font-size: 0.85em;">
                                         @if (isFirstRow)
@@ -552,13 +566,16 @@
     </div>
 }
 
-@if (Model.IsAdmin && Model.Matches.Any())
+@if (Model.Matches.Any())
 {
     <div style="margin-top: 20px;">
         <h4>@LocString[nameof(LocalizationKey.Matches)] (@Model.Matches.Count)</h4>
-        <p class="text-muted" style="font-size: 0.85em; margin-bottom: 10px;">
-            <em>@LocString[nameof(LocalizationKey.MatchesNotRatedNote)]</em>
-        </p>
+        @if (Model.IsAdmin)
+        {
+            <p class="text-muted" style="font-size: 0.85em; margin-bottom: 10px;">
+                <em>@LocString[nameof(LocalizationKey.MatchesNotRatedNote)]</em>
+            </p>
+        }
         <table class="table table-striped table-condensed">
             <thead>
                 <tr>
@@ -566,12 +583,18 @@
                     <th>@LocString[nameof(LocalizationKey.Score)]</th>
                     <th style="text-align: center;">@LocString[nameof(LocalizationKey.Round)]</th>
                     <th>@LocString[nameof(LocalizationKey.Date)]</th>
-                    <th style="text-align: center;">@LocString[nameof(LocalizationKey.Factor)]</th>
-                    <th style="text-align: center;">@LocString[nameof(LocalizationKey.ShiftRating)]</th>
+                    @if (Model.IsAdmin)
+                    {
+                        <th style="text-align: center;">@LocString[nameof(LocalizationKey.Factor)]</th>
+                        <th style="text-align: center;">@LocString[nameof(LocalizationKey.ShiftRating)]</th>
+                    }
                     <th style="text-align: center; width: 40px;" title="@LocString[nameof(LocalizationKey.MatchPhoto)]">📷</th>
-                    <th style="text-align: center; width: 40px;" title="@LocString[nameof(LocalizationKey.ResultPhoto)]"><span style="font-size: 1.1em;">⊞</span></th>
+                    <th style="text-align: center; width: 40px;" title="@LocString[nameof(LocalizationKey.ResultPhoto)]">📷</th>
                     <th style="text-align: center; width: 40px;" title="@LocString[nameof(LocalizationKey.GameRecordLink)]">📋</th>
-                    <th></th>
+                    @if (Model.IsAdmin)
+                    {
+                        <th></th>
+                    }
                 </tr>
             </thead>
             <tbody>
@@ -582,7 +605,7 @@
                             @if (!string.IsNullOrEmpty(m.FirstPlayerId))
                             {
                                 <a asp-controller="Leagues" asp-action="Player" asp-route-id="@Model.LeagueId" asp-route-playerId="@m.FirstPlayerId">@m.FirstPlayerName</a>
-                                @if (!string.IsNullOrEmpty(m.FirstPlayerRatingBefore))
+                                @if (Model.IsAdmin && !string.IsNullOrEmpty(m.FirstPlayerRatingBefore))
                                 {
                                     <span style="color: #666; font-size: 0.85em;">(@m.FirstPlayerRatingBefore)</span>
                                 }
@@ -595,7 +618,7 @@
                             @if (!string.IsNullOrEmpty(m.SecondPlayerId))
                             {
                                 <a asp-controller="Leagues" asp-action="Player" asp-route-id="@Model.LeagueId" asp-route-playerId="@m.SecondPlayerId">@m.SecondPlayerName</a>
-                                @if (!string.IsNullOrEmpty(m.SecondPlayerRatingBefore))
+                                @if (Model.IsAdmin && !string.IsNullOrEmpty(m.SecondPlayerRatingBefore))
                                 {
                                     <span style="color: #666; font-size: 0.85em;">(@m.SecondPlayerRatingBefore)</span>
                                 }
@@ -608,54 +631,81 @@
                         <td>@m.GetScore()</td>
                         <td style="text-align: center;">@(m.Round.HasValue ? $"R{m.Round}" : "-")</td>
                         <td>@m.Date.ToString("dd/MM/yyyy")</td>
-                        <td style="text-align: center;">@(m.Factor.HasValue ? m.Factor.Value.ToString("0.#") : "-")</td>
-                        <td style="text-align: center;">
-                            @(string.IsNullOrEmpty(m.ShiftRating) ? "-" : m.ShiftRating)
-                        </td>
+                        @if (Model.IsAdmin)
+                        {
+                            <td style="text-align: center;">@(m.Factor.HasValue ? m.Factor.Value.ToString("0.#") : "-")</td>
+                            <td style="text-align: center;">
+                                @(string.IsNullOrEmpty(m.ShiftRating) ? "-" : m.ShiftRating)
+                            </td>
+                        }
                         <td style="text-align: center;">
                             @if (!string.IsNullOrEmpty(m.MatchPhoto))
                             {
                                 <a href="@m.MatchPhoto" target="_blank"><img src="@m.MatchPhoto" alt="" style="max-width: 25px; max-height: 25px; border-radius: 2px;" /></a>
-                                <a href="@Url.Action("EditPhoto", new { tournamentId = Model.Id, matchId = m.Id, photoType = "matchphoto" })" 
-                                   target="_blank" class="btn btn-xs btn-link" style="padding: 0;">✏️</a>
+                                @if (Model.IsAdmin)
+                                {
+                                    <a href="@Url.Action("EditPhoto", new { tournamentId = Model.Id, matchId = m.Id, photoType = "matchphoto" })" 
+                                       target="_blank" class="btn btn-xs btn-link" style="padding: 0;">✏️</a>
+                                }
                             }
-                            else
+                            else if (Model.IsAdmin)
                             {
                                 <a href="@Url.Action("EditPhoto", new { tournamentId = Model.Id, matchId = m.Id, photoType = "matchphoto" })" 
                                    target="_blank" class="btn btn-xs btn-default" title="@LocString[nameof(LocalizationKey.AddPhoto)]">+</a>
+                            }
+                            else
+                            {
+                                <span class="text-muted">-</span>
                             }
                         </td>
                         <td style="text-align: center;">
                             @if (!string.IsNullOrEmpty(m.MatchResultPhoto))
                             {
                                 <a href="@m.MatchResultPhoto" target="_blank"><img src="@m.MatchResultPhoto" alt="" style="max-width: 25px; max-height: 25px; border-radius: 2px;" /></a>
-                                <a href="@Url.Action("EditPhoto", new { tournamentId = Model.Id, matchId = m.Id, photoType = "matchresultphoto" })" 
-                                   target="_blank" class="btn btn-xs btn-link" style="padding: 0;">✏️</a>
+                                @if (Model.IsAdmin)
+                                {
+                                    <a href="@Url.Action("EditPhoto", new { tournamentId = Model.Id, matchId = m.Id, photoType = "matchresultphoto" })" 
+                                       target="_blank" class="btn btn-xs btn-link" style="padding: 0;">✏️</a>
+                                }
                             }
-                            else
+                            else if (Model.IsAdmin)
                             {
                                 <a href="@Url.Action("EditPhoto", new { tournamentId = Model.Id, matchId = m.Id, photoType = "matchresultphoto" })" 
                                    target="_blank" class="btn btn-xs btn-default" title="@LocString[nameof(LocalizationKey.AddPhoto)]">+</a>
+                            }
+                            else
+                            {
+                                <span class="text-muted">-</span>
                             }
                         </td>
                         <td style="text-align: center;">
                             @if (!string.IsNullOrEmpty(m.GameRecord))
                             {
                                 <a href="@m.GameRecord" target="_blank" title="@LocString[nameof(LocalizationKey.GameRecordLink)]">🔗</a>
-                                <a href="@Url.Action("EditPhoto", new { tournamentId = Model.Id, matchId = m.Id, photoType = "gamerecord" })" 
-                                   target="_blank" class="btn btn-xs btn-link" style="padding: 0;">✏️</a>
+                                @if (Model.IsAdmin)
+                                {
+                                    <a href="@Url.Action("EditPhoto", new { tournamentId = Model.Id, matchId = m.Id, photoType = "gamerecord" })" 
+                                       target="_blank" class="btn btn-xs btn-link" style="padding: 0;">✏️</a>
+                                }
                             }
-                            else
+                            else if (Model.IsAdmin)
                             {
                                 <a href="@Url.Action("EditPhoto", new { tournamentId = Model.Id, matchId = m.Id, photoType = "gamerecord" })" 
                                    target="_blank" class="btn btn-xs btn-default" title="@LocString[nameof(LocalizationKey.AddGameRecord)]">+</a>
                             }
+                            else
+                            {
+                                <span class="text-muted">-</span>
+                            }
                         </td>
-                        <td>
-                            <a asp-controller="Matches" asp-action="Edit" asp-route-id="@m.Id">@LocString[nameof(LocalizationKey.Edit)]</a>
-                            |
-                            <a asp-controller="Matches" asp-action="Delete" asp-route-id="@m.Id">@LocString[nameof(LocalizationKey.Delete)]</a>
-                        </td>
+                        @if (Model.IsAdmin)
+                        {
+                            <td>
+                                <a asp-controller="Matches" asp-action="Edit" asp-route-id="@m.Id">@LocString[nameof(LocalizationKey.Edit)]</a>
+                                |
+                                <a asp-controller="Matches" asp-action="Delete" asp-route-id="@m.Id">@LocString[nameof(LocalizationKey.Delete)]</a>
+                            </td>
+                        }
                     </tr>
                 }
             </tbody>

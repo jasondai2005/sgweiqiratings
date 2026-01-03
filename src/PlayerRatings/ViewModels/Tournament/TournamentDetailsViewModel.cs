@@ -480,6 +480,26 @@ namespace PlayerRatings.ViewModels.Tournament
         /// Rating change during the tournament
         /// </summary>
         public double? RatingDelta { get; set; }
+        
+        /// <summary>
+        /// Whether player was ranked before tournament
+        /// </summary>
+        public bool WasRankedBefore { get; set; }
+        
+        /// <summary>
+        /// Whether player is ranked after tournament
+        /// </summary>
+        public bool IsRankedAfter { get; set; }
+        
+        /// <summary>
+        /// Whether to show the "before" rating
+        /// </summary>
+        public bool ShowRatingBefore => WasRankedBefore;
+        
+        /// <summary>
+        /// Whether to show the "after" rating
+        /// </summary>
+        public bool ShowRatingAfter => IsRankedAfter;
     }
     
     /// <summary>

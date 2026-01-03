@@ -87,6 +87,33 @@ namespace PlayerRatings.ViewModels.Player
         public double CurrentYearWinRate => CurrentYearGames > 0 ? (double)CurrentYearWins / CurrentYearGames * 100 : 0;
         
         /// <summary>
+        /// Number of tournament championships in the current calendar year (Position = 1).
+        /// </summary>
+        public int CurrentYearChampionshipCount => GameRecords?
+            .Where(g => g.Date.Year == DateTime.Now.Year && g.TournamentPosition == 1)
+            .Select(g => g.TournamentId)
+            .Distinct()
+            .Count() ?? 0;
+        
+        /// <summary>
+        /// Number of team championships in the current calendar year (TeamPosition = 1).
+        /// </summary>
+        public int CurrentYearTeamChampionshipCount => GameRecords?
+            .Where(g => g.Date.Year == DateTime.Now.Year && g.TeamPosition == 1)
+            .Select(g => g.TournamentId)
+            .Distinct()
+            .Count() ?? 0;
+        
+        /// <summary>
+        /// Number of female championships in the current calendar year (FemalePosition = 1).
+        /// </summary>
+        public int CurrentYearFemaleChampionshipCount => GameRecords?
+            .Where(g => g.Date.Year == DateTime.Now.Year && g.FemalePosition == 1)
+            .Select(g => g.TournamentId)
+            .Distinct()
+            .Count() ?? 0;
+        
+        /// <summary>
         /// Games played in the previous calendar year.
         /// </summary>
         public int LastYearGames => GameRecords?.Count(g => g.Date.Year == DateTime.Now.Year - 1) ?? 0;
@@ -105,6 +132,33 @@ namespace PlayerRatings.ViewModels.Player
         /// Win rate for the previous calendar year as a percentage (0-100).
         /// </summary>
         public double LastYearWinRate => LastYearGames > 0 ? (double)LastYearWins / LastYearGames * 100 : 0;
+        
+        /// <summary>
+        /// Number of tournament championships in the previous calendar year (Position = 1).
+        /// </summary>
+        public int LastYearChampionshipCount => GameRecords?
+            .Where(g => g.Date.Year == DateTime.Now.Year - 1 && g.TournamentPosition == 1)
+            .Select(g => g.TournamentId)
+            .Distinct()
+            .Count() ?? 0;
+        
+        /// <summary>
+        /// Number of team championships in the previous calendar year (TeamPosition = 1).
+        /// </summary>
+        public int LastYearTeamChampionshipCount => GameRecords?
+            .Where(g => g.Date.Year == DateTime.Now.Year - 1 && g.TeamPosition == 1)
+            .Select(g => g.TournamentId)
+            .Distinct()
+            .Count() ?? 0;
+        
+        /// <summary>
+        /// Number of female championships in the previous calendar year (FemalePosition = 1).
+        /// </summary>
+        public int LastYearFemaleChampionshipCount => GameRecords?
+            .Where(g => g.Date.Year == DateTime.Now.Year - 1 && g.FemalePosition == 1)
+            .Select(g => g.TournamentId)
+            .Distinct()
+            .Count() ?? 0;
         
         /// <summary>
         /// Number of tournament championships (Position = 1).

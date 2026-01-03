@@ -515,9 +515,22 @@ namespace PlayerRatings.Controllers
                                 pointsEarned += roundResult.IsMainPlayer ? 0.75 : 0.5;
                         }
                         
-                        // Get ratings if available (reuse existing calculation results)
-                        double? ratingBefore = ratingsBefore != null && ratingsBefore.TryGetValue(tp.PlayerId, out var rBefore) ? rBefore.rating : (double?)null;
-                        double? ratingAfter = ratingsAfter != null && ratingsAfter.TryGetValue(tp.PlayerId, out var rAfter) ? rAfter.rating : (double?)null;
+                        // Get ratings and ranked status if available (reuse existing calculation results)
+                        double? ratingBefore = null;
+                        double? ratingAfter = null;
+                        bool wasRankedBefore = false;
+                        bool isRankedAfter = false;
+                        
+                        if (ratingsBefore != null && ratingsBefore.TryGetValue(tp.PlayerId, out var rBefore))
+                        {
+                            ratingBefore = rBefore.rating;
+                            wasRankedBefore = rBefore.isRanked;
+                        }
+                        if (ratingsAfter != null && ratingsAfter.TryGetValue(tp.PlayerId, out var rAfter))
+                        {
+                            ratingAfter = rAfter.rating;
+                            isRankedAfter = rAfter.isRanked;
+                        }
                         
                         return new TeamPlayerViewModel
                         {
@@ -531,7 +544,9 @@ namespace PlayerRatings.Controllers
                             PointsEarned = pointsEarned,
                             RatingBefore = ratingBefore,
                             RatingAfter = ratingAfter,
-                            RatingDelta = (ratingBefore.HasValue && ratingAfter.HasValue) ? ratingAfter - ratingBefore : null
+                            RatingDelta = (wasRankedBefore && isRankedAfter && ratingBefore.HasValue && ratingAfter.HasValue) ? ratingAfter - ratingBefore : null,
+                            WasRankedBefore = wasRankedBefore,
+                            IsRankedAfter = isRankedAfter
                         };
                     })
                     .OrderByDescending(p => p.MainMatchesPlayed)
