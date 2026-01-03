@@ -1,0 +1,24 @@
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Saved</title>
+</head>
+<body>
+    <script>
+        // Refresh the parent window and close this popup
+        if (window.opener) {
+            window.opener.location.reload();
+        }
+        window.close();
+        
+        // Fallback if window.close() doesn't work (some browsers block it)
+        setTimeout(function() {
+            document.body.innerHTML = '<div style="text-align: center; padding: 50px; font-family: sans-serif;"><h2>✓ Saved successfully!</h2><p>You can close this window.</p></div>';
+        }, 500);
+    </script>
+</body>
+</html>
+

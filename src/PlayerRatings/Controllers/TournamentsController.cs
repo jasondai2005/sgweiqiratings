@@ -1,7 +1,10 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -201,7 +204,9 @@ namespace PlayerRatings.Controllers
             SwissStats playerSwissStats, 
             Dictionary<string, int> playerPositions,
             Dictionary<string, Dictionary<int, RoundResult>> playerRoundResults,
-            int maxRound)
+            int maxRound,
+            Dictionary<string, (double rating, bool isRanked)> ratingsBefore = null,
+            Dictionary<string, (double rating, bool isRanked)> ratingsAfter = null)
         {
             // Group players by team
             var playersByTeam = tournament.TournamentPlayers
@@ -222,6 +227,8 @@ namespace PlayerRatings.Controllers
                     var teamName = teamGroup.Key;
                     var players = teamGroup.Value
                         .OrderBy(tp => tp.Position ?? playerPositions.GetValueOrDefault(tp.PlayerId, int.MaxValue))
+                        .ThenByDescending(tp => playerSwissStats.SOS.TryGetValue(tp.PlayerId, out var tsos) ? tsos : 0)
+                        .ThenByDescending(tp => playerSwissStats.SOSOS.TryGetValue(tp.PlayerId, out var tsosos) ? tsosos : 0)
                         .ToList();
                     
                     // Get top 3 (or less if team has fewer players)
@@ -255,6 +262,7 @@ namespace PlayerRatings.Controllers
                             PlayerName = tp.Player?.DisplayName,
                             PersonalPosition = pos,
                             CountsForTeamAward = countsForAward,
+                            TeamPhoto = tp.TeamPhoto,
                             RoundResults = playerRoundResults.TryGetValue(tp.PlayerId, out var rounds) 
                                 ? rounds 
                                 : new Dictionary<int, RoundResult>()
@@ -300,17 +308,31 @@ namespace PlayerRatings.Controllers
                 // 2 wins 1 draw = win
                 
                 // Build team round results
-                var teamRoundWins = new Dictionary<string, Dictionary<int, (double wins, double losses, double draws, string opponentTeam)>>();
+                // Tuple: (teamWin, teamLoss, teamDraw, opponentTeam, baseWins, mainPlayerBonus)
+                var teamRoundWins = new Dictionary<string, Dictionary<int, (double wins, double losses, double draws, string opponentTeam, double baseWins, double mainPlayerBonus)>>();
+                // Track main player matches (first match between two teams in each round)
+                // Key: "round:playerId", Value: true if main player
+                var mainPlayerMatches = new Dictionary<string, bool>();
                 
                 // For each round, determine team results based on player matchups
                 for (int round = 1; round <= maxRound; round++)
                 {
-                    // Get all matches in this round
-                    var roundMatches = tournament.Matches.Where(m => m.Round == round).ToList();
+                    // Get all matches in this round, ordered by match date/order
+                    var roundMatches = tournament.Matches
+                        .Where(m => m.Round == round)
+                        .OrderBy(m => m.Date)
+                        .ThenBy(m => m.Id)
+                        .ToList();
                     
-                    // Track wins per team in this round
+                    // Track wins per team in this round (total with bonus)
                     var teamWinsInRound = new Dictionary<string, double>();
+                    // Track base wins per team in this round (without bonus)
+                    var teamBaseWinsInRound = new Dictionary<string, double>();
+                    // Track main player bonus per team in this round
+                    var teamMainPlayerBonusInRound = new Dictionary<string, double>();
                     var teamOpponents = new Dictionary<string, HashSet<string>>();
+                    // Track which team pairs have already had their main player match
+                    var teamPairMainPlayerAssigned = new HashSet<string>();
                     
                     foreach (var match in roundMatches)
                     {
@@ -319,6 +341,19 @@ namespace PlayerRatings.Controllers
                         
                         if (string.IsNullOrEmpty(player1Team) || string.IsNullOrEmpty(player2Team))
                             continue;
+                        
+                        // Check if this is the main player match (first match between these two teams in this round)
+                        var teamPairKey = string.Compare(player1Team, player2Team) < 0 
+                            ? $"{player1Team}:{player2Team}" 
+                            : $"{player2Team}:{player1Team}";
+                        bool isMainPlayerMatch = !teamPairMainPlayerAssigned.Contains(teamPairKey);
+                        if (isMainPlayerMatch)
+                        {
+                            teamPairMainPlayerAssigned.Add(teamPairKey);
+                            // Mark both players as main players for this round
+                            mainPlayerMatches[$"{round}:{match.FirstPlayerId}"] = true;
+                            mainPlayerMatches[$"{round}:{match.SecondPlayerId}"] = true;
+                        }
                         
                         // Track opponents
                         if (!teamOpponents.ContainsKey(player1Team))
@@ -330,20 +365,53 @@ namespace PlayerRatings.Controllers
                         
                         // Initialize wins
                         if (!teamWinsInRound.ContainsKey(player1Team))
+                        {
                             teamWinsInRound[player1Team] = 0;
+                            teamBaseWinsInRound[player1Team] = 0;
+                            teamMainPlayerBonusInRound[player1Team] = 0;
+                        }
                         if (!teamWinsInRound.ContainsKey(player2Team))
+                        {
                             teamWinsInRound[player2Team] = 0;
+                            teamBaseWinsInRound[player2Team] = 0;
+                            teamMainPlayerBonusInRound[player2Team] = 0;
+                        }
                         
-                        // Determine winner
+                        // Determine winner - main player wins count as 1.5 points (1 base + 0.5 bonus)
                         if (match.FirstPlayerScore > match.SecondPlayerScore)
-                            teamWinsInRound[player1Team]++;
+                        {
+                            teamBaseWinsInRound[player1Team] += 1;
+                            teamWinsInRound[player1Team] += 1;
+                            if (isMainPlayerMatch)
+                            {
+                                teamMainPlayerBonusInRound[player1Team] += 0.5;
+                                teamWinsInRound[player1Team] += 0.5;
+                            }
+                        }
                         else if (match.SecondPlayerScore > match.FirstPlayerScore)
-                            teamWinsInRound[player2Team]++;
+                        {
+                            teamBaseWinsInRound[player2Team] += 1;
+                            teamWinsInRound[player2Team] += 1;
+                            if (isMainPlayerMatch)
+                            {
+                                teamMainPlayerBonusInRound[player2Team] += 0.5;
+                                teamWinsInRound[player2Team] += 0.5;
+                            }
+                        }
                         else
                         {
-                            // Draw: 0.5 each
+                            // Draw: 0.5 each (0.75 for main player draw = 0.5 base + 0.25 bonus)
+                            teamBaseWinsInRound[player1Team] += 0.5;
+                            teamBaseWinsInRound[player2Team] += 0.5;
                             teamWinsInRound[player1Team] += 0.5;
                             teamWinsInRound[player2Team] += 0.5;
+                            if (isMainPlayerMatch)
+                            {
+                                teamMainPlayerBonusInRound[player1Team] += 0.25;
+                                teamMainPlayerBonusInRound[player2Team] += 0.25;
+                                teamWinsInRound[player1Team] += 0.25;
+                                teamWinsInRound[player2Team] += 0.25;
+                            }
                         }
                     }
                     
@@ -351,14 +419,16 @@ namespace PlayerRatings.Controllers
                     foreach (var team in teamWinsInRound.Keys)
                     {
                         if (!teamRoundWins.ContainsKey(team))
-                            teamRoundWins[team] = new Dictionary<int, (double, double, double, string)>();
+                            teamRoundWins[team] = new Dictionary<int, (double, double, double, string, double, double)>();
                         
                         var wins = teamWinsInRound[team];
+                        var baseWins = teamBaseWinsInRound[team];
+                        var mainPlayerBonus = teamMainPlayerBonusInRound[team];
                         var opponents = teamOpponents.GetValueOrDefault(team, new HashSet<string>());
                         var opponentTeam = opponents.FirstOrDefault() ?? "";
                         
                         // Determine team result: 3+ wins = win, 2 wins = draw, <2 wins = loss
-                        // For 4 player teams: 2 wins 1 draw = 2.5 = win
+                        // With main player bonus, thresholds adjust: 3.5+ = clear win, 2.5-3.5 = close win, etc.
                         double teamWin = 0, teamLoss = 0, teamDraw = 0;
                         if (wins >= 2.5)
                             teamWin = 1;
@@ -367,7 +437,7 @@ namespace PlayerRatings.Controllers
                         else
                             teamLoss = 1;
                         
-                        teamRoundWins[team][round] = (teamWin, teamLoss, teamDraw, opponentTeam);
+                        teamRoundWins[team][round] = (teamWin, teamLoss, teamDraw, opponentTeam, baseWins, mainPlayerBonus);
                     }
                 }
                 
@@ -429,17 +499,61 @@ namespace PlayerRatings.Controllers
                         if (hasStats.TryGetValue(tp.PlayerId, out var pStats))
                             totalPlayerWins += pStats.Wins;
                         
+                        var rounds = playerRoundResults.TryGetValue(tp.PlayerId, out var r) ? r : new Dictionary<int, RoundResult>();
+                        
+                        // Calculate main matches played and points earned
+                        int mainMatchesPlayed = 0;
+                        double pointsEarned = 0;
+                        foreach (var roundResult in rounds.Values)
+                        {
+                            if (roundResult.IsMainPlayer)
+                                mainMatchesPlayed++;
+                            
+                            if (roundResult.Won == true)
+                                pointsEarned += roundResult.IsMainPlayer ? 1.5 : 1.0;
+                            else if (roundResult.Won == null) // Draw
+                                pointsEarned += roundResult.IsMainPlayer ? 0.75 : 0.5;
+                        }
+                        
+                        // Get ratings if available (reuse existing calculation results)
+                        double? ratingBefore = ratingsBefore != null && ratingsBefore.TryGetValue(tp.PlayerId, out var rBefore) ? rBefore.rating : (double?)null;
+                        double? ratingAfter = ratingsAfter != null && ratingsAfter.TryGetValue(tp.PlayerId, out var rAfter) ? rAfter.rating : (double?)null;
+                        
                         return new TeamPlayerViewModel
                         {
                             PlayerId = tp.PlayerId,
                             PlayerName = tp.Player?.DisplayName,
                             PersonalPosition = null, // Not used in team mode
                             CountsForTeamAward = true, // All players count in team mode
-                            RoundResults = playerRoundResults.TryGetValue(tp.PlayerId, out var rounds) 
-                                ? rounds 
-                                : new Dictionary<int, RoundResult>()
+                            TeamPhoto = tp.TeamPhoto,
+                            RoundResults = rounds,
+                            MainMatchesPlayed = mainMatchesPlayed,
+                            PointsEarned = pointsEarned,
+                            RatingBefore = ratingBefore,
+                            RatingAfter = ratingAfter,
+                            RatingDelta = (ratingBefore.HasValue && ratingAfter.HasValue) ? ratingAfter - ratingBefore : null
                         };
-                    }).ToList();
+                    })
+                    .OrderByDescending(p => p.MainMatchesPlayed)
+                    .ThenByDescending(p => p.PointsEarned)
+                    .ThenBy(p => p.PlayerName)
+                    .ToList();
+                    
+                    // Calculate main player bonus (0.5 for each main player win, 0.25 for each main player draw)
+                    double mainPlayerBonus = 0;
+                    foreach (var player in teamPlayers)
+                    {
+                        foreach (var roundResult in player.RoundResults.Values)
+                        {
+                            if (roundResult.IsMainPlayer)
+                            {
+                                if (roundResult.Won == true)
+                                    mainPlayerBonus += 0.5; // Main player win bonus
+                                else if (roundResult.Won == null)
+                                    mainPlayerBonus += 0.25; // Main player draw bonus
+                            }
+                        }
+                    }
                     
                     // Build team round results
                     var teamRoundResults = new Dictionary<int, TeamRoundResult>();
@@ -448,7 +562,7 @@ namespace PlayerRatings.Controllers
                         foreach (var kvp in roundWins)
                         {
                             var round = kvp.Key;
-                            var (wins, losses, draws, oppTeam) = kvp.Value;
+                            var (wins, losses, draws, oppTeam, baseWins, mpBonus) = kvp.Value;
                             bool? won = wins > 0 ? true : (draws > 0 ? (bool?)null : false);
                             
                             teamRoundResults[round] = new TeamRoundResult
@@ -456,7 +570,9 @@ namespace PlayerRatings.Controllers
                                 OpponentTeamName = oppTeam,
                                 OpponentTeamIndex = 0, // Will be set after ranking
                                 Won = won,
-                                Score = $"{wins}:{losses}"
+                                Score = $"{wins}:{losses}",
+                                RoundPoints = baseWins,
+                                RoundMainPlayerBonus = mpBonus
                             };
                         }
                     }
@@ -470,6 +586,8 @@ namespace PlayerRatings.Controllers
                         TeamSOS = teamSOS.GetValueOrDefault(teamName, 0),
                         TeamSOSOS = teamSOSOS.GetValueOrDefault(teamName, 0),
                         TotalPlayerWins = totalPlayerWins,
+                        TotalPlayerPoints = totalPlayerWins + mainPlayerBonus,
+                        MainPlayerBonus = mainPlayerBonus,
                         TeamRoundResults = teamRoundResults
                     });
                 }
@@ -649,7 +767,14 @@ namespace PlayerRatings.Controllers
             // Track first match date for each round (for creating new matches)
             var roundDates = new Dictionary<int, DateTimeOffset>();
             
-            foreach (var match in tournament.Matches.Where(m => m.Round.HasValue))
+            // Track main player matches (first match between two teams in each round)
+            // Key: "round:team1:team2" (sorted), Value: true if already assigned
+            var mainPlayerMatchesAssigned = new Dictionary<string, bool>();
+            
+            // First pass: identify main player matches for team competitions
+            var playerTeamLookup = tournament.TournamentPlayers.ToDictionary(tp => tp.PlayerId, tp => tp.Team ?? "");
+            
+            foreach (var match in tournament.Matches.Where(m => m.Round.HasValue).OrderBy(m => m.Date).ThenBy(m => m.Id))
             {
                 var round = match.Round.Value;
                 if (round > maxRound) maxRound = round;
@@ -686,9 +811,28 @@ namespace PlayerRatings.Controllers
                         OpponentId = null,
                         OpponentName = "BYE",
                         Won = realPlayerWon,
-                        Score = realPlayerScore
+                        Score = realPlayerScore,
+                        IsMainPlayer = false
                     };
                     continue;
+                }
+                
+                // Check if this is the main player match (first match between these two teams in this round)
+                var team1 = playerTeamLookup.GetValueOrDefault(match.FirstPlayerId, "");
+                var team2 = playerTeamLookup.GetValueOrDefault(match.SecondPlayerId, "");
+                bool isMainPlayer = false;
+                
+                if (!string.IsNullOrEmpty(team1) && !string.IsNullOrEmpty(team2) && team1 != team2)
+                {
+                    var teamPairKey = string.Compare(team1, team2) < 0 
+                        ? $"{round}:{team1}:{team2}" 
+                        : $"{round}:{team2}:{team1}";
+                    
+                    if (!mainPlayerMatchesAssigned.ContainsKey(teamPairKey))
+                    {
+                        mainPlayerMatchesAssigned[teamPairKey] = true;
+                        isMainPlayer = true;
+                    }
                 }
                 
                 // Initialize dictionaries if needed
@@ -703,7 +847,8 @@ namespace PlayerRatings.Controllers
                     OpponentId = match.SecondPlayerId,
                     OpponentName = match.SecondPlayer?.DisplayName,
                     Won = firstWon,
-                    Score = $"{match.FirstPlayerScore}:{match.SecondPlayerScore}"
+                    Score = $"{match.FirstPlayerScore}:{match.SecondPlayerScore}",
+                    IsMainPlayer = isMainPlayer
                 };
                 
                 // Add results for second player
@@ -712,7 +857,8 @@ namespace PlayerRatings.Controllers
                     OpponentId = match.FirstPlayerId,
                     OpponentName = match.FirstPlayer?.DisplayName,
                     Won = firstWon.HasValue ? !firstWon.Value : null,
-                    Score = $"{match.SecondPlayerScore}:{match.FirstPlayerScore}"
+                    Score = $"{match.SecondPlayerScore}:{match.FirstPlayerScore}",
+                    IsMainPlayer = isMainPlayer
                 };
             }
             
@@ -740,6 +886,8 @@ namespace PlayerRatings.Controllers
                     .Where(tp => tp.Player?.DisplayName?.Contains("♀") == true)
                     .OrderBy(tp => tp.Position ?? calculatedPositions.GetValueOrDefault(tp.PlayerId, int.MaxValue))
                     .ThenByDescending(tp => swissStats.PlayerStats.TryGetValue(tp.PlayerId, out var s) ? s.Wins : 0)
+                    .ThenByDescending(tp => swissStats.SOS.TryGetValue(tp.PlayerId, out var fsos) ? fsos : 0)
+                    .ThenByDescending(tp => swissStats.SOSOS.TryGetValue(tp.PlayerId, out var fsosos) ? fsosos : 0)
                     .ToList();
                 
                 int femaleRank = 1;
@@ -772,7 +920,9 @@ namespace PlayerRatings.Controllers
                     swissStats, 
                     calculatedPositions, 
                     playerRoundResults, 
-                    maxRound);
+                    maxRound,
+                    ratingsBefore,
+                    ratingsAfter);
             }
 
             var viewModel = new TournamentDetailsViewModel
@@ -820,7 +970,11 @@ namespace PlayerRatings.Controllers
                         // Use ratings from ELO calculation (same as Ratings page)
                         FirstPlayerRatingBefore = m.OldFirstPlayerRating,
                         SecondPlayerRatingBefore = m.OldSecondPlayerRating,
-                        ShiftRating = m.ShiftRating
+                        ShiftRating = m.ShiftRating,
+                        // Photo and game record fields
+                        MatchPhoto = m.MatchPhoto,
+                        MatchResultPhoto = m.MatchResultPhoto,
+                        GameRecord = m.GameRecord
                     })
                     .ToList(),
                 Players = tournament.TournamentPlayers
@@ -854,11 +1008,17 @@ namespace PlayerRatings.Controllers
                             Team = tp.Team,
                             TeamPosition = tp.TeamPosition,
                             FemalePosition = tp.FemalePosition ?? (femalePositions.TryGetValue(tp.PlayerId, out var femPos) ? femPos : (int?)null),
-                            IsFemale = isFemale
+                            IsFemale = isFemale,
+                            // Photo fields
+                            Photo = tp.Photo,
+                            TeamPhoto = tp.TeamPhoto,
+                            FemaleAwardPhoto = tp.FemaleAwardPhoto
                         };
                     })
                     .OrderBy(p => p.DisplayPosition)
                     .ThenByDescending(p => p.Wins)
+                    .ThenByDescending(p => p.SOS)
+                    .ThenByDescending(p => p.SOSOS)
                     .ThenBy(p => p.PlayerName)
                     .ToList()
             };
@@ -1059,6 +1219,9 @@ namespace PlayerRatings.Controllers
                 }).ToList(),
                 AvailablePlayers = tournament.TournamentPlayers
                     .OrderBy(tp => tp.Position ?? int.MaxValue)
+                    .ThenByDescending(tp => swissStats.PlayerStats.TryGetValue(tp.PlayerId, out var ws) ? ws.Wins : 0)
+                    .ThenByDescending(tp => swissStats.SOS.TryGetValue(tp.PlayerId, out var sos1) ? sos1 : 0)
+                    .ThenByDescending(tp => swissStats.SOSOS.TryGetValue(tp.PlayerId, out var sosos1) ? sosos1 : 0)
                     .ThenBy(tp => tp.Player?.DisplayName)
                     .Select(tp => {
                         var hasStats = swissStats.PlayerStats.TryGetValue(tp.PlayerId, out var pStats);
@@ -1141,17 +1304,20 @@ namespace PlayerRatings.Controllers
                     var tournamentPlayer = tournament.TournamentPlayers.FirstOrDefault(tp => tp.PlayerId == model.PlayerIds[i]);
                     if (tournamentPlayer != null)
                     {
+                        // Only save personal positions if SupportsPersonalAward is true
                         if (model.PositionValues != null && i < model.PositionValues.Count)
-                            tournamentPlayer.Position = model.PositionValues[i];
+                            tournamentPlayer.Position = tournament.SupportsPersonalAward ? model.PositionValues[i] : null;
                         
                         if (model.TeamValues != null && i < model.TeamValues.Count)
                             tournamentPlayer.Team = string.IsNullOrWhiteSpace(model.TeamValues[i]) ? null : model.TeamValues[i].Trim();
                         
+                        // Only save team positions if SupportsTeamAward is true
                         if (model.TeamPositionValues != null && i < model.TeamPositionValues.Count)
-                            tournamentPlayer.TeamPosition = model.TeamPositionValues[i];
+                            tournamentPlayer.TeamPosition = tournament.SupportsTeamAward ? model.TeamPositionValues[i] : null;
                         
+                        // Only save female positions if SupportsFemaleAward is true
                         if (model.FemalePositionValues != null && i < model.FemalePositionValues.Count)
-                            tournamentPlayer.FemalePosition = model.FemalePositionValues[i];
+                            tournamentPlayer.FemalePosition = tournament.SupportsFemaleAward ? model.FemalePositionValues[i] : null;
                     }
                 }
             }
@@ -1480,13 +1646,14 @@ namespace PlayerRatings.Controllers
             var swissStats = CalculateSwissStats(tournament.Matches);
             var positions = CalculateSwissPositions(swissStats);
 
-            // Update personal positions in database
+            // Update personal positions in database (only if SupportsPersonalAward is true)
             foreach (var kvp in positions)
             {
                 var tournamentPlayer = tournament.TournamentPlayers.FirstOrDefault(tp => tp.PlayerId == kvp.Key);
                 if (tournamentPlayer != null)
                 {
-                    tournamentPlayer.Position = kvp.Value;
+                    // If personal award is not supported, set position to null
+                    tournamentPlayer.Position = tournament.SupportsPersonalAward ? kvp.Value : (int?)null;
                 }
             }
 
@@ -1498,6 +1665,8 @@ namespace PlayerRatings.Controllers
                     .Where(tp => tp.Player?.DisplayName?.Contains("♀") == true)
                     .OrderBy(tp => tp.Position ?? positions.GetValueOrDefault(tp.PlayerId, int.MaxValue))
                     .ThenByDescending(tp => swissStats.PlayerStats.TryGetValue(tp.PlayerId, out var s) ? s.Wins : 0)
+                    .ThenByDescending(tp => swissStats.SOS.TryGetValue(tp.PlayerId, out var fsos) ? fsos : 0)
+                    .ThenByDescending(tp => swissStats.SOSOS.TryGetValue(tp.PlayerId, out var fsosos) ? fsosos : 0)
                     .ToList();
 
                 int femaleRank = 1;
@@ -1542,6 +1711,8 @@ namespace PlayerRatings.Controllers
                             var teamName = teamGroup.Key;
                             var players = teamGroup.Value
                                 .OrderBy(tp => tp.Position ?? positions.GetValueOrDefault(tp.PlayerId, int.MaxValue))
+                                .ThenByDescending(tp => swissStats.SOS.TryGetValue(tp.PlayerId, out var tsos) ? tsos : 0)
+                                .ThenByDescending(tp => swissStats.SOSOS.TryGetValue(tp.PlayerId, out var tsosos) ? tsosos : 0)
                                 .ToList();
 
                             // Skip teams with only 1 player - not qualified
@@ -1597,11 +1768,9 @@ namespace PlayerRatings.Controllers
 
                         foreach (var team in teamStandings)
                         {
-                            // Get top 3 players by position for this team
+                            // Get all players for this team (team competition counts all players)
                             var teamPlayers = tournament.TournamentPlayers
                                 .Where(tp => tp.Team == team.TeamName)
-                                .OrderBy(tp => tp.Position ?? positions.GetValueOrDefault(tp.PlayerId, int.MaxValue))
-                                .Take(3)
                                 .ToList();
 
                             // Only assign if team has more than 1 player
@@ -1675,6 +1844,390 @@ namespace PlayerRatings.Controllers
             await _context.SaveChangesAsync();
 
             return RedirectToAction(nameof(Index), new { leagueId });
+        }
+
+        // GET: Tournaments/EditPhoto - Page for editing photos/game records
+        public async Task<IActionResult> EditPhoto(Guid tournamentId, string playerId, Guid? matchId, string photoType)
+        {
+            var currentUser = await User.GetApplicationUser(_userManager);
+
+            var tournament = await _context.Tournaments
+                .Include(t => t.League)
+                .FirstOrDefaultAsync(t => t.Id == tournamentId);
+
+            if (tournament == null || tournament.League.CreatedByUserId != currentUser.Id)
+            {
+                return NotFound();
+            }
+
+            string currentUrl = null;
+            string title = "Edit Photo";
+
+            switch (photoType?.ToLower())
+            {
+                case "standingsphoto":
+                    currentUrl = tournament.StandingsPhoto;
+                    title = "Standings Photo";
+                    break;
+                case "photo":
+                case "teamphoto":
+                case "femaleawardphoto":
+                    if (!string.IsNullOrEmpty(playerId))
+                    {
+                        var tp = await _context.TournamentPlayers.FirstOrDefaultAsync(t => t.TournamentId == tournamentId && t.PlayerId == playerId);
+                        if (tp != null)
+                        {
+                            currentUrl = photoType == "photo" ? tp.Photo : (photoType == "teamphoto" ? tp.TeamPhoto : tp.FemaleAwardPhoto);
+                            title = photoType == "teamphoto" ? "Team Photo" : "Player Photo";
+                        }
+                    }
+                    break;
+                case "matchphoto":
+                case "matchresultphoto":
+                case "gamerecord":
+                    if (matchId.HasValue)
+                    {
+                        var match = await _context.Match.FirstOrDefaultAsync(m => m.Id == matchId.Value);
+                        if (match != null)
+                        {
+                            currentUrl = photoType == "matchphoto" ? match.MatchPhoto : (photoType == "matchresultphoto" ? match.MatchResultPhoto : match.GameRecord);
+                            title = photoType == "gamerecord" ? "Game Record" : (photoType == "matchphoto" ? "Match Photo" : "Result Photo");
+                        }
+                    }
+                    break;
+            }
+
+            ViewBag.TournamentId = tournamentId;
+            ViewBag.PlayerId = playerId;
+            ViewBag.MatchId = matchId;
+            ViewBag.PhotoType = photoType;
+            ViewBag.CurrentUrl = currentUrl;
+            ViewBag.Title = title;
+            ViewBag.IsGameRecord = photoType == "gamerecord";
+
+            return View();
+        }
+
+        // POST: Tournaments/EditPhoto - Save photo URL or upload
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> EditPhoto(Guid tournamentId, string playerId, Guid? matchId, string photoType, string photoUrl, IFormFile photoFile)
+        {
+            var currentUser = await User.GetApplicationUser(_userManager);
+
+            var tournament = await _context.Tournaments
+                .Include(t => t.League)
+                .FirstOrDefaultAsync(t => t.Id == tournamentId);
+
+            if (tournament == null || tournament.League.CreatedByUserId != currentUser.Id)
+            {
+                return NotFound();
+            }
+
+            string finalUrl = photoUrl?.Trim();
+
+            // Handle file upload if provided
+            if (photoFile != null && photoFile.Length > 0)
+            {
+                bool isGameRecord = photoType?.ToLower() == "gamerecord";
+                
+                if (isGameRecord)
+                {
+                    // Allow SGF and TXT files for game records
+                    var extension = Path.GetExtension(photoFile.FileName).ToLower();
+                    if (extension != ".sgf" && extension != ".txt")
+                    {
+                        TempData["Error"] = "Invalid file type. Allowed: SGF, TXT";
+                        return RedirectToAction(nameof(EditPhoto), new { tournamentId, playerId, matchId, photoType });
+                    }
+
+                    if (photoFile.Length > 1 * 1024 * 1024) // 1MB limit for SGF files
+                    {
+                        TempData["Error"] = "File too large. Maximum size: 1MB";
+                        return RedirectToAction(nameof(EditPhoto), new { tournamentId, playerId, matchId, photoType });
+                    }
+                }
+                else
+                {
+                    var allowedTypes = new[] { "image/jpeg", "image/png", "image/gif", "image/webp" };
+                    if (!allowedTypes.Contains(photoFile.ContentType.ToLower()))
+                    {
+                        TempData["Error"] = "Invalid file type. Allowed: JPG, PNG, GIF, WebP";
+                        return RedirectToAction(nameof(EditPhoto), new { tournamentId, playerId, matchId, photoType });
+                    }
+
+                    if (photoFile.Length > 5 * 1024 * 1024)
+                    {
+                        TempData["Error"] = "File too large. Maximum size: 5MB";
+                        return RedirectToAction(nameof(EditPhoto), new { tournamentId, playerId, matchId, photoType });
+                    }
+                }
+
+                var fileExtension = Path.GetExtension(photoFile.FileName).ToLower();
+                var fileName = $"{Guid.NewGuid()}{fileExtension}";
+                var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "tournament");
+                
+                if (!Directory.Exists(uploadsFolder))
+                {
+                    Directory.CreateDirectory(uploadsFolder);
+                }
+
+                var filePath = Path.Combine(uploadsFolder, fileName);
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await photoFile.CopyToAsync(stream);
+                }
+
+                finalUrl = $"/uploads/tournament/{fileName}";
+            }
+
+            // Save to database
+            switch (photoType?.ToLower())
+            {
+                case "standingsphoto":
+                    tournament.StandingsPhoto = string.IsNullOrWhiteSpace(finalUrl) ? null : finalUrl;
+                    break;
+                case "photo":
+                case "teamphoto":
+                case "femaleawardphoto":
+                    if (!string.IsNullOrEmpty(playerId))
+                    {
+                        var tp = await _context.TournamentPlayers.FirstOrDefaultAsync(t => t.TournamentId == tournamentId && t.PlayerId == playerId);
+                        if (tp != null)
+                        {
+                            if (photoType == "photo") tp.Photo = string.IsNullOrWhiteSpace(finalUrl) ? null : finalUrl;
+                            else if (photoType == "teamphoto") tp.TeamPhoto = string.IsNullOrWhiteSpace(finalUrl) ? null : finalUrl;
+                            else if (photoType == "femaleawardphoto") tp.FemaleAwardPhoto = string.IsNullOrWhiteSpace(finalUrl) ? null : finalUrl;
+                        }
+                    }
+                    break;
+                case "matchphoto":
+                case "matchresultphoto":
+                case "gamerecord":
+                    if (matchId.HasValue)
+                    {
+                        var match = await _context.Match.FirstOrDefaultAsync(m => m.Id == matchId.Value);
+                        if (match != null)
+                        {
+                            if (photoType == "matchphoto") match.MatchPhoto = string.IsNullOrWhiteSpace(finalUrl) ? null : finalUrl;
+                            else if (photoType == "matchresultphoto") match.MatchResultPhoto = string.IsNullOrWhiteSpace(finalUrl) ? null : finalUrl;
+                            else if (photoType == "gamerecord") match.GameRecord = string.IsNullOrWhiteSpace(finalUrl) ? null : finalUrl;
+                        }
+                    }
+                    break;
+            }
+
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = "Saved successfully!";
+            return View("EditPhotoSuccess");
+        }
+
+        // POST: Tournaments/UploadTournamentPhoto - AJAX endpoint to upload a photo file (kept for compatibility)
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UploadTournamentPhoto(IFormFile photoFile, string photoType, Guid? tournamentId, Guid? matchId, string playerId)
+        {
+            var currentUser = await User.GetApplicationUser(_userManager);
+
+            if (photoFile == null || photoFile.Length == 0)
+            {
+                return Json(new { success = false, message = "No file uploaded" });
+            }
+
+            // Validate file type
+            var allowedTypes = new[] { "image/jpeg", "image/png", "image/gif", "image/webp" };
+            if (!allowedTypes.Contains(photoFile.ContentType.ToLower()))
+            {
+                return Json(new { success = false, message = "Invalid file type. Allowed: JPG, PNG, GIF, WebP" });
+            }
+
+            // Validate file size (max 5MB)
+            if (photoFile.Length > 5 * 1024 * 1024)
+            {
+                return Json(new { success = false, message = "File too large. Maximum size: 5MB" });
+            }
+
+            try
+            {
+                // Generate unique filename
+                var extension = Path.GetExtension(photoFile.FileName).ToLower();
+                var fileName = $"{Guid.NewGuid()}{extension}";
+                var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "tournament");
+                
+                if (!Directory.Exists(uploadsFolder))
+                {
+                    Directory.CreateDirectory(uploadsFolder);
+                }
+
+                var filePath = Path.Combine(uploadsFolder, fileName);
+                
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await photoFile.CopyToAsync(stream);
+                }
+
+                var photoUrl = $"/uploads/tournament/{fileName}";
+
+                // Update the appropriate record based on photoType
+                switch (photoType?.ToLower())
+                {
+                    case "standingsphoto":
+                        if (tournamentId.HasValue)
+                        {
+                            var tournament = await _context.Tournaments.Include(t => t.League).FirstOrDefaultAsync(t => t.Id == tournamentId.Value);
+                            if (tournament != null && tournament.League.CreatedByUserId == currentUser.Id)
+                            {
+                                tournament.StandingsPhoto = photoUrl;
+                                await _context.SaveChangesAsync();
+                            }
+                        }
+                        break;
+                    case "photo":
+                    case "teamphoto":
+                    case "femaleawardphoto":
+                        if (tournamentId.HasValue && !string.IsNullOrEmpty(playerId))
+                        {
+                            var tp = await _context.TournamentPlayers
+                                .Include(t => t.Tournament).ThenInclude(t => t.League)
+                                .FirstOrDefaultAsync(t => t.TournamentId == tournamentId.Value && t.PlayerId == playerId);
+                            if (tp != null && tp.Tournament.League.CreatedByUserId == currentUser.Id)
+                            {
+                                if (photoType == "photo") tp.Photo = photoUrl;
+                                else if (photoType == "teamphoto") tp.TeamPhoto = photoUrl;
+                                else if (photoType == "femaleawardphoto") tp.FemaleAwardPhoto = photoUrl;
+                                await _context.SaveChangesAsync();
+                            }
+                        }
+                        break;
+                    case "matchphoto":
+                    case "matchresultphoto":
+                        if (matchId.HasValue)
+                        {
+                            var match = await _context.Match.Include(m => m.League).FirstOrDefaultAsync(m => m.Id == matchId.Value);
+                            if (match != null && match.League.CreatedByUserId == currentUser.Id)
+                            {
+                                if (photoType == "matchphoto") match.MatchPhoto = photoUrl;
+                                else if (photoType == "matchresultphoto") match.MatchResultPhoto = photoUrl;
+                                await _context.SaveChangesAsync();
+                            }
+                        }
+                        break;
+                    default:
+                        return Json(new { success = false, message = "Invalid photo type" });
+                }
+
+                return Json(new { success = true, photoUrl = photoUrl });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = "Error uploading file: " + ex.Message });
+            }
+        }
+
+        // POST: Tournaments/UpdateStandingsPhoto - AJAX endpoint to update tournament standings photo
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateStandingsPhoto(Guid tournamentId, string photoUrl)
+        {
+            var currentUser = await User.GetApplicationUser(_userManager);
+
+            var tournament = await _context.Tournaments
+                .Include(t => t.League)
+                .FirstOrDefaultAsync(t => t.Id == tournamentId);
+
+            if (tournament == null || tournament.League.CreatedByUserId != currentUser.Id)
+            {
+                return Json(new { success = false, message = "Not authorized" });
+            }
+
+            tournament.StandingsPhoto = string.IsNullOrWhiteSpace(photoUrl) ? null : photoUrl.Trim();
+            await _context.SaveChangesAsync();
+            
+            return Json(new { success = true, photoUrl = tournament.StandingsPhoto });
+        }
+
+        // POST: Tournaments/UpdatePlayerPhoto - AJAX endpoint to update tournament player photo
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdatePlayerPhoto(Guid tournamentId, string playerId, string photoType, string photoUrl)
+        {
+            var currentUser = await User.GetApplicationUser(_userManager);
+
+            var tournament = await _context.Tournaments
+                .Include(t => t.League)
+                .Include(t => t.TournamentPlayers)
+                .FirstOrDefaultAsync(t => t.Id == tournamentId);
+
+            if (tournament == null || tournament.League.CreatedByUserId != currentUser.Id)
+            {
+                return Json(new { success = false, message = "Not authorized" });
+            }
+
+            var tournamentPlayer = tournament.TournamentPlayers.FirstOrDefault(tp => tp.PlayerId == playerId);
+            if (tournamentPlayer == null)
+            {
+                return Json(new { success = false, message = "Player not found" });
+            }
+
+            // Sanitize URL (basic validation)
+            var url = string.IsNullOrWhiteSpace(photoUrl) ? null : photoUrl.Trim();
+
+            switch (photoType?.ToLower())
+            {
+                case "photo":
+                    tournamentPlayer.Photo = url;
+                    break;
+                case "teamphoto":
+                    tournamentPlayer.TeamPhoto = url;
+                    break;
+                case "femaleawardphoto":
+                    tournamentPlayer.FemaleAwardPhoto = url;
+                    break;
+                default:
+                    return Json(new { success = false, message = "Invalid photo type" });
+            }
+
+            await _context.SaveChangesAsync();
+            return Json(new { success = true, photoUrl = url });
+        }
+
+        // POST: Tournaments/UpdateMatchMedia - AJAX endpoint to update match photo/game record
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateMatchMedia(Guid matchId, string mediaType, string mediaUrl)
+        {
+            var currentUser = await User.GetApplicationUser(_userManager);
+
+            var match = await _context.Match
+                .Include(m => m.League)
+                .FirstOrDefaultAsync(m => m.Id == matchId);
+
+            if (match == null || match.League.CreatedByUserId != currentUser.Id)
+            {
+                return Json(new { success = false, message = "Not authorized" });
+            }
+
+            // Sanitize URL (basic validation)
+            var url = string.IsNullOrWhiteSpace(mediaUrl) ? null : mediaUrl.Trim();
+
+            switch (mediaType?.ToLower())
+            {
+                case "matchphoto":
+                    match.MatchPhoto = url;
+                    break;
+                case "matchresultphoto":
+                    match.MatchResultPhoto = url;
+                    break;
+                case "gamerecord":
+                    match.GameRecord = url;
+                    break;
+                default:
+                    return Json(new { success = false, message = "Invalid media type" });
+            }
+
+            await _context.SaveChangesAsync();
+            return Json(new { success = true, mediaUrl = url });
         }
     }
 }

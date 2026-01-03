@@ -334,6 +334,7 @@ namespace PlayerRatings.Localization
         public static readonly LocalizationKey RatingHistoryChart = new LocalizationKey("Rating History Chart", "Rating History Chart", "等级分历史图表");
         public static readonly LocalizationKey PhotoUrl = new LocalizationKey("Photo URL", "Photo URL", "照片链接");
         public static readonly LocalizationKey UploadPhoto = new LocalizationKey("Upload Photo", "Upload Photo", "上传照片");
+        public static readonly LocalizationKey UploadFile = new LocalizationKey("Upload File", "Upload File", "上传文件");
         public static readonly LocalizationKey SupportedFormats = new LocalizationKey("Supported Formats", "Supported Formats", "支持的格式");
         public static readonly LocalizationKey Upload = new LocalizationKey("Upload", "Upload", "上传");
         public static readonly LocalizationKey Screenshot = new LocalizationKey("Screenshot", "Скриншот", "截图");
@@ -405,7 +406,7 @@ namespace PlayerRatings.Localization
         public static readonly LocalizationKey Score = new LocalizationKey("Score", "Счет", "比分");
         public static readonly LocalizationKey Add = new LocalizationKey("Add", "Добавить", "添加");
         public static readonly LocalizationKey Team = new LocalizationKey("Team", "Команда", "队伍");
-        public static readonly LocalizationKey PlPos = new LocalizationKey("Pl.Pos", "Личн", "个人名次");
+        public static readonly LocalizationKey PlayerPos = new LocalizationKey("Player Pos", "Личн", "个人名次");
         public static readonly LocalizationKey SumPos = new LocalizationKey("Sum Pos", "Сумма позиций", "名次总和");
         public static readonly LocalizationKey TotalWins = new LocalizationKey("Total Wins", "Всего побед", "总胜场");
         public static readonly LocalizationKey Calculate = new LocalizationKey("Calculate", "Рассчитать", "计算");
@@ -436,6 +437,7 @@ namespace PlayerRatings.Localization
         public static readonly LocalizationKey TeamSOS = new LocalizationKey("Team SOS", "Командный SOS", "团体对手分");
         public static readonly LocalizationKey TeamSOSOS = new LocalizationKey("Team SOSOS", "Командный SOSOS", "团体对手对手分");
         public static readonly LocalizationKey TotalWinsOfPlayers = new LocalizationKey("Total Wins of Players", "Общее кол-во побед", "选手总胜场");
+        public static readonly LocalizationKey MainPlayerBonus = new LocalizationKey("Main Player Bonus", "Бонус главного игрока", "主将加分");
         public static readonly LocalizationKey SumOfPlayerPositions = new LocalizationKey("Sum of Player Positions", "Сумма позиций игроков", "选手名次总和");
         public static readonly LocalizationKey SwissSystemTooltip = new LocalizationKey("Swiss-system: Undefeated first, then wins → SOS → SOSOS", "Швейцарская система: Без поражений первые, затем победы → SOS → SOSOS", "瑞士制：全胜优先，然后按胜场→对手分→对手对手分");
         public static readonly LocalizationKey Undefeated = new LocalizationKey("Undefeated", "Без поражений", "全胜");
@@ -443,6 +445,15 @@ namespace PlayerRatings.Localization
         public static readonly LocalizationKey Championships = new LocalizationKey("Championships", "Чемпионства", "冠军次数");
         public static readonly LocalizationKey TeamChampionships = new LocalizationKey("Team Championships", "Командные чемпионства", "团体冠军次数");
         public static readonly LocalizationKey FemaleChampionships = new LocalizationKey("Female Championships", "Женские чемпионства", "女子冠军次数");
+        public static readonly LocalizationKey Photo = new LocalizationKey("Photo", "Фото", "照片");
+        public static readonly LocalizationKey AddPhoto = new LocalizationKey("Add Photo", "Добавить фото", "添加照片");
+        public static readonly LocalizationKey EditPhoto = new LocalizationKey("Edit Photo", "Редактировать фото", "编辑照片");
+        public static readonly LocalizationKey MatchPhoto = new LocalizationKey("Match Photo", "Фото матча", "对局照片");
+        public static readonly LocalizationKey ResultPhoto = new LocalizationKey("Result Photo", "Фото результата", "结果照片");
+        public static readonly LocalizationKey GameRecordLink = new LocalizationKey("Game Record", "Запись игры", "棋谱");
+        public static readonly LocalizationKey AddGameRecord = new LocalizationKey("Add Game Record", "Добавить запись", "添加棋谱");
+        public static readonly LocalizationKey UrlOrUpload = new LocalizationKey("Enter URL or upload file", "Введите URL или загрузите файл", "输入链接或上传文件");
+        public static readonly LocalizationKey Close = new LocalizationKey("Close", "Закрыть", "关闭");
 
         private const string En = "en";
         private const string Cn = "cn";

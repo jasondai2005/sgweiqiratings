@@ -146,6 +146,21 @@ namespace PlayerRatings.ViewModels.Tournament
         /// </summary>
         public string ShiftRating { get; set; }
         
+        /// <summary>
+        /// Photo of the match (e.g., players during the game)
+        /// </summary>
+        public string MatchPhoto { get; set; }
+        
+        /// <summary>
+        /// Photo of the match result (e.g., board position)
+        /// </summary>
+        public string MatchResultPhoto { get; set; }
+        
+        /// <summary>
+        /// Game record URL or SGF data
+        /// </summary>
+        public string GameRecord { get; set; }
+        
         public string GetScore() => $"{FirstPlayerScore} : {SecondPlayerScore}";
     }
     
@@ -295,6 +310,21 @@ namespace PlayerRatings.ViewModels.Tournament
         /// Whether the player is female (DisplayName contains '♀')
         /// </summary>
         public bool IsFemale { get; set; }
+        
+        /// <summary>
+        /// Photo URL for this player in the tournament
+        /// </summary>
+        public string Photo { get; set; }
+        
+        /// <summary>
+        /// Photo URL for team award
+        /// </summary>
+        public string TeamPhoto { get; set; }
+        
+        /// <summary>
+        /// Photo URL for female award
+        /// </summary>
+        public string FemaleAwardPhoto { get; set; }
     }
     
     /// <summary>
@@ -321,6 +351,12 @@ namespace PlayerRatings.ViewModels.Tournament
         /// Score display (e.g., "2:1")
         /// </summary>
         public string Score { get; set; }
+        
+        /// <summary>
+        /// True if this is the main player match (first match between teams in a round)
+        /// Main player wins count as 1.5 points instead of 1
+        /// </summary>
+        public bool IsMainPlayer { get; set; }
     }
     
     /// <summary>
@@ -364,9 +400,19 @@ namespace PlayerRatings.ViewModels.Tournament
         public double TeamSOSOS { get; set; }
         
         /// <summary>
-        /// Total wins of all players in the team
+        /// Total wins of all players in the team (base count, without main player bonus)
         /// </summary>
         public double TotalPlayerWins { get; set; }
+        
+        /// <summary>
+        /// Total player points including main player bonus (main player wins count as 1.5)
+        /// </summary>
+        public double TotalPlayerPoints { get; set; }
+        
+        /// <summary>
+        /// Main player bonus points (0.5 for each main player win)
+        /// </summary>
+        public double MainPlayerBonus { get; set; }
         
         /// <summary>
         /// Sum of player positions (for personal-mode team ranking)
@@ -400,10 +446,40 @@ namespace PlayerRatings.ViewModels.Tournament
         public bool CountsForTeamAward { get; set; }
         
         /// <summary>
+        /// Photo URL for this player's team award
+        /// </summary>
+        public string TeamPhoto { get; set; }
+        
+        /// <summary>
         /// Round results for this player
         /// Key is round number
         /// </summary>
         public Dictionary<int, RoundResult> RoundResults { get; set; } = new Dictionary<int, RoundResult>();
+        
+        /// <summary>
+        /// Number of main player matches this player played
+        /// </summary>
+        public int MainMatchesPlayed { get; set; }
+        
+        /// <summary>
+        /// Total points earned by this player (1 for win, 0.5 for draw, 1.5 for main player win, 0.75 for main player draw)
+        /// </summary>
+        public double PointsEarned { get; set; }
+        
+        /// <summary>
+        /// Player's rating before the tournament
+        /// </summary>
+        public double? RatingBefore { get; set; }
+        
+        /// <summary>
+        /// Player's rating after the tournament
+        /// </summary>
+        public double? RatingAfter { get; set; }
+        
+        /// <summary>
+        /// Rating change during the tournament
+        /// </summary>
+        public double? RatingDelta { get; set; }
     }
     
     /// <summary>
@@ -430,6 +506,16 @@ namespace PlayerRatings.ViewModels.Tournament
         /// Score display (e.g., "3:1" for individual wins)
         /// </summary>
         public string Score { get; set; }
+        
+        /// <summary>
+        /// Total points for this round (base wins, without main player bonus)
+        /// </summary>
+        public double RoundPoints { get; set; }
+        
+        /// <summary>
+        /// Main player bonus for this round (0.5 for main player win)
+        /// </summary>
+        public double RoundMainPlayerBonus { get; set; }
     }
 }
 

@@ -478,6 +478,7 @@
 
 <!-- Hidden form for Shift Match Times -->
 <form asp-controller="Tournaments" asp-action="ShiftMatchTimes" method="post" id="shiftTimesForm">
+    @Html.AntiForgeryToken()
     <input type="hidden" name="tournamentId" value="@Model.Id" />
     <input type="hidden" name="filterMonth" value="@Model.FilterMonth" />
     <input type="hidden" name="filterYear" value="@Model.FilterYear" />
