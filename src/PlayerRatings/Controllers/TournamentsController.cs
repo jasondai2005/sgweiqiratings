@@ -271,14 +271,21 @@ namespace PlayerRatings.Controllers
                     
                     sumOfPositions += playerPenalty;
                     
+                    // Get saved team position from the first counting player (if any)
+                    var savedTeamPosition = countingPlayers.FirstOrDefault()?.TeamPosition;
+                    
                     teamStandings.Add(new TeamStandingViewModel
                     {
                         TeamName = teamName,
                         Players = teamPlayers,
                         TotalPlayerWins = totalWins,
-                        SumOfPlayerPositions = sumOfPositions
+                        SumOfPlayerPositions = sumOfPositions,
+                        Position = savedTeamPosition // Use saved position if available
                     });
                 }
+                
+                // Check if any team has saved positions
+                bool hasSavedPositions = teamStandings.Any(t => t.Position.HasValue);
                 
                 // Rank by sum of positions (lower is better)
                 var ranked = teamStandings
@@ -289,13 +296,28 @@ namespace PlayerRatings.Controllers
                 for (int i = 0; i < ranked.Count; i++)
                 {
                     ranked[i].Index = i + 1;
-                    ranked[i].Position = i + 1;
                     
-                    // Handle ties
-                    if (i > 0 && ranked[i].SumOfPlayerPositions == ranked[i - 1].SumOfPlayerPositions 
-                              && ranked[i].TotalPlayerWins == ranked[i - 1].TotalPlayerWins)
+                    // Only set calculated position if no saved position exists
+                    if (!ranked[i].Position.HasValue)
                     {
-                        ranked[i].Position = ranked[i - 1].Position;
+                        ranked[i].Position = i + 1;
+                        
+                        // Handle ties
+                        if (i > 0 && ranked[i].SumOfPlayerPositions == ranked[i - 1].SumOfPlayerPositions 
+                                  && ranked[i].TotalPlayerWins == ranked[i - 1].TotalPlayerWins)
+                        {
+                            ranked[i].Position = ranked[i - 1].Position;
+                        }
+                    }
+                }
+                
+                // If there are saved positions, re-sort by saved position for display
+                if (hasSavedPositions)
+                {
+                    ranked = ranked.OrderBy(t => t.Position ?? int.MaxValue).ToList();
+                    for (int i = 0; i < ranked.Count; i++)
+                    {
+                        ranked[i].Index = i + 1;
                     }
                 }
                 
@@ -593,6 +615,10 @@ namespace PlayerRatings.Controllers
                     }
                     
                     var stats = teamStats.GetValueOrDefault(teamName, (0, 0, 0));
+                    
+                    // Get saved team position from any team member (they should all have the same saved TeamPosition)
+                    var savedTeamPosition = teamGroup.Value.FirstOrDefault()?.TeamPosition;
+                    
                     teamStandings.Add(new TeamStandingViewModel
                     {
                         TeamName = teamName,
@@ -603,9 +629,13 @@ namespace PlayerRatings.Controllers
                         TotalPlayerWins = totalPlayerWins,
                         TotalPlayerPoints = totalPlayerWins + mainPlayerBonus,
                         MainPlayerBonus = mainPlayerBonus,
-                        TeamRoundResults = teamRoundResults
+                        TeamRoundResults = teamRoundResults,
+                        Position = savedTeamPosition // Use saved position if available
                     });
                 }
+                
+                // Check if any team has saved positions
+                bool hasSavedPositions = teamStandings.Any(t => t.Position.HasValue);
                 
                 // Rank teams by Swiss system
                 var ranked = teamStandings
@@ -620,15 +650,33 @@ namespace PlayerRatings.Controllers
                 for (int i = 0; i < ranked.Count; i++)
                 {
                     ranked[i].Index = i + 1;
-                    ranked[i].Position = i + 1;
                     teamIndexLookup[ranked[i].TeamName] = i + 1;
                     
-                    // Handle ties
-                    if (i > 0 && ranked[i].TeamWins == ranked[i - 1].TeamWins 
-                              && ranked[i].TeamSOS == ranked[i - 1].TeamSOS
-                              && ranked[i].TeamSOSOS == ranked[i - 1].TeamSOSOS)
+                    // Only set calculated position if no saved position exists
+                    if (!ranked[i].Position.HasValue)
                     {
-                        ranked[i].Position = ranked[i - 1].Position;
+                        ranked[i].Position = i + 1;
+                        
+                        // Handle ties
+                        if (i > 0 && ranked[i].TeamWins == ranked[i - 1].TeamWins 
+                                  && ranked[i].TeamSOS == ranked[i - 1].TeamSOS
+                                  && ranked[i].TeamSOSOS == ranked[i - 1].TeamSOSOS)
+                        {
+                            ranked[i].Position = ranked[i - 1].Position;
+                        }
+                    }
+                }
+                
+                // If there are saved positions, re-sort by saved position for display
+                if (hasSavedPositions)
+                {
+                    ranked = ranked.OrderBy(t => t.Position ?? int.MaxValue).ToList();
+                    // Rebuild the index lookup and indices
+                    teamIndexLookup.Clear();
+                    for (int i = 0; i < ranked.Count; i++)
+                    {
+                        ranked[i].Index = i + 1;
+                        teamIndexLookup[ranked[i].TeamName] = i + 1;
                     }
                 }
                 
@@ -745,8 +793,9 @@ namespace PlayerRatings.Controllers
             
             // Get the tournament start/end dates for rating calculations
             // Use previous day of start date for "before" ratings, end date for "after" ratings
-            var tournamentStartDate = (tournament.StartDate ?? tournament.Matches.Min(m => m.Date)).AddDays(-1);
-            var tournamentEndDate = tournament.EndDate ?? tournament.Matches.Max(m => m.Date);
+            var hasMatches = tournament.Matches.Any();
+            var tournamentStartDate = (tournament.StartDate ?? (hasMatches ? tournament.Matches.Min(m => m.Date) : DateTimeOffset.Now)).AddDays(-1);
+            var tournamentEndDate = tournament.EndDate ?? (hasMatches ? tournament.Matches.Max(m => m.Date) : DateTimeOffset.Now);
             
             // Load all league matches for rating calculation
             var leagueMatches = await _context.Match
@@ -759,9 +808,25 @@ namespace PlayerRatings.Controllers
             // Get tournament player IDs for focused calculation
             var tournamentPlayerIds = tournament.TournamentPlayers.Select(tp => tp.PlayerId).ToHashSet();
             
-            // Player lookup function
+            // Build a comprehensive player lookup from all loaded sources
+            // This ensures players without matches in this tournament still get their ratings calculated correctly
+            var allPlayers = new Dictionary<string, ApplicationUser>();
+            foreach (var tp in tournament.TournamentPlayers)
+            {
+                if (tp.Player != null && !allPlayers.ContainsKey(tp.PlayerId))
+                    allPlayers[tp.PlayerId] = tp.Player;
+            }
+            foreach (var match in leagueMatches)
+            {
+                if (match.FirstPlayer != null && !allPlayers.ContainsKey(match.FirstPlayerId))
+                    allPlayers[match.FirstPlayerId] = match.FirstPlayer;
+                if (match.SecondPlayer != null && !allPlayers.ContainsKey(match.SecondPlayerId))
+                    allPlayers[match.SecondPlayerId] = match.SecondPlayer;
+            }
+            
+            // Player lookup function - uses the combined player dictionary
             ApplicationUser PlayerLookup(string playerId) => 
-                tournament.TournamentPlayers.FirstOrDefault(tp => tp.PlayerId == playerId)?.Player;
+                allPlayers.TryGetValue(playerId, out var player) ? player : null;
             
             // Determine league type for rating calculation
             bool isSgLeague = tournament.League?.Name?.Contains("Singapore Weiqi") ?? false;
@@ -1909,7 +1974,8 @@ namespace PlayerRatings.Controllers
 
             switch (photoType?.ToLower())
             {
-                case "standingsphoto":
+                case "standings_photo":
+                case "standingsphoto": // backwards compatibility
                     currentUrl = tournament.StandingsPhoto;
                     title = "Standings Photo";
                     break;
@@ -1948,6 +2014,7 @@ namespace PlayerRatings.Controllers
             ViewBag.CurrentUrl = currentUrl;
             ViewBag.Title = title;
             ViewBag.IsGameRecord = photoType == "gamerecord";
+            ViewBag.IsStandingsPhoto = photoType == "standings_photo";
 
             return View();
         }
@@ -1974,6 +2041,7 @@ namespace PlayerRatings.Controllers
             if (photoFile != null && photoFile.Length > 0)
             {
                 bool isGameRecord = photoType?.ToLower() == "gamerecord";
+                bool isStandingsPhoto = photoType?.ToLower() == "standings_photo";
                 
                 if (isGameRecord)
                 {
@@ -1988,6 +2056,22 @@ namespace PlayerRatings.Controllers
                     if (photoFile.Length > 1 * 1024 * 1024) // 1MB limit for SGF files
                     {
                         TempData["Error"] = "File too large. Maximum size: 1MB";
+                        return RedirectToAction(nameof(EditPhoto), new { tournamentId, playerId, matchId, photoType });
+                    }
+                }
+                else if (isStandingsPhoto)
+                {
+                    // Allow images and PDF for standings photo
+                    var allowedTypes = new[] { "image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf" };
+                    if (!allowedTypes.Contains(photoFile.ContentType.ToLower()))
+                    {
+                        TempData["Error"] = "Invalid file type. Allowed: JPG, PNG, GIF, WebP, PDF";
+                        return RedirectToAction(nameof(EditPhoto), new { tournamentId, playerId, matchId, photoType });
+                    }
+
+                    if (photoFile.Length > 10 * 1024 * 1024) // 10MB limit for PDFs
+                    {
+                        TempData["Error"] = "File too large. Maximum size: 10MB";
                         return RedirectToAction(nameof(EditPhoto), new { tournamentId, playerId, matchId, photoType });
                     }
                 }
@@ -2028,7 +2112,8 @@ namespace PlayerRatings.Controllers
             // Save to database
             switch (photoType?.ToLower())
             {
-                case "standingsphoto":
+                case "standings_photo":
+                case "standingsphoto": // backwards compatibility
                     tournament.StandingsPhoto = string.IsNullOrWhiteSpace(finalUrl) ? null : finalUrl;
                     break;
                 case "photo":
@@ -2116,7 +2201,8 @@ namespace PlayerRatings.Controllers
                 // Update the appropriate record based on photoType
                 switch (photoType?.ToLower())
                 {
-                    case "standingsphoto":
+                    case "standings_photo":
+                    case "standingsphoto": // backwards compatibility
                         if (tournamentId.HasValue)
                         {
                             var tournament = await _context.Tournaments.Include(t => t.League).FirstOrDefaultAsync(t => t.Id == tournamentId.Value);

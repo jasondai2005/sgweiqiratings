@@ -466,6 +466,11 @@ namespace PlayerRatings.Localization
         public static readonly LocalizationKey AddGameRecord = new LocalizationKey("Add Game Record", "Добавить запись", "添加棋谱");
         public static readonly LocalizationKey UrlOrUpload = new LocalizationKey("Enter URL or upload file", "Введите URL или загрузите файл", "输入链接或上传文件");
         public static readonly LocalizationKey Close = new LocalizationKey("Close", "Закрыть", "关闭");
+        public static readonly LocalizationKey DeletePlayer = new LocalizationKey("Delete Player", "Удалить игрока", "删除选手");
+        public static readonly LocalizationKey DeletePlayerConfirm = new LocalizationKey("Are you sure you want to delete this player? This will permanently delete all their matches and tournament records.", "Вы уверены, что хотите удалить этого игрока? Это безвозвратно удалит все его матчи и турнирные записи.", "确定要删除此选手吗？这将永久删除其所有对局和赛事记录。");
+        public static readonly LocalizationKey PlayerDeleted = new LocalizationKey("Player and all related data deleted successfully.", "Игрок и все связанные данные успешно удалены.", "选手及所有相关数据已成功删除。");
+        public static readonly LocalizationKey MatchesToDelete = new LocalizationKey("Matches to be deleted", "Матчи для удаления", "将被删除的对局");
+        public static readonly LocalizationKey TournamentsAffected = new LocalizationKey("Tournaments affected", "Затронутые турниры", "受影响的赛事");
 
         private const string En = "en";
         private const string Cn = "cn";

@@ -38,6 +38,34 @@
                         </p>
                     </div>
                 }
+                else if (ViewBag.IsStandingsPhoto)
+                {
+                    <div class="form-group">
+                        <label>@LocString[nameof(LocalizationKey.UploadFile)]</label>
+                        <input type="file" name="photoFile" class="form-control" accept="image/*,.pdf" />
+                        <p class="help-block" style="font-size: 0.85em; color: #666;">
+                            @LocString[nameof(LocalizationKey.SupportedFormats)]: JPG, PNG, GIF, WebP, PDF (max 10MB)
+                        </p>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty((string)ViewBag.CurrentUrl))
+                    {
+                        var isPdf = ((string)ViewBag.CurrentUrl).EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
+                        <div class="form-group">
+                            <label>Current:</label>
+                            <div>
+                                @if (isPdf)
+                                {
+                                    <a href="@ViewBag.CurrentUrl" target="_blank" style="font-size: 2em;">📄 PDF</a>
+                                }
+                                else
+                                {
+                                    <img src="@ViewBag.CurrentUrl" style="max-width: 100%; max-height: 200px; border-radius: 4px;" />
+                                }
+                            </div>
+                        </div>
+                    }
+                }
                 else
                 {
                     <div class="form-group">

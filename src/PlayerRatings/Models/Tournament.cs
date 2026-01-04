@@ -127,7 +127,7 @@ namespace PlayerRatings.Models
         public virtual ICollection<Match> Matches { get; set; }
 
         /// <summary>
-        /// Gets the full display name including ordinal and group
+        /// Gets the full display name including ordinal, group, and start date (MM/yyyy)
         /// </summary>
         [NotMapped]
         public string FullName
@@ -140,6 +140,8 @@ namespace PlayerRatings.Models
                 parts.Add(Name);
                 if (!string.IsNullOrEmpty(Group))
                     parts.Add(Group);
+                if (StartDate.HasValue)
+                    parts.Add(StartDate.Value.ToString("MM/yyyy"));
                 return string.Join(" ", parts);
             }
         }

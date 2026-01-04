@@ -115,6 +115,18 @@
     </div>
 </div>
 
+@* Show StandingsPhoto as separate section if no rounds exist but photo exists *@
+@if (Model.MaxRounds == 0 && !string.IsNullOrEmpty(Model.StandingsPhoto) && !Model.StandingsPhoto.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+{
+    <div style="margin-top: 20px;">
+        <div style="margin-top: 10px;">
+            <a href="@Model.StandingsPhoto" target="_blank">
+                <img src="@Model.StandingsPhoto" alt="@LocString[nameof(LocalizationKey.Standings)]" style="max-width: 100%; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" />
+            </a>
+        </div>
+    </div>
+}
+
 @if (Model.SupportsPersonalAward && Model.Players.Any() && Model.MaxRounds > 0)
 {
     var hasAnyPromotion = Model.Players.Any(p => !string.IsNullOrEmpty(p.PromotionRanking));
@@ -131,18 +143,26 @@
         <h4 style="display: inline-block;">@LocString[nameof(LocalizationKey.Standings)]</h4>
         @if (!string.IsNullOrEmpty(Model.StandingsPhoto))
         {
+            var isPdf = Model.StandingsPhoto.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
             <a href="@Model.StandingsPhoto" target="_blank" style="margin-left: 10px;">
-                <img src="@Model.StandingsPhoto" alt="@LocString[nameof(LocalizationKey.Standings)]" style="max-height: 30px; vertical-align: middle; border-radius: 3px;" />
+                @if (isPdf)
+                {
+                    <span style="font-size: 1.2em; vertical-align: middle;" title="PDF">📄</span>
+                }
+                else
+                {
+                    <img src="@Model.StandingsPhoto" alt="@LocString[nameof(LocalizationKey.Standings)]" style="max-height: 30px; vertical-align: middle; border-radius: 3px;" />
+                }
             </a>
             @if (Model.IsAdmin)
             {
-                <a href="@Url.Action("EditPhoto", new { tournamentId = Model.Id, photoType = "standingsphoto" })" 
+                <a href="@Url.Action("EditPhoto", new { tournamentId = Model.Id, photoType = "standings_photo" })" 
                    target="_blank" class="btn btn-xs btn-link" style="vertical-align: middle;">✏️</a>
             }
         }
         else if (Model.IsAdmin)
         {
-            <a href="@Url.Action("EditPhoto", new { tournamentId = Model.Id, photoType = "standingsphoto" })" 
+            <a href="@Url.Action("EditPhoto", new { tournamentId = Model.Id, photoType = "standings_photo" })" 
                target="_blank" class="btn btn-xs btn-default" style="margin-left: 10px; vertical-align: middle;" 
                title="@LocString[nameof(LocalizationKey.AddPhoto)]">+ 📷</a>
         }
@@ -250,6 +270,7 @@
                                            asp-route-lastMatchDateTime="@roundDate.ToString("o")"
                                            asp-route-factor="0"
                                            asp-route-firstPlayerId="@p.PlayerId"
+                                           target="_blank"
                                            class="btn btn-xs btn-default" title="Add match for @p.PlayerName in Round @r">+</a>
                                     }
                                     else
@@ -341,18 +362,26 @@
         <h4 style="display: inline-block;">@LocString[nameof(LocalizationKey.TeamStandings)]</h4>
         @if (!Model.SupportsPersonalAward && !string.IsNullOrEmpty(Model.StandingsPhoto))
         {
+            var isPdfTeam = Model.StandingsPhoto.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
             <a href="@Model.StandingsPhoto" target="_blank" style="margin-left: 10px;">
-                <img src="@Model.StandingsPhoto" alt="@LocString[nameof(LocalizationKey.Standings)]" style="max-height: 30px; vertical-align: middle; border-radius: 3px;" />
+                @if (isPdfTeam)
+                {
+                    <span style="font-size: 1.2em; vertical-align: middle;" title="PDF">📄</span>
+                }
+                else
+                {
+                    <img src="@Model.StandingsPhoto" alt="@LocString[nameof(LocalizationKey.Standings)]" style="max-height: 30px; vertical-align: middle; border-radius: 3px;" />
+                }
             </a>
             @if (Model.IsAdmin)
             {
-                <a href="@Url.Action("EditPhoto", new { tournamentId = Model.Id, photoType = "standingsphoto" })" 
+                <a href="@Url.Action("EditPhoto", new { tournamentId = Model.Id, photoType = "standings_photo" })" 
                    target="_blank" class="btn btn-xs btn-link" style="vertical-align: middle;">✏️</a>
             }
         }
         else if (!Model.SupportsPersonalAward && Model.IsAdmin)
         {
-            <a href="@Url.Action("EditPhoto", new { tournamentId = Model.Id, photoType = "standingsphoto" })" 
+            <a href="@Url.Action("EditPhoto", new { tournamentId = Model.Id, photoType = "standings_photo" })" 
                target="_blank" class="btn btn-xs btn-default" style="margin-left: 10px; vertical-align: middle;" 
                title="@LocString[nameof(LocalizationKey.AddPhoto)]">+ 📷</a>
         }
@@ -701,9 +730,9 @@
                         @if (Model.IsAdmin)
                         {
                             <td>
-                                <a asp-controller="Matches" asp-action="Edit" asp-route-id="@m.Id">@LocString[nameof(LocalizationKey.Edit)]</a>
+                                <a asp-controller="Matches" asp-action="Edit" asp-route-id="@m.Id" target="_blank">@LocString[nameof(LocalizationKey.Edit)]</a>
                                 |
-                                <a asp-controller="Matches" asp-action="Delete" asp-route-id="@m.Id">@LocString[nameof(LocalizationKey.Delete)]</a>
+                                <a asp-controller="Matches" asp-action="Delete" asp-route-id="@m.Id" target="_blank">@LocString[nameof(LocalizationKey.Delete)]</a>
                             </td>
                         }
                     </tr>

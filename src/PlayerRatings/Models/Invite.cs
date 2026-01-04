@@ -14,6 +14,9 @@ namespace PlayerRatings.Models
 
         public virtual ApplicationUser InvitedBy { get; set; }
 
+        public string CreatedUserId { get; set; }
+
+        [ForeignKey("CreatedUserId")]
         public virtual ApplicationUser CreatedUser { get; set; }
     }
 }

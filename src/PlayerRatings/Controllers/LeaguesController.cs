@@ -155,14 +155,15 @@ namespace PlayerRatings.Controllers
                 return NotFound();
             }
 
+            var swaOnly = Elo.SwaRankedPlayersOnly;
+            
             var allPlayers = _context.LeaguePlayers
                 .AsNoTracking()
                 .Include(lp => lp.User).ThenInclude(u => u.Rankings)
                 .Where(lp =>
                     lp.LeagueId == league.Id &&
-                    !lp.User.DisplayName.Contains("[") &&
                     lp.User.DisplayName != "Admin").ToList();
-            if (Elo.SwaRankedPlayersOnly)
+            if (swaOnly)
                 allPlayers = allPlayers.Where(x => x.User.LatestSwaRanking.Any()).ToList();
             
             // For Singapore Weiqi league, separate local and non-local players
@@ -174,14 +175,14 @@ namespace PlayerRatings.Controllers
             {
                 players = allPlayers.Where(x => x.User.IsLocalPlayer || !string.IsNullOrEmpty(x.User.LatestSwaRanking)).ToList();
                 nonLocalPlayers = allPlayers.Where(x => !x.User.IsLocalPlayer && string.IsNullOrEmpty(x.User.LatestSwaRanking)).ToList();
-                nonLocalPlayers.Sort(CompareByRankingAndName);
+                nonLocalPlayers = SortByRankingAndName(nonLocalPlayers, swaOnly);
             }
             else
             {
                 players = allPlayers;
             }
             
-            players.Sort(CompareByRankingAndName);
+            players = SortByRankingAndName(players, swaOnly);
             
             // Check if current user is admin for this league
             var isAdmin = _leaguesRepository.GetAdminAuthorizedLeague(currentUser, id) != null;
@@ -674,47 +675,39 @@ namespace PlayerRatings.Controllers
             }
         }
 
-        private int CompareByRankingAndName(LeaguePlayer x, LeaguePlayer y)
+        /// <summary>
+        /// Sorts players by ranking (higher first) and then by name using LINQ OrderBy.
+        /// This approach avoids IComparer inconsistency issues by computing sort keys once.
+        /// </summary>
+        private static List<LeaguePlayer> SortByRankingAndName(List<LeaguePlayer> players, bool swaOnly)
         {
-            var user1 = x.User;
-            var user2 = y.User;
-            int rankingRating1 = 0;
-            int rankingRating2 = 0;
-            var user1Ranking = Elo.SwaRankedPlayersOnly ? user1.LatestSwaRanking : user1.LatestRanking;
-            var user2Ranking = Elo.SwaRankedPlayersOnly ? user2.LatestSwaRanking : user2.LatestRanking;
-            if (!string.IsNullOrEmpty(user1Ranking) && (!user1Ranking.Contains('?') || user1Ranking.Contains('D')))
-                rankingRating1 = user1.GetRatingByRanking(user1Ranking);
-            if (!string.IsNullOrEmpty(user2Ranking) && (!user2Ranking.Contains('?') || user2Ranking.Contains('D')))
-                rankingRating2 = user2.GetRatingByRanking(user2Ranking);
-
-            if (rankingRating1 == rankingRating2) // the same rating
-            {
-                var latestRanking1 = ApplicationUser.GetEffectiveRanking(user1Ranking);
-                var latestRanking2 = ApplicationUser.GetEffectiveRanking(user2Ranking);
-                if (rankingRating1 <= 1800) // will not differentiate kyus (10K and below) certified by SWA or other
-                {
-                    latestRanking1 = latestRanking1.Trim('(', ')');
-                    latestRanking2 = latestRanking2.Trim('(', ')');
-                }
-                if (rankingRating1 == 0)
-                {
-                    latestRanking1 = latestRanking2 = string.Empty;
-                }
-
-                if (latestRanking1 == latestRanking2)
-                {
-                    return user1.DisplayName.CompareTo(user2.DisplayName);
-                }
-                else
-                {
-                    if (latestRanking1.Contains("5D") || latestRanking1.Contains("6D"))
-                        return latestRanking2.CompareTo(latestRanking1); // the same ranking, singpore ranking first
-                    else
-                        return latestRanking1.CompareTo(latestRanking2); // higher ranking first
-                }
-            }
-            else
-                return rankingRating1.CompareTo(rankingRating2) * -1; // higher rating first
+            return players
+                .Select(lp => {
+                    var user = lp.User;
+                    if (user == null)
+                        return new { Player = lp, Rating = int.MinValue, EffectiveRanking = string.Empty, DisplayName = string.Empty };
+                    
+                    var ranking = swaOnly ? user.LatestSwaRanking : user.LatestRanking;
+                    int rating = 0;
+                    if (!string.IsNullOrEmpty(ranking) && (!ranking.Contains('?') || ranking.Contains('D')))
+                    {
+                        try { rating = user.GetRatingByRanking(ranking); }
+                        catch { rating = 0; }
+                    }
+                    
+                    var effectiveRanking = ApplicationUser.GetEffectiveRanking(ranking) ?? string.Empty;
+                    if (rating <= 1800)
+                        effectiveRanking = effectiveRanking.Trim('(', ')');
+                    if (rating == 0)
+                        effectiveRanking = string.Empty;
+                    
+                    return new { Player = lp, Rating = rating, EffectiveRanking = effectiveRanking, DisplayName = user.DisplayName ?? string.Empty };
+                })
+                .OrderByDescending(x => x.Rating)
+                .ThenBy(x => x.EffectiveRanking)
+                .ThenBy(x => x.DisplayName)
+                .Select(x => x.Player)
+                .ToList();
         }
 
         // GET: Leagues/Player/5?playerId=xxx
@@ -1431,6 +1424,167 @@ namespace PlayerRatings.Controllers
 
             if (isAjax) return Json(new { success = true, message = "Ranking deleted", rankingId = rankingId });
             return RedirectToAction(nameof(Player), new { id = leagueId, playerId = playerId });
+        }
+
+        // POST: Leagues/SetPlayerStatus
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SetPlayerStatus(Guid playerId, int status)
+        {
+            var leaguePlayer = await _context.LeaguePlayers.FindAsync(playerId);
+            if (leaguePlayer == null)
+            {
+                return NotFound();
+            }
+
+            leaguePlayer.Status = (PlayerStatus)status;
+            await _context.SaveChangesAsync();
+
+            return RedirectToAction(nameof(Details), new { id = leaguePlayer.LeagueId });
+        }
+
+        // GET: Leagues/DeletePlayer - Confirmation page
+        public async Task<IActionResult> DeletePlayer(Guid leagueId, string playerId)
+        {
+            var currentUser = await User.GetApplicationUser(_userManager);
+            
+            // Check if user is admin for this league
+            var league = _leaguesRepository.GetAdminAuthorizedLeague(currentUser, leagueId);
+            if (league == null)
+            {
+                return NotFound();
+            }
+
+            var user = await _context.Users
+                .Include(u => u.Rankings)
+                .FirstOrDefaultAsync(u => u.Id == playerId);
+            
+            if (user == null)
+            {
+                return NotFound();
+            }
+
+            // Get all matches involving this player
+            var matchesToDelete = await _context.Match
+                .Where(m => m.LeagueId == leagueId && (m.FirstPlayerId == playerId || m.SecondPlayerId == playerId))
+                .Include(m => m.Tournament)
+                .OrderByDescending(m => m.Date)
+                .ToListAsync();
+
+            // Get tournament players entries
+            var tournamentPlayers = await _context.TournamentPlayers
+                .Where(tp => tp.PlayerId == playerId)
+                .Include(tp => tp.Tournament)
+                .ToListAsync();
+
+            var viewModel = new DeletePlayerViewModel
+            {
+                LeagueId = leagueId,
+                LeagueName = league.Name,
+                PlayerId = playerId,
+                PlayerName = user.DisplayName,
+                PlayerUsername = user.UserName,
+                MatchCount = matchesToDelete.Count,
+                Matches = matchesToDelete,
+                TournamentCount = tournamentPlayers.Select(tp => tp.TournamentId).Distinct().Count(),
+                RankingCount = user.Rankings?.Count ?? 0
+            };
+
+            return View(viewModel);
+        }
+
+        // POST: Leagues/DeletePlayerConfirmed
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeletePlayerConfirmed(Guid leagueId, string playerId)
+        {
+            var currentUser = await User.GetApplicationUser(_userManager);
+            
+            // Check if user is admin for this league
+            var league = _leaguesRepository.GetAdminAuthorizedLeague(currentUser, leagueId);
+            if (league == null)
+            {
+                return NotFound();
+            }
+
+            // Get rankings to delete (needed for clearing PromotionId references)
+            var rankingIds = await _context.PlayerRankings
+                .Where(r => r.PlayerId == playerId)
+                .Select(r => r.RankingId)
+                .ToListAsync();
+
+            // Clear PromotionId references in TournamentPlayers that point to this player's rankings
+            var tournamentPlayersWithPromotion = await _context.TournamentPlayers
+                .Where(tp => tp.PromotionId.HasValue && rankingIds.Contains(tp.PromotionId.Value))
+                .ToListAsync();
+            foreach (var tp in tournamentPlayersWithPromotion)
+            {
+                tp.PromotionId = null;
+            }
+
+            // Clear CreatedByUserId in matches created by this player (set to null or current admin)
+            var matchesCreatedByPlayer = await _context.Match
+                .Where(m => m.CreatedByUserId == playerId)
+                .ToListAsync();
+            foreach (var m in matchesCreatedByPlayer)
+            {
+                m.CreatedByUserId = currentUser.Id; // Transfer ownership to current admin
+            }
+
+            // Delete all matches involving this player in this league
+            var matchesToDelete = await _context.Match
+                .Where(m => m.LeagueId == leagueId && (m.FirstPlayerId == playerId || m.SecondPlayerId == playerId))
+                .ToListAsync();
+            _context.Match.RemoveRange(matchesToDelete);
+
+            // Delete all tournament player entries for this player
+            var tournamentPlayersToDelete = await _context.TournamentPlayers
+                .Where(tp => tp.PlayerId == playerId)
+                .ToListAsync();
+            _context.TournamentPlayers.RemoveRange(tournamentPlayersToDelete);
+
+            // Delete all player rankings
+            var rankingsToDelete = await _context.PlayerRankings
+                .Where(r => r.PlayerId == playerId)
+                .ToListAsync();
+            _context.PlayerRankings.RemoveRange(rankingsToDelete);
+
+            // Delete league player entries
+            var leaguePlayers = await _context.LeaguePlayers
+                .Where(lp => lp.UserId == playerId)
+                .ToListAsync();
+            _context.LeaguePlayers.RemoveRange(leaguePlayers);
+
+            // Delete invites sent by this player OR created for this player
+            var invites = await _context.Invites
+                .Where(i => i.InvitedById == playerId || i.CreatedUserId == playerId)
+                .ToListAsync();
+            _context.Invites.RemoveRange(invites);
+
+            // Transfer league ownership if this player created any leagues
+            var leaguesCreatedByPlayer = await _context.League
+                .Where(l => l.CreatedByUserId == playerId)
+                .ToListAsync();
+            foreach (var l in leaguesCreatedByPlayer)
+            {
+                l.CreatedByUserId = currentUser.Id; // Transfer ownership to current admin
+            }
+
+            // Save changes first before deleting user (to clear all references)
+            await _context.SaveChangesAsync();
+
+            // Delete the user account using UserManager (handles Identity tables properly)
+            var user = await _userManager.FindByIdAsync(playerId);
+            if (user != null)
+            {
+                await _userManager.DeleteAsync(user);
+            }
+
+            // Invalidate cache for this league
+            _cache.Remove($"League_{leagueId}");
+
+            TempData["SuccessMessage"] = "Player and all related data deleted successfully.";
+            return RedirectToAction(nameof(Details), new { id = leagueId });
         }
 
     }
