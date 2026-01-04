@@ -446,12 +446,17 @@ namespace PlayerRatings.Engine.Stats
 
         public virtual string GetResult(ApplicationUser user)
         {
+            return GetDoubleResult(user).ToString("F1");
+        }
+
+        public double GetDoubleResult(ApplicationUser user)
+        {
             if (_dict.TryGetValue(user.Id, out var rating))
-                return rating.ToString("F1");
-            
+                return rating;
+
             // Show ranking rating for users with no matches
             var rankingRating = user.GetRatingByRanking(user.GetCombinedRankingBeforeDate(League.CutoffDate));
-            return rankingRating.ToString("F1");
+            return rankingRating;
         }
 
         public virtual string NameLocalizationKey => nameof(LocalizationKey.Elo);

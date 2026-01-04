@@ -634,6 +634,10 @@
                             @if (!string.IsNullOrEmpty(m.FirstPlayerId))
                             {
                                 <a asp-controller="Leagues" asp-action="Player" asp-route-id="@Model.LeagueId" asp-route-playerId="@m.FirstPlayerId">@m.FirstPlayerName</a>
+                                @if (!string.IsNullOrEmpty(m.FirstPlayerRanking)){
+                                <text> </text>
+                                    <span style="color: rgb(255, 99, 132); font-weight: bold;">@m.FirstPlayerRanking</span>
+                                }
                                 @if (Model.IsAdmin && !string.IsNullOrEmpty(m.FirstPlayerRatingBefore))
                                 {
                                     <span style="color: #666; font-size: 0.85em;">(@m.FirstPlayerRatingBefore)</span>
@@ -647,6 +651,11 @@
                             @if (!string.IsNullOrEmpty(m.SecondPlayerId))
                             {
                                 <a asp-controller="Leagues" asp-action="Player" asp-route-id="@Model.LeagueId" asp-route-playerId="@m.SecondPlayerId">@m.SecondPlayerName</a>
+                                @if (!string.IsNullOrEmpty(m.SecondPlayerRanking))
+                                {
+                                    <text> </text>
+                                    <span style="color: rgb(255, 99, 132); font-weight: bold;">@m.SecondPlayerRanking</span>
+                                }
                                 @if (Model.IsAdmin && !string.IsNullOrEmpty(m.SecondPlayerRatingBefore))
                                 {
                                     <span style="color: #666; font-size: 0.85em;">(@m.SecondPlayerRatingBefore)</span>

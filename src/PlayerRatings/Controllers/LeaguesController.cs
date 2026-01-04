@@ -27,8 +27,6 @@ namespace PlayerRatings.Controllers
 
         // Match type constants (kept for local use, shared constants are in RatingCalculationHelper)
         private const string MATCH_SWA = "SWA ";
-        private const string MATCH_TGA = "TGA ";
-        private const string MATCH_SG = "SG ";
 
         // Reference shared constant for minimum date
         private static readonly DateTimeOffset RATING_START_DATE = RatingCalculationHelper.RATING_START_DATE;
@@ -108,8 +106,7 @@ namespace PlayerRatings.Controllers
             
             return swaOnly
                 ? matches.Where(x => dateFilter(x) && x.MatchName.Contains(MATCH_SWA)).OrderBy(m => m.Date)
-                : matches.Where(x => dateFilter(x) && 
-                    (x.MatchName.Contains(MATCH_SWA) || x.MatchName.Contains(MATCH_TGA) || x.MatchName.Contains(MATCH_SG))).OrderBy(m => m.Date);
+                : matches.Where(x => dateFilter(x)).OrderBy(m => m.Date);
         }
 
         /// <summary>
@@ -126,8 +123,7 @@ namespace PlayerRatings.Controllers
             
             return swaOnly
                 ? matches.Where(m => playerFilter(m) && m.MatchName.Contains(MATCH_SWA)).OrderBy(m => m.Date)
-                : matches.Where(m => playerFilter(m) && 
-                    (m.MatchName.Contains(MATCH_SWA) || m.MatchName.Contains(MATCH_TGA) || m.MatchName.Contains(MATCH_SG))).OrderBy(m => m.Date);
+                : matches.Where(m => playerFilter(m)).OrderBy(m => m.Date);
         }
 
         // GET: Leagues
@@ -175,15 +171,15 @@ namespace PlayerRatings.Controllers
             {
                 players = allPlayers.Where(x => x.User.IsLocalPlayer || !string.IsNullOrEmpty(x.User.LatestSwaRanking)).ToList();
                 nonLocalPlayers = allPlayers.Where(x => !x.User.IsLocalPlayer && string.IsNullOrEmpty(x.User.LatestSwaRanking)).ToList();
-                nonLocalPlayers = SortByRankingAndName(nonLocalPlayers, swaOnly);
+                nonLocalPlayers.Sort(CompareByRankingAndName);
             }
             else
             {
                 players = allPlayers;
             }
-            
-            players = SortByRankingAndName(players, swaOnly);
-            
+
+            players.Sort(CompareByRankingAndName);
+
             // Check if current user is admin for this league
             var isAdmin = _leaguesRepository.GetAdminAuthorizedLeague(currentUser, id) != null;
             
@@ -608,9 +604,6 @@ namespace PlayerRatings.Controllers
         private static void ResetPlayerState(IEnumerable<Match> matches)
             => RatingCalculationHelper.ResetPlayerState(matches);
 
-        private static void ResetPlayer(ApplicationUser player)
-            => RatingCalculationHelper.ResetPlayer(player);
-
         private int CompareByRatingAndName(ApplicationUser x, ApplicationUser y)
         {
             if (!x.Active && y.Active)
@@ -645,14 +638,8 @@ namespace PlayerRatings.Controllers
 
         private int CompareRatings(ApplicationUser x, ApplicationUser y, string ranking1, string ranking2)
         {
-            var result1 = elo.GetResult(x);
-            var result2 = elo.GetResult(y);
-            
-            // Handle users with no rating (empty string from GetResult) - use their ranking rating instead
-            if (!double.TryParse(result1, out double rating1))
-                rating1 = x.GetRatingByRanking(ranking1);
-            if (!double.TryParse(result2, out double rating2))
-                rating2 = y.GetRatingByRanking(ranking2);
+            var rating1 = elo.GetDoubleResult(x);
+            var rating2 = elo.GetDoubleResult(y);
             
             if (rating1 == rating2) // the same rating
             {
@@ -675,39 +662,47 @@ namespace PlayerRatings.Controllers
             }
         }
 
-        /// <summary>
-        /// Sorts players by ranking (higher first) and then by name using LINQ OrderBy.
-        /// This approach avoids IComparer inconsistency issues by computing sort keys once.
-        /// </summary>
-        private static List<LeaguePlayer> SortByRankingAndName(List<LeaguePlayer> players, bool swaOnly)
+        private int CompareByRankingAndName(LeaguePlayer x, LeaguePlayer y)
         {
-            return players
-                .Select(lp => {
-                    var user = lp.User;
-                    if (user == null)
-                        return new { Player = lp, Rating = int.MinValue, EffectiveRanking = string.Empty, DisplayName = string.Empty };
-                    
-                    var ranking = swaOnly ? user.LatestSwaRanking : user.LatestRanking;
-                    int rating = 0;
-                    if (!string.IsNullOrEmpty(ranking) && (!ranking.Contains('?') || ranking.Contains('D')))
-                    {
-                        try { rating = user.GetRatingByRanking(ranking); }
-                        catch { rating = 0; }
-                    }
-                    
-                    var effectiveRanking = ApplicationUser.GetEffectiveRanking(ranking) ?? string.Empty;
-                    if (rating <= 1800)
-                        effectiveRanking = effectiveRanking.Trim('(', ')');
-                    if (rating == 0)
-                        effectiveRanking = string.Empty;
-                    
-                    return new { Player = lp, Rating = rating, EffectiveRanking = effectiveRanking, DisplayName = user.DisplayName ?? string.Empty };
-                })
-                .OrderByDescending(x => x.Rating)
-                .ThenBy(x => x.EffectiveRanking)
-                .ThenBy(x => x.DisplayName)
-                .Select(x => x.Player)
-                .ToList();
+            var user1 = x.User;
+            var user2 = y.User;
+            int rankingRating1 = 0;
+            int rankingRating2 = 0;
+            var user1Ranking = Elo.SwaRankedPlayersOnly ? user1.LatestSwaRanking : user1.LatestRanking;
+            var user2Ranking = Elo.SwaRankedPlayersOnly ? user2.LatestSwaRanking : user2.LatestRanking;
+            if (!string.IsNullOrEmpty(user1Ranking) && (!user1Ranking.Contains('?') || user1Ranking.Contains('D')))
+                rankingRating1 = user1.GetRatingByRanking(user1Ranking);
+            if (!string.IsNullOrEmpty(user2Ranking) && (!user2Ranking.Contains('?') || user2Ranking.Contains('D')))
+                rankingRating2 = user2.GetRatingByRanking(user2Ranking);
+
+            if (rankingRating1 == rankingRating2) // the same rating
+            {
+                var latestRanking1 = ApplicationUser.GetEffectiveRanking(user1Ranking);
+                var latestRanking2 = ApplicationUser.GetEffectiveRanking(user2Ranking);
+                if (rankingRating1 <= 1800) // will not differentiate kyus (10K and below) certified by SWA or other
+                {
+                    latestRanking1 = latestRanking1.Trim('(', ')');
+                    latestRanking2 = latestRanking2.Trim('(', ')');
+                }
+                if (rankingRating1 == 0)
+                {
+                    latestRanking1 = latestRanking2 = string.Empty;
+                }
+
+                if (latestRanking1 == latestRanking2)
+                {
+                    return user1.DisplayName.CompareTo(user2.DisplayName);
+                }
+                else
+                {
+                    if (latestRanking1.Contains("5D") || latestRanking1.Contains("6D"))
+                        return latestRanking2.CompareTo(latestRanking1); // the same ranking, singpore ranking first
+                    else
+                        return latestRanking1.CompareTo(latestRanking2); // higher ranking first
+                }
+            }
+            else
+                return rankingRating1.CompareTo(rankingRating2) * -1; // higher rating first
         }
 
         // GET: Leagues/Player/5?playerId=xxx

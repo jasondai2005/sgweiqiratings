@@ -13,8 +13,6 @@ namespace PlayerRatings.Engine.Rating
     {
         // Match type constants
         private const string MATCH_SWA = "SWA ";
-        private const string MATCH_TGA = "TGA ";
-        private const string MATCH_SG = "SG ";
 
         // Minimum date for rating calculations (matches before this date are not included in ratings)
         public static readonly DateTimeOffset RATING_START_DATE = new DateTimeOffset(2023, 1, 1, 0, 0, 0, TimeSpan.Zero);
@@ -104,9 +102,8 @@ namespace PlayerRatings.Engine.Rating
                 return matches.Where(x => dateFilter(x)).OrderBy(m => m.Date);
             
             return swaOnly
-                ? matches.Where(x => dateFilter(x) && x.MatchName.Contains(MATCH_SWA)).OrderBy(m => m.Date)
-                : matches.Where(x => dateFilter(x) && 
-                    (x.MatchName.Contains(MATCH_SWA) || x.MatchName.Contains(MATCH_TGA) || x.MatchName.Contains(MATCH_SG))).OrderBy(m => m.Date);
+                ? matches.Where(x => dateFilter(x) && (x.MatchName.Contains(MATCH_SWA) || x.Tournament.Organizer.Contains(MATCH_SWA.Trim()))).OrderBy(m => m.Date)
+                : matches.Where(x => dateFilter(x)).OrderBy(m => m.Date);
         }
 
         /// <summary>
@@ -138,6 +135,9 @@ namespace PlayerRatings.Engine.Rating
             var matches = FilterMatches(allMatches, cutoffDate, swaOnly, isSgLeague);
             foreach (var match in matches)
             {
+                if (match.Factor == 0)
+                    continue;
+
                 // Add users (with optional filter)
                 if (match.FirstPlayer != null && (allowedUserIds == null || allowedUserIds.Contains(match.FirstPlayerId)))
                 {
