@@ -12,7 +12,7 @@ namespace PlayerRatings.Engine.Rating
     public static class RatingCalculationHelper
     {
         // Match type constants
-        private const string MATCH_SWA = "SWA ";
+        public const string MATCH_SWA = "SWA ";
 
         // Minimum date for rating calculations (matches before this date are not included in ratings)
         public static readonly DateTimeOffset RATING_START_DATE = new DateTimeOffset(2023, 1, 1, 0, 0, 0, TimeSpan.Zero);
@@ -84,6 +84,26 @@ namespace PlayerRatings.Engine.Rating
         }
 
         /// <summary>
+        /// Applies SWA filter and ordering to pre-filtered matches.
+        /// For non-SG leagues (international), all match types are included.
+        /// For SG leagues with swaOnly=true, only SWA matches are included.
+        /// </summary>
+        /// <param name="matches">Pre-filtered matches to apply SWA filter to</param>
+        /// <param name="swaOnly">Filter for SWA tournaments only</param>
+        /// <param name="isSgLeague">If true, may filter by SWA. If false, includes all match types.</param>
+        public static IOrderedEnumerable<Match> ApplySwaFilter(IEnumerable<Match> matches, bool swaOnly, bool isSgLeague = true)
+        {
+            // Non-SG (international) leagues include all match types
+            if (!isSgLeague || !swaOnly)
+                return matches.OrderBy(m => m.Date);
+            
+            // Match filter includes SWA matches by MatchName OR by Tournament Organizer
+            return matches
+                .Where(m => m.MatchName.Contains(MATCH_SWA) || (m.Tournament?.Organizer?.Contains(MATCH_SWA.Trim()) ?? false))
+                .OrderBy(m => m.Date);
+        }
+
+        /// <summary>
         /// Filters matches based on date and match type for rating calculations.
         /// Excludes matches before RATING_START_DATE (01/01/2023).
         /// For non-SG leagues (international), all match types are included.
@@ -92,18 +112,11 @@ namespace PlayerRatings.Engine.Rating
         /// <param name="cutoffDate">Only include matches up to this date</param>
         /// <param name="swaOnly">Filter for SWA tournaments only</param>
         /// <param name="isSgLeague">If true, filters by match type (SWA/TGA/SG). If false, includes all match types.</param>
-        public static IOrderedEnumerable<Match> FilterMatches(IEnumerable<Match> matches, DateTimeOffset cutoffDate, bool swaOnly, bool isSgLeague)
+        public static IOrderedEnumerable<Match> FilterMatches(IEnumerable<Match> matches, DateTimeOffset cutoffDate, bool swaOnly, bool isSgLeague = true)
         {
             // Date filter: between RATING_START_DATE and cutoff date
-            Func<Match, bool> dateFilter = x => x.Date >= RATING_START_DATE && x.Date <= cutoffDate;
-            
-            // Non-SG (international) leagues include all match types
-            if (!isSgLeague)
-                return matches.Where(x => dateFilter(x)).OrderBy(m => m.Date);
-            
-            return swaOnly
-                ? matches.Where(x => dateFilter(x) && (x.MatchName.Contains(MATCH_SWA) || x.Tournament.Organizer.Contains(MATCH_SWA.Trim()))).OrderBy(m => m.Date)
-                : matches.Where(x => dateFilter(x)).OrderBy(m => m.Date);
+            var dateFiltered = matches.Where(x => x.Date >= RATING_START_DATE && x.Date <= cutoffDate);
+            return ApplySwaFilter(dateFiltered, swaOnly, isSgLeague);
         }
 
         /// <summary>
@@ -115,13 +128,15 @@ namespace PlayerRatings.Engine.Rating
         /// <param name="swaOnly">Filter for SWA tournaments only</param>
         /// <param name="isSgLeague">Whether this is the Singapore Weiqi league</param>
         /// <param name="allowedUserIds">Optional filter - only include these user IDs (null = include all)</param>
+        /// <param name="onMatchProcessed">Optional callback for each match with EloStat (for monthly snapshots)</param>
         /// <returns>Tuple of (EloStat with calculated ratings, activeUsers set)</returns>
         public static (EloStat eloStat, HashSet<ApplicationUser> activeUsers) CalculateRatings(
             IEnumerable<Match> allMatches,
             DateTimeOffset cutoffDate,
             bool swaOnly,
             bool isSgLeague,
-            HashSet<string> allowedUserIds = null)
+            HashSet<string> allowedUserIds = null,
+            Action<Match, EloStat> onMatchProcessed = null)
         {
             // Reset player transient state at the start
             ResetPlayerState(allMatches);
@@ -138,7 +153,7 @@ namespace PlayerRatings.Engine.Rating
                 if (match.Factor == 0)
                     continue;
 
-                // Add users (with optional filter)
+                // Add users (with optional filter) - skip NULL players for bye matches
                 if (match.FirstPlayer != null && (allowedUserIds == null || allowedUserIds.Contains(match.FirstPlayerId)))
                 {
                     AddUser(activeUsers, match, match.FirstPlayer);
@@ -149,6 +164,9 @@ namespace PlayerRatings.Engine.Rating
                 }
 
                 eloStat.AddMatch(match);
+                
+                // Callback for additional processing (e.g., monthly snapshots)
+                onMatchProcessed?.Invoke(match, eloStat);
             }
 
             // Check promotions for all active users

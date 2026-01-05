@@ -25,11 +25,6 @@ namespace PlayerRatings.Controllers
         private readonly IWebHostEnvironment _env;
         private readonly IMemoryCache _cache;
 
-        // Match type constants (kept for local use, shared constants are in RatingCalculationHelper)
-        private const string MATCH_SWA = "SWA ";
-
-        // Reference shared constant for minimum date
-        private static readonly DateTimeOffset RATING_START_DATE = RatingCalculationHelper.RATING_START_DATE;
 
         /// <summary>
         /// Gets the last second of the month for the given date.
@@ -90,42 +85,13 @@ namespace PlayerRatings.Controllers
         }
 
         /// <summary>
-        /// Filters matches based on date and match type for rating calculations.
-        /// Excludes matches before RATING_START_DATE (01/01/2023).
-        /// For non-SG leagues (international), all match types are included.
-        /// </summary>
-        /// <param name="isSgLeague">If true, filters by match type (SWA/TGA/SG). If false, includes all match types.</param>
-        private static IOrderedEnumerable<Match> FilterMatches(IEnumerable<Match> matches, DateTimeOffset date, bool swaOnly, bool isSgLeague = true)
-        {
-            // Date filter: between RATING_START_DATE and cutoff date
-            Func<Match, bool> dateFilter = x => x.Date >= RATING_START_DATE && x.Date <= date;
-            
-            // Non-SG (international) leagues include all match types
-            if (!isSgLeague)
-                return matches.Where(x => dateFilter(x)).OrderBy(m => m.Date);
-            
-            // Match filter includes SWA matches by MatchName OR by Tournament Organizer
-            // This matches RatingCalculationHelper.FilterMatches logic
-            return swaOnly
-                ? matches.Where(x => dateFilter(x) && (x.MatchName.Contains(MATCH_SWA) || (x.Tournament?.Organizer?.Contains(MATCH_SWA.Trim()) ?? false))).OrderBy(m => m.Date)
-                : matches.Where(x => dateFilter(x)).OrderBy(m => m.Date);
-        }
-
-        /// <summary>
         /// Filters matches for a specific player based on date and match type.
         /// For non-SG leagues (international), all matches are included.
         /// </summary>
         private static IOrderedEnumerable<Match> FilterPlayerMatches(IEnumerable<Match> matches, string playerId, bool swaOnly, bool isSgLeague = true)
         {
-            Func<Match, bool> playerFilter = m => m.FirstPlayerId == playerId || m.SecondPlayerId == playerId;
-            
-            // Non-SG (international) leagues include all matches
-            if (!isSgLeague)
-                return matches.Where(m => playerFilter(m)).OrderBy(m => m.Date);
-            
-            return swaOnly
-                ? matches.Where(m => playerFilter(m) && m.MatchName.Contains(MATCH_SWA)).OrderBy(m => m.Date)
-                : matches.Where(m => playerFilter(m)).OrderBy(m => m.Date);
+            var playerFiltered = matches.Where(m => m.FirstPlayerId == playerId || m.SecondPlayerId == playerId);
+            return RatingCalculationHelper.ApplySwaFilter(playerFiltered, swaOnly, isSgLeague);
         }
 
         // GET: Leagues
@@ -523,8 +489,6 @@ namespace PlayerRatings.Controllers
             return View(new RatingViewModel(stats, users, promotedPlayers, recentMatches, id.Value, byDate, swaOnly, isSgLeague, nonLocalUsers, inactiveUsers, previousRatings, previousPositions, comparisonDate));
         }
 
-        private static void AddUser(HashSet<ApplicationUser> activeUsers, Match match, ApplicationUser player)
-            => RatingCalculationHelper.AddUser(activeUsers, match, player);
 
         /// <summary>
         /// Loads player statuses for filtering (blocked, hidden, always shown).
@@ -544,7 +508,7 @@ namespace PlayerRatings.Controllers
 
         /// <summary>
         /// Shared rating calculation used by both Rating and Player pages.
-        /// Ensures consistent results across both views.
+        /// Wraps RatingCalculationHelper.CalculateRatings and adds isSgLeague detection.
         /// </summary>
         /// <param name="league">League with matches loaded</param>
         /// <param name="cutoffDate">Date to calculate ratings up to</param>
@@ -552,7 +516,7 @@ namespace PlayerRatings.Controllers
         /// <param name="allowedUserIds">Optional filter - only include these user IDs (null = include all)</param>
         /// <param name="onMatchProcessed">Optional callback for each match with EloStat (for monthly snapshots)</param>
         /// <returns>Tuple of (EloStat, activeUsers, isSgLeague)</returns>
-        private (EloStat eloStat, HashSet<ApplicationUser> activeUsers, bool isSgLeague) 
+        private static (EloStat eloStat, HashSet<ApplicationUser> activeUsers, bool isSgLeague) 
             CalculateRatings(
                 League league, 
                 DateTimeOffset cutoffDate, 
@@ -560,54 +524,18 @@ namespace PlayerRatings.Controllers
                 HashSet<string> allowedUserIds = null,
                 Action<Match, EloStat> onMatchProcessed = null)
         {
-            // Reset player transient state at the start (important for cached data)
-            ResetPlayerState(league.Matches);
-
-            League.CutoffDate = cutoffDate;
-            EloStat.SwaOnly = swaOnly;
-
             bool isSgLeague = league.Name?.Contains("Singapore Weiqi") ?? false;
-
-            var activeUsers = new HashSet<ApplicationUser>();
-            var eloStat = new EloStat();
-
-            var matches = FilterMatches(league.Matches, cutoffDate, swaOnly, isSgLeague: isSgLeague);
-            foreach (var match in matches)
-            {
-                if (match.Factor == 0)
-                    continue; // skip matches with zero factor
-
-                // Add users (with optional filter) - skip NULL players for bye matches
-                if (match.FirstPlayer != null && (allowedUserIds == null || allowedUserIds.Contains(match.FirstPlayerId)))
-                {
-                    AddUser(activeUsers, match, match.FirstPlayer);
-                }
-                if (match.SecondPlayer != null && (allowedUserIds == null || allowedUserIds.Contains(match.SecondPlayerId)))
-                {
-                    AddUser(activeUsers, match, match.SecondPlayer);
-                }
-
-                eloStat.AddMatch(match);
-                
-                // Callback for additional processing (e.g., monthly snapshots)
-                onMatchProcessed?.Invoke(match, eloStat);
-            }
-
-            // Check promotions for all active users
-            foreach (var user in activeUsers)
-            {
-                eloStat.CheckPlayerPromotion(user, cutoffDate, isSgLeague);
-            }
+            
+            var (eloStat, activeUsers) = RatingCalculationHelper.CalculateRatings(
+                league.Matches,
+                cutoffDate,
+                swaOnly,
+                isSgLeague,
+                allowedUserIds,
+                onMatchProcessed);
 
             return (eloStat, activeUsers, isSgLeague);
         }
-
-        /// <summary>
-        /// Resets player transient state before rating calculation.
-        /// This is important when using cached data to ensure each calculation starts fresh.
-        /// </summary>
-        private static void ResetPlayerState(IEnumerable<Match> matches)
-            => RatingCalculationHelper.ResetPlayerState(matches);
 
         private int CompareByRatingAndName(ApplicationUser x, ApplicationUser y)
         {
