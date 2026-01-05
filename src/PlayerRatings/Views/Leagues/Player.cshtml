@@ -41,7 +41,7 @@
                     </div>
                 </div>
                 
-                @if (Model.TotalGames > 0)
+                @if (Model.TotalGames > 0 || Model.TotalTournaments > 0)
                 {
                 <!-- Statistics Section -->
                 <hr style="margin: 10px 0;" />
@@ -52,104 +52,96 @@
                 </div>
                 <div class="row" style="margin-top: 8px;">
                     <div class="col-sm-4">
-                        <div style="color: #666;">@LocString[nameof(LocalizationKey.Overall)]:</div>
-                        <div>
-                            <strong>@Model.TotalGames</strong> @LocString[nameof(LocalizationKey.Games)]
-                            <span style="color: #5cb85c; margin-left: 8px;">@Model.TotalWins W</span>
-                            <span style="color: #d9534f; margin-left: 4px;">@Model.TotalLosses L</span>
-                            <span style="margin-left: 8px; font-weight: bold;">(@Model.OverallWinRate.ToString("F1")%)</span>
-                        </div>
-                    </div>
-                    @if (Model.CurrentYearGames > 0)
-                    {
-                    <div class="col-sm-4">
-                        <div style="color: #666;">@LocString[nameof(LocalizationKey.ThisYear)] (@DateTime.Now.Year):</div>
-                        <div>
-                            <strong>@Model.CurrentYearGames</strong> @LocString[nameof(LocalizationKey.Games)]
-                            <span style="color: #5cb85c; margin-left: 8px;">@Model.CurrentYearWins W</span>
-                            <span style="color: #d9534f; margin-left: 4px;">@Model.CurrentYearLosses L</span>
-                            <span style="margin-left: 8px; font-weight: bold;">(@Model.CurrentYearWinRate.ToString("F1")%)</span>
-                        </div>
-                        @if (Model.CurrentYearChampionshipCount > 0 || Model.CurrentYearTeamChampionshipCount > 0 || Model.CurrentYearFemaleChampionshipCount > 0)
+                        <div style="color: #666; margin-bottom: 4px;">@LocString[nameof(LocalizationKey.Overall)]:</div>
+                        @if (Model.TotalTournaments > 0)
                         {
-                            <div style="margin-top: 4px;">
-                                @if (Model.CurrentYearChampionshipCount > 0)
-                                {
-                                    <span style="color: #f0ad4e;">🏆</span>
-                                    <strong style="color: #f0ad4e;">@Model.CurrentYearChampionshipCount</strong>
-                                }
-                                @if (Model.CurrentYearTeamChampionshipCount > 0)
-                                {
-                                    <span style="margin-left: 6px; color: #337ab7;">🏅</span>
-                                    <strong style="color: #337ab7;">@Model.CurrentYearTeamChampionshipCount</strong>
-                                }
-                                @if (Model.CurrentYearFemaleChampionshipCount > 0)
-                                {
-                                    <span style="margin-left: 6px; color: #d63384;">👑</span>
-                                    <strong style="color: #d63384;">@Model.CurrentYearFemaleChampionshipCount</strong>
-                                }
+                            <div><strong>@Model.TotalTournaments</strong> @LocString[nameof(LocalizationKey.Tournaments)]</div>
+                        }
+                        @if (Model.TotalGames > 0)
+                        {
+                            <div>
+                                <strong>@Model.TotalGames</strong> @LocString[nameof(LocalizationKey.Games)]
+                                <span style="color: #5cb85c; margin-left: 8px;">@Model.TotalWins W</span>
+                                <span style="color: #d9534f; margin-left: 4px;">@Model.TotalLosses L</span>
+                                <span style="margin-left: 8px; font-weight: bold;">(@Model.OverallWinRate.ToString("F1")%)</span>
                             </div>
                         }
-                    </div>
-                    }
-                    @if (Model.LastYearGames > 0)
-                    {
-                    <div class="col-sm-4">
-                        <div style="color: #666;">@LocString[nameof(LocalizationKey.LastYear)] (@(DateTime.Now.Year - 1)):</div>
-                        <div>
-                            <strong>@Model.LastYearGames</strong> @LocString[nameof(LocalizationKey.Games)]
-                            <span style="color: #5cb85c; margin-left: 8px;">@Model.LastYearWins W</span>
-                            <span style="color: #d9534f; margin-left: 4px;">@Model.LastYearLosses L</span>
-                            <span style="margin-left: 8px; font-weight: bold;">(@Model.LastYearWinRate.ToString("F1")%)</span>
-                        </div>
-                        @if (Model.LastYearChampionshipCount > 0 || Model.LastYearTeamChampionshipCount > 0 || Model.LastYearFemaleChampionshipCount > 0)
-                        {
-                            <div style="margin-top: 4px;">
-                                @if (Model.LastYearChampionshipCount > 0)
-                                {
-                                    <span style="color: #f0ad4e;">🏆</span>
-                                    <strong style="color: #f0ad4e;">@Model.LastYearChampionshipCount</strong>
-                                }
-                                @if (Model.LastYearTeamChampionshipCount > 0)
-                                {
-                                    <span style="margin-left: 6px; color: #337ab7;">🏅</span>
-                                    <strong style="color: #337ab7;">@Model.LastYearTeamChampionshipCount</strong>
-                                }
-                                @if (Model.LastYearFemaleChampionshipCount > 0)
-                                {
-                                    <span style="margin-left: 6px; color: #d63384;">👑</span>
-                                    <strong style="color: #d63384;">@Model.LastYearFemaleChampionshipCount</strong>
-                                }
-                            </div>
-                        }
-                    </div>
-                    }
-                </div>
-                @if (Model.ChampionshipCount > 0 || Model.TeamChampionshipCount > 0 || Model.FemaleChampionshipCount > 0)
-                {
-                <div class="row" style="margin-top: 8px;">
-                    <div class="col-xs-12">
                         @if (Model.ChampionshipCount > 0)
                         {
-                            <span style="color: #f0ad4e;">🏆</span>
-                            <strong style="color: #f0ad4e;">@Model.ChampionshipCount</strong>
-                            <span style="color: #666;">@(Model.ChampionshipCount == 1 ? "Championship" : "Championships")</span>
+                            <div><span style="color: #f0ad4e;">🏆</span> <strong style="color: #f0ad4e;">@Model.ChampionshipCount</strong> <span style="color: #666;">@(Model.ChampionshipCount == 1 ? "Champion" : "Champions")</span></div>
                         }
                         @if (Model.TeamChampionshipCount > 0)
                         {
-                            <span style="margin-left: 10px; color: #337ab7;">🏅</span>
-                            <strong style="color: #337ab7;">@Model.TeamChampionshipCount</strong>
-                            <span style="color: #666;">Team @(Model.TeamChampionshipCount == 1 ? "Champion" : "Champions")</span>
+                            <div><span style="color: #337ab7;">🏅</span> <strong style="color: #337ab7;">@Model.TeamChampionshipCount</strong> <span style="color: #666;">Team @(Model.TeamChampionshipCount == 1 ? "Champion" : "Champions")</span></div>
                         }
                         @if (Model.FemaleChampionshipCount > 0)
                         {
-                            <span style="margin-left: 10px; color: #d63384;">👑</span>
-                            <strong style="color: #d63384;">@Model.FemaleChampionshipCount</strong>
-                            <span style="color: #666;">Female @(Model.FemaleChampionshipCount == 1 ? "Champion" : "Champions")</span>
+                            <div><span style="color: #d63384;">👑</span> <strong style="color: #d63384;">@Model.FemaleChampionshipCount</strong> <span style="color: #666;">Female @(Model.FemaleChampionshipCount == 1 ? "Champion" : "Champions")</span></div>
                         }
                     </div>
+                    @if (Model.CurrentYearGames > 0 || Model.CurrentYearTournaments > 0)
+                    {
+                    <div class="col-sm-4">
+                        <div style="color: #666; margin-bottom: 4px;">@LocString[nameof(LocalizationKey.ThisYear)] (@DateTime.Now.Year):</div>
+                        @if (Model.CurrentYearTournaments > 0)
+                        {
+                            <div><strong>@Model.CurrentYearTournaments</strong> @LocString[nameof(LocalizationKey.Tournaments)]</div>
+                        }
+                        @if (Model.CurrentYearGames > 0)
+                        {
+                            <div>
+                                <strong>@Model.CurrentYearGames</strong> @LocString[nameof(LocalizationKey.Games)]
+                                <span style="color: #5cb85c; margin-left: 8px;">@Model.CurrentYearWins W</span>
+                                <span style="color: #d9534f; margin-left: 4px;">@Model.CurrentYearLosses L</span>
+                                <span style="margin-left: 8px; font-weight: bold;">(@Model.CurrentYearWinRate.ToString("F1")%)</span>
+                            </div>
+                        }
+                        @if (Model.CurrentYearChampionships > 0)
+                        {
+                            <div><span style="color: #f0ad4e;">🏆</span> <strong style="color: #f0ad4e;">@Model.CurrentYearChampionships</strong> <span style="color: #666;">@(Model.CurrentYearChampionships == 1 ? "Champion" : "Champions")</span></div>
+                        }
+                        @if (Model.CurrentYearTeamChampionships > 0)
+                        {
+                            <div><span style="color: #337ab7;">🏅</span> <strong style="color: #337ab7;">@Model.CurrentYearTeamChampionships</strong> <span style="color: #666;">Team @(Model.CurrentYearTeamChampionships == 1 ? "Champion" : "Champions")</span></div>
+                        }
+                        @if (Model.CurrentYearFemaleChampionships > 0)
+                        {
+                            <div><span style="color: #d63384;">👑</span> <strong style="color: #d63384;">@Model.CurrentYearFemaleChampionships</strong> <span style="color: #666;">Female @(Model.CurrentYearFemaleChampionships == 1 ? "Champion" : "Champions")</span></div>
+                        }
+                    </div>
+                    }
+                    @if (Model.LastYearGames > 0 || Model.LastYearTournaments > 0)
+                    {
+                    <div class="col-sm-4">
+                        <div style="color: #666; margin-bottom: 4px;">@LocString[nameof(LocalizationKey.LastYear)] (@(DateTime.Now.Year - 1)):</div>
+                        @if (Model.LastYearTournaments > 0)
+                        {
+                            <div><strong>@Model.LastYearTournaments</strong> @LocString[nameof(LocalizationKey.Tournaments)]</div>
+                        }
+                        @if (Model.LastYearGames > 0)
+                        {
+                            <div>
+                                <strong>@Model.LastYearGames</strong> @LocString[nameof(LocalizationKey.Games)]
+                                <span style="color: #5cb85c; margin-left: 8px;">@Model.LastYearWins W</span>
+                                <span style="color: #d9534f; margin-left: 4px;">@Model.LastYearLosses L</span>
+                                <span style="margin-left: 8px; font-weight: bold;">(@Model.LastYearWinRate.ToString("F1")%)</span>
+                            </div>
+                        }
+                        @if (Model.LastYearChampionships > 0)
+                        {
+                            <div><span style="color: #f0ad4e;">🏆</span> <strong style="color: #f0ad4e;">@Model.LastYearChampionships</strong> <span style="color: #666;">@(Model.LastYearChampionships == 1 ? "Champion" : "Champions")</span></div>
+                        }
+                        @if (Model.LastYearTeamChampionships > 0)
+                        {
+                            <div><span style="color: #337ab7;">🏅</span> <strong style="color: #337ab7;">@Model.LastYearTeamChampionships</strong> <span style="color: #666;">Team @(Model.LastYearTeamChampionships == 1 ? "Champion" : "Champions")</span></div>
+                        }
+                        @if (Model.LastYearFemaleChampionships > 0)
+                        {
+                            <div><span style="color: #d63384;">👑</span> <strong style="color: #d63384;">@Model.LastYearFemaleChampionships</strong> <span style="color: #666;">Female @(Model.LastYearFemaleChampionships == 1 ? "Champion" : "Champions")</span></div>
+                        }
+                    </div>
+                    }
                 </div>
-                }
                 }
                 
                 <!-- Edit Player Info Form (collapsed by default) -->
@@ -376,6 +368,11 @@
 </div>
 
 @{
+    // Build a lookup of tournaments without matches by month (for display in Monthly Rating History)
+    var tournamentsWithoutMatchesByMonth = Model.TournamentParticipations
+        .Where(t => !t.HasMatches)
+        .GroupBy(t => new DateTime(t.StartDate.Year, t.StartDate.Month, 1).AddMonths(1).AddSeconds(-1).ToString("MMM yyyy"))
+        .ToDictionary(g => g.Key, g => g.ToList());
 
     // Build ranking labels for each month - show ranking when it changes
     // Use playerRankings from Rankings table directly
@@ -549,8 +546,9 @@
             @foreach (var item in Model.MonthlyRatings.OrderByDescending(r => r.Month))
             {
                 var hasRankings = monthRankingLabels.TryGetValue(item.MonthDisplay, out var rankingList);
-                // Only show rows with matches, ranking changes, or promotion bonuses
-                if (item.MatchesInMonth == 0 && !hasRankings && !item.HasPromotionBonus)
+                var hasTournamentsWithoutMatches = tournamentsWithoutMatchesByMonth.TryGetValue(item.MonthDisplay, out var noMatchTournaments);
+                // Only show rows with matches, ranking changes, promotion bonuses, or tournaments without matches
+                if (item.MatchesInMonth == 0 && !hasRankings && !item.HasPromotionBonus && !hasTournamentsWithoutMatches)
                 {
                     continue;
                 }
@@ -560,7 +558,7 @@
                     <td>@if (showPosition) { <span>@item.Position<span style="color: #999; font-size: 0.85em;">/@item.TotalPlayers</span></span> } else { <span>-</span> }</td>
                     <td>@item.RatingDisplay</td>
                     <td>
-                        @if (item.Matches.Any())
+                        @if (item.Matches.Any() || (hasTournamentsWithoutMatches && noMatchTournaments.Any()))
                         {
                             @foreach (var match in item.Matches)
                             {
@@ -586,6 +584,28 @@
                                         @match.MatchName
                                     }
                                 </div>
+                            }
+                            @* Show tournaments without match records *@
+                            @if (hasTournamentsWithoutMatches)
+                            {
+                                @foreach (var tp in noMatchTournaments)
+                                {
+                                    <div style="font-size: 0.85em; color: #888; font-style: italic;">
+                                        <a asp-controller="Tournaments" asp-action="Details" asp-route-id="@tp.TournamentId" style="color: #888;">@tp.TournamentName</a>
+                                        @if (tp.Position.HasValue)
+                                        {
+                                            <span style="color: #f0ad4e; margin-left: 4px;">No. @tp.Position</span>
+                                        }
+                                        @if (tp.FemalePosition.HasValue)
+                                        {
+                                            <span style="color: #d63384; margin-left: 4px;">Female No. @tp.FemalePosition</span>
+                                        }
+                                        @if (tp.TeamPosition.HasValue)
+                                        {
+                                            <span style="color: #337ab7; margin-left: 4px;">Team No. @tp.TeamPosition</span>
+                                        }
+                                    </div>
+                                }
                             }
                         }
                         else
@@ -682,8 +702,18 @@
                     })
                     .ToList();
                 
+                // Get tournaments without matches that are before the first rated month
+                var preEntryTournamentIds = new HashSet<Guid>(preEntryMatches.Where(m => m.TournamentId.HasValue).Select(m => m.TournamentId.Value));
+                var preEntryTournamentsWithoutMatches = Model.TournamentParticipations
+                    .Where(t => !t.HasMatches && 
+                           (t.StartDate.Year < firstRatedMonth.Year || 
+                            (t.StartDate.Year == firstRatedMonth.Year && t.StartDate.Month < firstRatedMonth.Month)) &&
+                           !preEntryTournamentIds.Contains(t.TournamentId))
+                    .OrderByDescending(t => t.StartDate)
+                    .ToList();
+                
                 // Only show Pre-entry row if there's something meaningful to display
-                var showPreEntry = earlyRankings.Any() || preEntryMatches.Any() || preEntryRating != null;
+                var showPreEntry = earlyRankings.Any() || preEntryMatches.Any() || preEntryTournamentsWithoutMatches.Any() || preEntryRating != null;
             }
             @if (showPreEntry)
             {
@@ -692,7 +722,7 @@
                     <td>-</td>
                     <td>@(preEntryRating ?? "-")</td>
                     <td>
-                        @if (preEntryMatches.Any())
+                        @if (preEntryMatches.Any() || preEntryTournamentsWithoutMatches.Any())
                         {
                             @foreach (var match in preEntryMatches)
                             {
@@ -723,6 +753,25 @@
                                     else if (!string.IsNullOrEmpty(match.MatchName))
                                     {
                                         @match.MatchName
+                                    }
+                                </div>
+                            }
+                            @* Show tournaments without match records *@
+                            @foreach (var tp in preEntryTournamentsWithoutMatches)
+                            {
+                                <div style="font-size: 0.85em; color: #888; font-style: italic;">
+                                    <a asp-controller="Tournaments" asp-action="Details" asp-route-id="@tp.TournamentId" style="color: #888;">@tp.TournamentName</a>
+                                    @if (tp.Position.HasValue)
+                                    {
+                                        <span style="color: #f0ad4e; margin-left: 4px;">No. @tp.Position</span>
+                                    }
+                                    @if (tp.FemalePosition.HasValue)
+                                    {
+                                        <span style="color: #d63384; margin-left: 4px;">Female No. @tp.FemalePosition</span>
+                                    }
+                                    @if (tp.TeamPosition.HasValue)
+                                    {
+                                        <span style="color: #337ab7; margin-left: 4px;">Team No. @tp.TeamPosition</span>
                                     }
                                 </div>
                             }

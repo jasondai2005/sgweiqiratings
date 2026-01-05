@@ -44,7 +44,13 @@ namespace PlayerRatings.ViewModels.Player
         /// </summary>
         public List<TournamentOption> TournamentOptions { get; set; } = new List<TournamentOption>();
         
-        // ===== Statistics computed from GameRecords =====
+        /// <summary>
+        /// All tournaments the player has participated in (from TournamentPlayer entries).
+        /// Includes tournaments where matches may not be recorded.
+        /// </summary>
+        public List<TournamentParticipation> TournamentParticipations { get; set; } = new List<TournamentParticipation>();
+        
+        // ===== Statistics computed from TournamentParticipations (more accurate than GameRecords) =====
         
         /// <summary>
         /// Total number of games played (all time).
@@ -174,6 +180,86 @@ namespace PlayerRatings.ViewModels.Player
         /// Number of female championships (FemalePosition = 1).
         /// </summary>
         public int FemaleChampionshipCount { get; set; }
+        
+        // ===== Tournament count statistics (from TournamentParticipations) =====
+        
+        /// <summary>
+        /// Total number of tournaments participated in (all time).
+        /// </summary>
+        public int TotalTournaments => TournamentParticipations?.Count ?? 0;
+        
+        /// <summary>
+        /// Tournaments participated in the current calendar year.
+        /// </summary>
+        public int CurrentYearTournaments => TournamentParticipations?.Count(t => t.StartDate.Year == DateTime.Now.Year) ?? 0;
+        
+        /// <summary>
+        /// Tournaments participated in the previous calendar year.
+        /// </summary>
+        public int LastYearTournaments => TournamentParticipations?.Count(t => t.StartDate.Year == DateTime.Now.Year - 1) ?? 0;
+        
+        // Override championship counts to use TournamentParticipations for more accuracy
+        // (includes tournaments where matches are not recorded)
+        
+        /// <summary>
+        /// Championships in the current calendar year (from TournamentParticipations).
+        /// </summary>
+        public int CurrentYearChampionships => TournamentParticipations?
+            .Where(t => t.StartDate.Year == DateTime.Now.Year && t.Position == 1)
+            .Count() ?? 0;
+        
+        /// <summary>
+        /// Team championships in the current calendar year (from TournamentParticipations).
+        /// </summary>
+        public int CurrentYearTeamChampionships => TournamentParticipations?
+            .Where(t => t.StartDate.Year == DateTime.Now.Year && t.TeamPosition == 1)
+            .Count() ?? 0;
+        
+        /// <summary>
+        /// Female championships in the current calendar year (from TournamentParticipations).
+        /// </summary>
+        public int CurrentYearFemaleChampionships => TournamentParticipations?
+            .Where(t => t.StartDate.Year == DateTime.Now.Year && t.FemalePosition == 1)
+            .Count() ?? 0;
+        
+        /// <summary>
+        /// Championships in the previous calendar year (from TournamentParticipations).
+        /// </summary>
+        public int LastYearChampionships => TournamentParticipations?
+            .Where(t => t.StartDate.Year == DateTime.Now.Year - 1 && t.Position == 1)
+            .Count() ?? 0;
+        
+        /// <summary>
+        /// Team championships in the previous calendar year (from TournamentParticipations).
+        /// </summary>
+        public int LastYearTeamChampionships => TournamentParticipations?
+            .Where(t => t.StartDate.Year == DateTime.Now.Year - 1 && t.TeamPosition == 1)
+            .Count() ?? 0;
+        
+        /// <summary>
+        /// Female championships in the previous calendar year (from TournamentParticipations).
+        /// </summary>
+        public int LastYearFemaleChampionships => TournamentParticipations?
+            .Where(t => t.StartDate.Year == DateTime.Now.Year - 1 && t.FemalePosition == 1)
+            .Count() ?? 0;
+    }
+    
+    /// <summary>
+    /// Tournament participation info (from TournamentPlayer entries)
+    /// </summary>
+    public class TournamentParticipation
+    {
+        public Guid TournamentId { get; set; }
+        public string TournamentName { get; set; }
+        public DateTimeOffset StartDate { get; set; }
+        public int? Position { get; set; }
+        public int? FemalePosition { get; set; }
+        public int? TeamPosition { get; set; }
+        
+        /// <summary>
+        /// Whether this tournament has match records for the player.
+        /// </summary>
+        public bool HasMatches { get; set; }
     }
 
     public class MonthlyRating

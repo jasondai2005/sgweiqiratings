@@ -712,6 +712,22 @@ namespace PlayerRatings.Controllers
                         Name = t.FullName
                     })
                     .ToListAsync();
+                
+                // Load tournament participations even for players with no matches
+                var emptyTournamentParticipations = await _context.TournamentPlayers
+                    .Where(tp => tp.PlayerId == playerId && tp.Tournament.StartDate.HasValue)
+                    .Include(tp => tp.Tournament)
+                    .Select(tp => new ViewModels.Player.TournamentParticipation
+                    {
+                        TournamentId = tp.TournamentId,
+                        TournamentName = tp.Tournament.FullName,
+                        StartDate = tp.Tournament.StartDate.Value,
+                        Position = tp.Position,
+                        FemalePosition = tp.FemalePosition,
+                        TeamPosition = tp.TeamPosition,
+                        HasMatches = false
+                    })
+                    .ToListAsync();
                     
                 return View(new PlayerRatingHistoryViewModel
                 {
@@ -720,7 +736,11 @@ namespace PlayerRatings.Controllers
                     MonthlyRatings = new List<MonthlyRating>(),
                     SwaOnly = swaOnly,
                     GameRecords = new List<GameRecord>(),
-                    TournamentOptions = emptyTournamentOptions
+                    TournamentOptions = emptyTournamentOptions,
+                    TournamentParticipations = emptyTournamentParticipations,
+                    ChampionshipCount = emptyTournamentParticipations.Count(tp => tp.Position == 1),
+                    TeamChampionshipCount = emptyTournamentParticipations.Count(tp => tp.TeamPosition == 1),
+                    FemaleChampionshipCount = emptyTournamentParticipations.Count(tp => tp.FemalePosition == 1)
                 });
             }
 
@@ -1057,20 +1077,39 @@ namespace PlayerRatings.Controllers
                 })
                 .ToListAsync();
 
+            // Load all tournament participations (including those without match records)
+            var tournamentIdsWithMatches = new HashSet<Guid>(
+                gameRecords.Where(g => g.TournamentId.HasValue).Select(g => g.TournamentId.Value));
+            
+            var tournamentParticipations = await _context.TournamentPlayers
+                .Where(tp => tp.PlayerId == playerId && tp.Tournament.StartDate.HasValue)
+                .Include(tp => tp.Tournament)
+                .Select(tp => new ViewModels.Player.TournamentParticipation
+                {
+                    TournamentId = tp.TournamentId,
+                    TournamentName = tp.Tournament.FullName,
+                    StartDate = tp.Tournament.StartDate.Value,
+                    Position = tp.Position,
+                    FemalePosition = tp.FemalePosition,
+                    TeamPosition = tp.TeamPosition,
+                    HasMatches = false // Will be set after query
+                })
+                .ToListAsync();
+            
+            // Mark which tournaments have matches
+            foreach (var tp in tournamentParticipations)
+            {
+                tp.HasMatches = tournamentIdsWithMatches.Contains(tp.TournamentId);
+            }
+
             // Count championships (tournaments where player has Position = 1)
-            var championshipCount = await _context.TournamentPlayers
-                .Where(tp => tp.PlayerId == playerId && tp.Position == 1)
-                .CountAsync();
+            var championshipCount = tournamentParticipations.Count(tp => tp.Position == 1);
             
             // Count team championships (tournaments where player has TeamPosition = 1)
-            var teamChampionshipCount = await _context.TournamentPlayers
-                .Where(tp => tp.PlayerId == playerId && tp.TeamPosition == 1)
-                .CountAsync();
+            var teamChampionshipCount = tournamentParticipations.Count(tp => tp.TeamPosition == 1);
             
             // Count female championships (tournaments where player has FemalePosition = 1)
-            var femaleChampionshipCount = await _context.TournamentPlayers
-                .Where(tp => tp.PlayerId == playerId && tp.FemalePosition == 1)
-                .CountAsync();
+            var femaleChampionshipCount = tournamentParticipations.Count(tp => tp.FemalePosition == 1);
 
             return View(new PlayerRatingHistoryViewModel
             {
@@ -1085,6 +1124,7 @@ namespace PlayerRatings.Controllers
                 PreviousPlayerId = previousPlayerId,
                 NextPlayerId = nextPlayerId,
                 TournamentOptions = tournamentOptions,
+                TournamentParticipations = tournamentParticipations,
                 ChampionshipCount = championshipCount,
                 TeamChampionshipCount = teamChampionshipCount,
                 FemaleChampionshipCount = femaleChampionshipCount
