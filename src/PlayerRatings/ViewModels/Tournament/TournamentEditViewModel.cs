@@ -88,8 +88,11 @@ namespace PlayerRatings.ViewModels.Tournament
         /// </summary>
         public static readonly List<string> CommonTypes = new List<string>
         {
-            "Competition",
-            "Selection",
+            Models.Tournament.TypeCompetition,    // Competition
+            Models.Tournament.TypeSelection,      // Selection
+            Models.Tournament.TypeIntlSelection,  // Intl Selection - selected players only (achievement)
+            Models.Tournament.TypeIntlOpen,       // Intl Open - open to anyone
+            Models.Tournament.TypeTitle,          // Title - winner gets title for 1 year
             "Certification",
             "League",
             "Friendly"

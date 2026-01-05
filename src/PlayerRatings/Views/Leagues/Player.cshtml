@@ -2,6 +2,7 @@
 @using PlayerRatings.Models
 @using PlayerRatings.ViewModels.Player
 @model PlayerRatings.ViewModels.Player.PlayerRatingHistoryViewModel
+@inject ILanguageData LanguageData
 
 @{
     ViewData["Title"] = Model.Player.DisplayName;
@@ -37,6 +38,26 @@
                         @if (Model.Position > 0)
                         {
                         <p style="margin-bottom: 5px;"><strong>@LocString[nameof(LocalizationKey.Position)]:</strong> @Model.PositionDisplay <span style="color: #666; font-size: 0.9em;">/ @Model.TotalPlayers</span></p>
+                        }
+                        @if (Model.ActiveTitles.Any())
+                        {
+                        <p style="margin-bottom: 5px;"><strong style="color: #8b0000;">@LocString[nameof(LocalizationKey.Title)]:</strong>
+                            @foreach (var title in Model.ActiveTitles)
+                            {
+                                <span style="color: #8b0000; font-weight: bold;">@title.GetLocalizedTitle(LanguageData.CurrentLanguage)</span>
+                                <span style="color: #666; font-size: 0.85em;">(@title.WonDate.ToString("yyyy"))</span>
+                            }
+                        </p>
+                        }
+                        @if (Model.FormerTitles.Any())
+                        {
+                        <p style="margin-bottom: 5px;"><strong style="color: #666;">@LocString[nameof(LocalizationKey.FormerTitle)]:</strong>
+                            @foreach (var title in Model.FormerTitles)
+                            {
+                                <span style="color: #666;">@title.GetLocalizedTitle(LanguageData.CurrentLanguage)</span>
+                                <span style="font-size: 0.85em;">(@title.WonDate.ToString("yyyy"))</span>
+                            }
+                        </p>
                         }
                     </div>
                 </div>
@@ -78,6 +99,10 @@
                         {
                             <div><span style="color: #d63384;">👑</span> <strong style="color: #d63384;">@Model.FemaleChampionshipCount</strong> <span style="color: #666;">Female @(Model.FemaleChampionshipCount == 1 ? "Champion" : "Champions")</span></div>
                         }
+                        @if (Model.IntlSelectionCount > 0)
+                        {
+                            <div><span style="color: #9932cc;">🌍</span> <strong style="color: #9932cc;">@Model.IntlSelectionCount</strong> <span style="color: #666;">Selected to Intl @(Model.IntlSelectionCount == 1 ? "Event" : "Events")</span></div>
+                        }
                     </div>
                     @if (Model.CurrentYearGames > 0 || Model.CurrentYearTournaments > 0)
                     {
@@ -107,6 +132,10 @@
                         @if (Model.CurrentYearFemaleChampionships > 0)
                         {
                             <div><span style="color: #d63384;">👑</span> <strong style="color: #d63384;">@Model.CurrentYearFemaleChampionships</strong> <span style="color: #666;">Female @(Model.CurrentYearFemaleChampionships == 1 ? "Champion" : "Champions")</span></div>
+                        }
+                        @if (Model.CurrentYearIntlSelectionCount > 0)
+                        {
+                            <div><span style="color: #9932cc;">🌍</span> <strong style="color: #9932cc;">@Model.CurrentYearIntlSelectionCount</strong> <span style="color: #666;">Selected to Intl @(Model.CurrentYearIntlSelectionCount == 1 ? "Event" : "Events")</span></div>
                         }
                     </div>
                     }
@@ -138,6 +167,10 @@
                         @if (Model.LastYearFemaleChampionships > 0)
                         {
                             <div><span style="color: #d63384;">👑</span> <strong style="color: #d63384;">@Model.LastYearFemaleChampionships</strong> <span style="color: #666;">Female @(Model.LastYearFemaleChampionships == 1 ? "Champion" : "Champions")</span></div>
+                        }
+                        @if (Model.LastYearIntlSelectionCount > 0)
+                        {
+                            <div><span style="color: #9932cc;">🌍</span> <strong style="color: #9932cc;">@Model.LastYearIntlSelectionCount</strong> <span style="color: #666;">Selected to Intl @(Model.LastYearIntlSelectionCount == 1 ? "Event" : "Events")</span></div>
                         }
                     </div>
                     }

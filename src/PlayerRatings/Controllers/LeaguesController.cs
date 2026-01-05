@@ -725,9 +725,39 @@ namespace PlayerRatings.Controllers
                         Position = tp.Position,
                         FemalePosition = tp.FemalePosition,
                         TeamPosition = tp.TeamPosition,
-                        HasMatches = false
+                        HasMatches = false,
+                        IsIntlSelection = tp.Tournament.TournamentType == Tournament.TypeIntlSelection,
+                        IsTitle = tp.Tournament.TournamentType == Tournament.TypeTitle,
+                        TitleEn = tp.Tournament.TournamentType == Tournament.TypeTitle ? tp.Tournament.TitleEn : null,
+                        TitleCn = tp.Tournament.TournamentType == Tournament.TypeTitle ? tp.Tournament.TitleCn : null
                     })
                     .ToListAsync();
+                
+                // Build title lists for empty player
+                var emptyOneYearAgo = DateTimeOffset.Now.AddYears(-1);
+                var emptyActiveTitles = emptyTournamentParticipations
+                    .Where(tp => tp.IsTitle && tp.Position == 1 && !string.IsNullOrEmpty(tp.TitleEn) && tp.StartDate > emptyOneYearAgo)
+                    .OrderByDescending(tp => tp.StartDate)
+                    .Select(tp => new ViewModels.Player.TitleInfo
+                    {
+                        TitleEn = tp.TitleEn,
+                        TitleCn = tp.TitleCn,
+                        WonDate = tp.StartDate,
+                        TournamentName = tp.TournamentName
+                    })
+                    .ToList();
+                
+                var emptyFormerTitles = emptyTournamentParticipations
+                    .Where(tp => tp.IsTitle && tp.Position == 1 && !string.IsNullOrEmpty(tp.TitleEn) && tp.StartDate <= emptyOneYearAgo)
+                    .OrderByDescending(tp => tp.StartDate)
+                    .Select(tp => new ViewModels.Player.TitleInfo
+                    {
+                        TitleEn = tp.TitleEn,
+                        TitleCn = tp.TitleCn,
+                        WonDate = tp.StartDate,
+                        TournamentName = tp.TournamentName
+                    })
+                    .ToList();
                     
                 return View(new PlayerRatingHistoryViewModel
                 {
@@ -740,7 +770,10 @@ namespace PlayerRatings.Controllers
                     TournamentParticipations = emptyTournamentParticipations,
                     ChampionshipCount = emptyTournamentParticipations.Count(tp => tp.Position == 1),
                     TeamChampionshipCount = emptyTournamentParticipations.Count(tp => tp.TeamPosition == 1),
-                    FemaleChampionshipCount = emptyTournamentParticipations.Count(tp => tp.FemalePosition == 1)
+                    FemaleChampionshipCount = emptyTournamentParticipations.Count(tp => tp.FemalePosition == 1),
+                    ActiveTitles = emptyActiveTitles,
+                    FormerTitles = emptyFormerTitles,
+                    IntlSelectionCount = emptyTournamentParticipations.Count(tp => tp.IsIntlSelection)
                 });
             }
 
@@ -1092,7 +1125,11 @@ namespace PlayerRatings.Controllers
                     Position = tp.Position,
                     FemalePosition = tp.FemalePosition,
                     TeamPosition = tp.TeamPosition,
-                    HasMatches = false // Will be set after query
+                    HasMatches = false, // Will be set after query
+                    IsIntlSelection = tp.Tournament.TournamentType == Tournament.TypeIntlSelection,
+                    IsTitle = tp.Tournament.TournamentType == Tournament.TypeTitle,
+                    TitleEn = tp.Tournament.TournamentType == Tournament.TypeTitle ? tp.Tournament.TitleEn : null,
+                    TitleCn = tp.Tournament.TournamentType == Tournament.TypeTitle ? tp.Tournament.TitleCn : null
                 })
                 .ToListAsync();
             
@@ -1101,6 +1138,35 @@ namespace PlayerRatings.Controllers
             {
                 tp.HasMatches = tournamentIdsWithMatches.Contains(tp.TournamentId);
             }
+            
+            // Build title lists
+            var oneYearAgo = DateTimeOffset.Now.AddYears(-1);
+            var activeTitles = tournamentParticipations
+                .Where(tp => tp.IsTitle && tp.Position == 1 && !string.IsNullOrEmpty(tp.TitleEn) && tp.StartDate > oneYearAgo)
+                .OrderByDescending(tp => tp.StartDate)
+                .Select(tp => new ViewModels.Player.TitleInfo
+                {
+                    TitleEn = tp.TitleEn,
+                    TitleCn = tp.TitleCn,
+                    WonDate = tp.StartDate,
+                    TournamentName = tp.TournamentName
+                })
+                .ToList();
+            
+            var formerTitles = tournamentParticipations
+                .Where(tp => tp.IsTitle && tp.Position == 1 && !string.IsNullOrEmpty(tp.TitleEn) && tp.StartDate <= oneYearAgo)
+                .OrderByDescending(tp => tp.StartDate)
+                .Select(tp => new ViewModels.Player.TitleInfo
+                {
+                    TitleEn = tp.TitleEn,
+                    TitleCn = tp.TitleCn,
+                    WonDate = tp.StartDate,
+                    TournamentName = tp.TournamentName
+                })
+                .ToList();
+            
+            // Count international selections
+            var intlSelectionCount = tournamentParticipations.Count(tp => tp.IsIntlSelection);
 
             // Count championships (tournaments where player has Position = 1)
             var championshipCount = tournamentParticipations.Count(tp => tp.Position == 1);
@@ -1127,7 +1193,10 @@ namespace PlayerRatings.Controllers
                 TournamentParticipations = tournamentParticipations,
                 ChampionshipCount = championshipCount,
                 TeamChampionshipCount = teamChampionshipCount,
-                FemaleChampionshipCount = femaleChampionshipCount
+                FemaleChampionshipCount = femaleChampionshipCount,
+                ActiveTitles = activeTitles,
+                FormerTitles = formerTitles,
+                IntlSelectionCount = intlSelectionCount
             });
         }
 

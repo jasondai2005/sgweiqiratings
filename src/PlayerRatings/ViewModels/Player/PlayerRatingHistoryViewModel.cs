@@ -181,6 +181,35 @@ namespace PlayerRatings.ViewModels.Player
         /// </summary>
         public int FemaleChampionshipCount { get; set; }
         
+        // ===== Title statistics =====
+        
+        /// <summary>
+        /// Active titles (won within the last year).
+        /// </summary>
+        public List<TitleInfo> ActiveTitles { get; set; } = new List<TitleInfo>();
+        
+        /// <summary>
+        /// Former titles (won more than a year ago).
+        /// </summary>
+        public List<TitleInfo> FormerTitles { get; set; } = new List<TitleInfo>();
+        
+        /// <summary>
+        /// International selection tournament count (achievement).
+        /// </summary>
+        public int IntlSelectionCount { get; set; }
+        
+        /// <summary>
+        /// Current year international selection count.
+        /// </summary>
+        public int CurrentYearIntlSelectionCount => TournamentParticipations?
+            .Count(t => t.StartDate.Year == DateTime.Now.Year && t.IsIntlSelection) ?? 0;
+        
+        /// <summary>
+        /// Last year international selection count.
+        /// </summary>
+        public int LastYearIntlSelectionCount => TournamentParticipations?
+            .Count(t => t.StartDate.Year == DateTime.Now.Year - 1 && t.IsIntlSelection) ?? 0;
+        
         // ===== Tournament count statistics (from TournamentParticipations) =====
         
         /// <summary>
@@ -260,6 +289,54 @@ namespace PlayerRatings.ViewModels.Player
         /// Whether this tournament has match records for the player.
         /// </summary>
         public bool HasMatches { get; set; }
+        
+        /// <summary>
+        /// Whether this is an International Selection tournament (achievement).
+        /// </summary>
+        public bool IsIntlSelection { get; set; }
+        
+        /// <summary>
+        /// Whether this is a Title tournament.
+        /// </summary>
+        public bool IsTitle { get; set; }
+        
+        /// <summary>
+        /// Title in English (for Title tournaments only).
+        /// </summary>
+        public string TitleEn { get; set; }
+        
+        /// <summary>
+        /// Title in Chinese (for Title tournaments only).
+        /// </summary>
+        public string TitleCn { get; set; }
+    }
+    
+    /// <summary>
+    /// Title information for display.
+    /// </summary>
+    public class TitleInfo
+    {
+        public string TitleEn { get; set; }
+        public string TitleCn { get; set; }
+        public DateTimeOffset WonDate { get; set; }
+        public string TournamentName { get; set; }
+        
+        /// <summary>
+        /// Display format: "Title En 头衔中文" or just "Title En" if no Chinese title.
+        /// </summary>
+        public string Display => !string.IsNullOrEmpty(TitleCn) ? $"{TitleEn} {TitleCn}" : TitleEn;
+        
+        /// <summary>
+        /// Gets the title in the specified language.
+        /// </summary>
+        /// <param name="language">"en" for English, "cn" for Chinese</param>
+        /// <returns>Title in the specified language, falls back to English if Chinese not available</returns>
+        public string GetLocalizedTitle(string language)
+        {
+            if (language == "cn" && !string.IsNullOrEmpty(TitleCn))
+                return TitleCn;
+            return TitleEn;
+        }
     }
 
     public class MonthlyRating

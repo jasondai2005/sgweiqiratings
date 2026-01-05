@@ -12,6 +12,13 @@ namespace PlayerRatings.Models
     [Table("Tournament")]
     public class Tournament
     {
+        // Tournament type constants
+        public const string TypeCompetition = "Competition";
+        public const string TypeSelection = "Selection";
+        public const string TypeIntlSelection = "Intl Selection";  // International - selected players only (achievement)
+        public const string TypeIntlOpen = "Intl Open";            // International - open to anyone (not achievement)
+        public const string TypeTitle = "Title";                    // Title competition - winner gets title for 1 year
+        
         [Key]
         public Guid Id { get; set; }
 
@@ -138,11 +145,56 @@ namespace PlayerRatings.Models
                 if (!string.IsNullOrEmpty(Ordinal))
                     parts.Add(Ordinal);
                 parts.Add(Name);
-                if (!string.IsNullOrEmpty(Group))
+                // Don't include Group for Title tournaments since it stores the title info
+                if (!string.IsNullOrEmpty(Group) && !IsTitleTournament)
                     parts.Add(Group);
                 if (StartDate.HasValue)
                     parts.Add(StartDate.Value.ToString("MM/yyyy"));
                 return string.Join(" ", parts);
+            }
+        }
+        
+        /// <summary>
+        /// Whether this is a Title tournament where winner gets a title for 1 year.
+        /// </summary>
+        [NotMapped]
+        public bool IsTitleTournament => TournamentType == TypeTitle;
+        
+        /// <summary>
+        /// Whether this is an International Selection tournament (achievement).
+        /// </summary>
+        [NotMapped]
+        public bool IsIntlSelectionTournament => TournamentType == TypeIntlSelection;
+        
+        /// <summary>
+        /// Gets the English title from Group field (format: "En Title - 中文头衔").
+        /// Returns null if not a Title tournament or Group is not set.
+        /// </summary>
+        [NotMapped]
+        public string TitleEn
+        {
+            get
+            {
+                if (!IsTitleTournament || string.IsNullOrEmpty(Group))
+                    return null;
+                var parts = Group.Split('-');
+                return parts[0].Trim();
+            }
+        }
+        
+        /// <summary>
+        /// Gets the Chinese title from Group field (format: "En Title - 中文头衔").
+        /// Returns null if not a Title tournament or Group doesn't contain Chinese title.
+        /// </summary>
+        [NotMapped]
+        public string TitleCn
+        {
+            get
+            {
+                if (!IsTitleTournament || string.IsNullOrEmpty(Group))
+                    return null;
+                var parts = Group.Split('-');
+                return parts.Length > 1 ? parts[1].Trim() : null;
             }
         }
     }

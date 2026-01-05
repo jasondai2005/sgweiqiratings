@@ -471,6 +471,8 @@ namespace PlayerRatings.Localization
         public static readonly LocalizationKey PlayerDeleted = new LocalizationKey("Player and all related data deleted successfully.", "Игрок и все связанные данные успешно удалены.", "选手及所有相关数据已成功删除。");
         public static readonly LocalizationKey MatchesToDelete = new LocalizationKey("Matches to be deleted", "Матчи для удаления", "将被删除的对局");
         public static readonly LocalizationKey TournamentsAffected = new LocalizationKey("Tournaments affected", "Затронутые турниры", "受影响的赛事");
+        public static readonly LocalizationKey Title = new LocalizationKey("Title", "Титул", "头衔");
+        public static readonly LocalizationKey FormerTitle = new LocalizationKey("Former Title", "Бывший титул", "曾获头衔");
 
         private const string En = "en";
         private const string Cn = "cn";

@@ -33,6 +33,11 @@ namespace PlayerRatings.ViewModels.Tournament
         
         public string TournamentType { get; set; }
         
+        /// <summary>
+        /// Whether this is a Title tournament (Group field stores title info)
+        /// </summary>
+        public bool IsTitleTournament => TournamentType == Models.Tournament.TypeTitle;
+        
         public double? Factor { get; set; }
         
         /// <summary>

@@ -42,7 +42,7 @@
                     
                     @if (!string.IsNullOrEmpty(Model.Group))
                     {
-                        <dt>@LocString[nameof(LocalizationKey.Group)]</dt>
+                        <dt>@(Model.IsTitleTournament ? LocString[nameof(LocalizationKey.Title)] : LocString[nameof(LocalizationKey.Group)])</dt>
                         <dd>@Model.Group</dd>
                     }
                     
@@ -127,10 +127,12 @@
     </div>
 }
 
-@if (Model.SupportsPersonalAward && Model.Players.Any() && Model.MaxRounds > 0)
+@if (Model.SupportsPersonalAward && Model.Players.Any())
 {
     var hasAnyPromotion = Model.Players.Any(p => !string.IsNullOrEmpty(p.PromotionRanking));
     var hasFemaleAward = Model.SupportsFemaleAward && Model.Players.Any(p => p.IsFemale);
+    // Only show residence column for tournaments from 2023 onwards
+    var showResidence = Model.StartDate.HasValue && Model.StartDate.Value >= new DateTimeOffset(2023, 1, 1, 0, 0, 0, TimeSpan.Zero);
     // Build player index lookup (PlayerId -> sequential index)
     var playerIndex = new Dictionary<string, int>();
     var idx = 1;
@@ -177,7 +179,10 @@
                         {
                             <th style="width: 40px; text-align: center;" title="@LocString[nameof(LocalizationKey.Photo)]">📷</th>
                         }
-                        <th style="width: 80px;">@LocString[nameof(LocalizationKey.Residence)]</th>
+                        @if (showResidence)
+                        {
+                            <th style="width: 80px;">@LocString[nameof(LocalizationKey.Residence)]</th>
+                        }
                         @for (var r = 1; r <= Model.MaxRounds; r++)
                         {
                             <th style="width: 60px; text-align: center;">R@(r)</th>
@@ -236,7 +241,10 @@
                                     }
                                 </td>
                             }
-                            <td style="font-size: 0.9em;">@p.Residence</td>
+                            @if (showResidence)
+                            {
+                                <td style="font-size: 0.9em;">@p.Residence</td>
+                            }
                             @for (var r = 1; r <= Model.MaxRounds; r++)
                             {
                                 <td style="text-align: center;">

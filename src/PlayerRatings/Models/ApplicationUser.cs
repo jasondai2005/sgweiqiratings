@@ -35,6 +35,11 @@ namespace PlayerRatings.Models
         /// Navigation property to player's ranking history
         /// </summary>
         public virtual ICollection<PlayerRanking> Rankings { get; set; }
+        
+        /// <summary>
+        /// Navigation property to player's tournament participations
+        /// </summary>
+        public virtual ICollection<TournamentPlayer> TournamentPlayers { get; set; }
 
         /// <summary>
         /// Gets birth year as string
@@ -536,6 +541,91 @@ namespace PlayerRatings.Models
             {
                 var chnName = new string(DisplayName.Where(c => c >= 0x4E00 && c <= 0x9FA5)?.ToArray());
                 return string.IsNullOrEmpty(chnName) ? DisplayName : chnName;
+            }
+        }
+        
+        /// <summary>
+        /// Gets all titles won by this player from Title tournaments (Position = 1).
+        /// Returns list of (TitleEn, TitleCn, WonDate) tuples.
+        /// </summary>
+        public List<(string TitleEn, string TitleCn, DateTimeOffset WonDate)> GetTitles()
+        {
+            var titles = new List<(string TitleEn, string TitleCn, DateTimeOffset WonDate)>();
+            
+            if (TournamentPlayers == null)
+                return titles;
+            
+            foreach (var tp in TournamentPlayers)
+            {
+                if (tp.Position == 1 && tp.Tournament?.IsTitleTournament == true && tp.Tournament.StartDate.HasValue)
+                {
+                    var titleEn = tp.Tournament.TitleEn;
+                    var titleCn = tp.Tournament.TitleCn;
+                    if (!string.IsNullOrEmpty(titleEn))
+                    {
+                        titles.Add((titleEn, titleCn, tp.Tournament.StartDate.Value));
+                    }
+                }
+            }
+            
+            return titles.OrderByDescending(t => t.WonDate).ToList();
+        }
+        
+        /// <summary>
+        /// Gets active titles (won within the last year).
+        /// </summary>
+        public List<(string TitleEn, string TitleCn, DateTimeOffset WonDate)> ActiveTitles
+        {
+            get
+            {
+                var oneYearAgo = DateTimeOffset.Now.AddYears(-1);
+                return GetTitles().Where(t => t.WonDate > oneYearAgo).ToList();
+            }
+        }
+        
+        /// <summary>
+        /// Gets former titles (won more than a year ago).
+        /// </summary>
+        public List<(string TitleEn, string TitleCn, DateTimeOffset WonDate)> FormerTitles
+        {
+            get
+            {
+                var oneYearAgo = DateTimeOffset.Now.AddYears(-1);
+                return GetTitles().Where(t => t.WonDate <= oneYearAgo).ToList();
+            }
+        }
+        
+        /// <summary>
+        /// Gets the display name with active title suffix.
+        /// Format: "Display Name (Title En - 头衔中文)" or "Display Name (Title En)" if no Chinese title.
+        /// </summary>
+        public string DisplayNameWithTitle
+        {
+            get
+            {
+                var active = ActiveTitles;
+                if (!active.Any())
+                    return DisplayName;
+                
+                // Use the most recent active title
+                var title = active.First();
+                var titleDisplay = !string.IsNullOrEmpty(title.TitleCn) 
+                    ? $"{title.TitleEn} {title.TitleCn}"
+                    : title.TitleEn;
+                return $"{DisplayName} ({titleDisplay})";
+            }
+        }
+        
+        /// <summary>
+        /// Gets international selection tournament count (achievement).
+        /// </summary>
+        public int IntlSelectionCount
+        {
+            get
+            {
+                if (TournamentPlayers == null)
+                    return 0;
+                return TournamentPlayers.Count(tp => tp.Tournament?.IsIntlSelectionTournament == true);
             }
         }
 
