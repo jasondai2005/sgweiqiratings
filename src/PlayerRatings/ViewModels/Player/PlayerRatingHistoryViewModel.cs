@@ -53,19 +53,19 @@ namespace PlayerRatings.ViewModels.Player
         // ===== Statistics computed from TournamentParticipations (more accurate than GameRecords) =====
         
         /// <summary>
-        /// Total number of games played (all time).
+        /// Total number of games played (all time, excluding factor 0 games).
         /// </summary>
-        public int TotalGames => GameRecords?.Count ?? 0;
+        public int TotalGames => GameRecords?.Count(g => g.Factor != 0) ?? 0;
         
         /// <summary>
-        /// Total wins (all time).
+        /// Total wins (all time, excluding factor 0 games).
         /// </summary>
-        public int TotalWins => GameRecords?.Count(g => g.Result == "Win") ?? 0;
+        public int TotalWins => GameRecords?.Count(g => g.Factor != 0 && g.Result == "Win") ?? 0;
         
         /// <summary>
-        /// Total losses (all time).
+        /// Total losses (all time, excluding factor 0 games).
         /// </summary>
-        public int TotalLosses => GameRecords?.Count(g => g.Result == "Loss") ?? 0;
+        public int TotalLosses => GameRecords?.Count(g => g.Factor != 0 && g.Result == "Loss") ?? 0;
         
         /// <summary>
         /// Overall win rate as a percentage (0-100).
@@ -73,19 +73,19 @@ namespace PlayerRatings.ViewModels.Player
         public double OverallWinRate => TotalGames > 0 ? (double)TotalWins / TotalGames * 100 : 0;
         
         /// <summary>
-        /// Games played in the current calendar year.
+        /// Games played in the current calendar year (excluding factor 0 games).
         /// </summary>
-        public int CurrentYearGames => GameRecords?.Count(g => g.Date.Year == DateTime.Now.Year) ?? 0;
+        public int CurrentYearGames => GameRecords?.Count(g => g.Factor != 0 && g.Date.Year == DateTime.Now.Year) ?? 0;
         
         /// <summary>
-        /// Wins in the current calendar year.
+        /// Wins in the current calendar year (excluding factor 0 games).
         /// </summary>
-        public int CurrentYearWins => GameRecords?.Count(g => g.Date.Year == DateTime.Now.Year && g.Result == "Win") ?? 0;
+        public int CurrentYearWins => GameRecords?.Count(g => g.Factor != 0 && g.Date.Year == DateTime.Now.Year && g.Result == "Win") ?? 0;
         
         /// <summary>
-        /// Losses in the current calendar year.
+        /// Losses in the current calendar year (excluding factor 0 games).
         /// </summary>
-        public int CurrentYearLosses => GameRecords?.Count(g => g.Date.Year == DateTime.Now.Year && g.Result == "Loss") ?? 0;
+        public int CurrentYearLosses => GameRecords?.Count(g => g.Factor != 0 && g.Date.Year == DateTime.Now.Year && g.Result == "Loss") ?? 0;
         
         /// <summary>
         /// Win rate for the current calendar year as a percentage (0-100).
@@ -120,19 +120,19 @@ namespace PlayerRatings.ViewModels.Player
             .Count() ?? 0;
         
         /// <summary>
-        /// Games played in the previous calendar year.
+        /// Games played in the previous calendar year (excluding factor 0 games).
         /// </summary>
-        public int LastYearGames => GameRecords?.Count(g => g.Date.Year == DateTime.Now.Year - 1) ?? 0;
+        public int LastYearGames => GameRecords?.Count(g => g.Factor != 0 && g.Date.Year == DateTime.Now.Year - 1) ?? 0;
         
         /// <summary>
-        /// Wins in the previous calendar year.
+        /// Wins in the previous calendar year (excluding factor 0 games).
         /// </summary>
-        public int LastYearWins => GameRecords?.Count(g => g.Date.Year == DateTime.Now.Year - 1 && g.Result == "Win") ?? 0;
+        public int LastYearWins => GameRecords?.Count(g => g.Factor != 0 && g.Date.Year == DateTime.Now.Year - 1 && g.Result == "Win") ?? 0;
         
         /// <summary>
-        /// Losses in the previous calendar year.
+        /// Losses in the previous calendar year (excluding factor 0 games).
         /// </summary>
-        public int LastYearLosses => GameRecords?.Count(g => g.Date.Year == DateTime.Now.Year - 1 && g.Result == "Loss") ?? 0;
+        public int LastYearLosses => GameRecords?.Count(g => g.Factor != 0 && g.Date.Year == DateTime.Now.Year - 1 && g.Result == "Loss") ?? 0;
         
         /// <summary>
         /// Win rate for the previous calendar year as a percentage (0-100).

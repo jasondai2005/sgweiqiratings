@@ -31,14 +31,14 @@
             }
             <div class="@(string.IsNullOrEmpty(Model.Photo) ? "col-md-6" : "col-md-4")">
                 <dl>
-                    <dt>@LocString[nameof(LocalizationKey.TournamentName)]</dt>
-                    <dd>@Model.Name</dd>
-                    
                     @if (!string.IsNullOrEmpty(Model.Ordinal))
                     {
                         <dt>@LocString[nameof(LocalizationKey.Ordinal)]</dt>
                         <dd>@Model.Ordinal</dd>
                     }
+                    
+                    <dt>@LocString[nameof(LocalizationKey.TournamentName)]</dt>
+                    <dd>@Model.Name</dd>
                     
                     @if (!string.IsNullOrEmpty(Model.Group))
                     {

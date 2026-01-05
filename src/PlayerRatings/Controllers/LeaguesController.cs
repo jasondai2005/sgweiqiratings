@@ -1112,7 +1112,7 @@ namespace PlayerRatings.Controllers
 
             // Load all tournament participations (including those without match records)
             var tournamentIdsWithMatches = new HashSet<Guid>(
-                gameRecords.Where(g => g.TournamentId.HasValue).Select(g => g.TournamentId.Value));
+                gameRecords.Where(g => g.TournamentId.HasValue && g.Factor != 0).Select(g => g.TournamentId.Value));
             
             var tournamentParticipations = await _context.TournamentPlayers
                 .Where(tp => tp.PlayerId == playerId && tp.Tournament.StartDate.HasValue)

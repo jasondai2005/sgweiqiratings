@@ -7,7 +7,7 @@
 }
 
 <div class="form-horizontal">
-    <h2>@LocString[nameof(LocalizationKey.Tournament)]: @Model.Name</h2>
+    <h2>@LocString[nameof(LocalizationKey.Tournament)]: @(string.IsNullOrEmpty(Model.Ordinal) ? Model.Name : $"{Model.Ordinal} {Model.Name}")</h2>
     <h5 class="text-muted">@Model.LeagueName</h5>
     <hr />
     
@@ -34,6 +34,13 @@
                 <div class="panel-heading">@LocString[nameof(LocalizationKey.TournamentInformation)]</div>
                 <div class="panel-body">
                     <div class="form-group">
+                        <label asp-for="Ordinal" class="col-sm-3 control-label">@LocString[nameof(LocalizationKey.Ordinal)]</label>
+                        <div class="col-sm-9">
+                            <input asp-for="Ordinal" class="form-control" placeholder="e.g., 4th or 2026" />
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
                         <label asp-for="Name" class="col-sm-3 control-label">@LocString[nameof(LocalizationKey.TournamentName)]</label>
                         <div class="col-sm-9">
                             <input asp-for="Name" class="form-control" />
@@ -42,14 +49,7 @@
                     </div>
                     
                     <div class="form-group">
-                        <label asp-for="Ordinal" class="col-sm-3 control-label">@LocString[nameof(LocalizationKey.Ordinal)]</label>
-                        <div class="col-sm-9">
-                            <input asp-for="Ordinal" class="form-control" placeholder="e.g., 4th or 2026" />
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label asp-for="Group" class="col-sm-3 control-label" id="groupLabel">@LocString[nameof(LocalizationKey.Group)]</label>
+                        <label asp-for="Group" class="col-sm-3 control-label">@LocString[nameof(LocalizationKey.Group)] / @LocString[nameof(LocalizationKey.Title)]</label>
                         <div class="col-sm-9">
                             <input asp-for="Group" class="form-control" id="groupInput" />
                             <span class="help-block" id="groupHelp" style="display: none;">Format: English Title - 中文头衔</span>
@@ -326,29 +326,22 @@
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
     <script>
         $(function() {
-            var titleLabel = '@LocString[nameof(LocalizationKey.Title)]';
-            var groupLabel = '@LocString[nameof(LocalizationKey.Group)]';
-            var titlePlaceholder = 'e.g., SG Qiwan - 新加坡棋王';
-            var groupPlaceholder = '';
-            
-            function updateGroupLabel() {
+            function updateGroupHelp() {
                 var selectedType = $('#TournamentType').val();
                 if (selectedType === 'Title') {
-                    $('#groupLabel').text(titleLabel);
-                    $('#groupInput').attr('placeholder', titlePlaceholder);
+                    $('#groupInput').attr('placeholder', 'e.g., SG Qiwan - 新加坡棋王');
                     $('#groupHelp').show();
                 } else {
-                    $('#groupLabel').text(groupLabel);
-                    $('#groupInput').attr('placeholder', groupPlaceholder);
+                    $('#groupInput').attr('placeholder', '');
                     $('#groupHelp').hide();
                 }
             }
             
             // Initial update based on current value
-            updateGroupLabel();
+            updateGroupHelp();
             
             // Update when type changes
-            $('#TournamentType').on('change', updateGroupLabel);
+            $('#TournamentType').on('change', updateGroupHelp);
         });
     </script>
 }

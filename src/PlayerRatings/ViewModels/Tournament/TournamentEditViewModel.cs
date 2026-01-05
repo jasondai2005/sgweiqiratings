@@ -90,8 +90,8 @@ namespace PlayerRatings.ViewModels.Tournament
         {
             Models.Tournament.TypeCompetition,    // Competition
             Models.Tournament.TypeSelection,      // Selection
-            Models.Tournament.TypeIntlSelection,  // Intl Selection - selected players only (achievement)
-            Models.Tournament.TypeIntlOpen,       // Intl Open - open to anyone
+            Models.Tournament.TypeIntlSelection,  // International+ - selected players only (achievement)
+            Models.Tournament.TypeIntlOpen,       // International - open to anyone
             Models.Tournament.TypeTitle,          // Title - winner gets title for 1 year
             "Certification",
             "League",

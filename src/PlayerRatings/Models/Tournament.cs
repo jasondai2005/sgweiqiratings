@@ -15,8 +15,8 @@ namespace PlayerRatings.Models
         // Tournament type constants
         public const string TypeCompetition = "Competition";
         public const string TypeSelection = "Selection";
-        public const string TypeIntlSelection = "Intl Selection";  // International - selected players only (achievement)
-        public const string TypeIntlOpen = "Intl Open";            // International - open to anyone (not achievement)
+        public const string TypeIntlSelection = "International+";  // International - selected players only (achievement)
+        public const string TypeIntlOpen = "International";         // International - open to anyone (not achievement)
         public const string TypeTitle = "Title";                    // Title competition - winner gets title for 1 year
         
         [Key]

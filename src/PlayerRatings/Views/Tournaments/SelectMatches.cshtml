@@ -25,7 +25,7 @@
 }
 
 <div class="form-horizontal">
-    <h2>@LocString[nameof(LocalizationKey.SelectMatches)]: @Model.Name</h2>
+    <h2>@LocString[nameof(LocalizationKey.SelectMatches)]: @(string.IsNullOrEmpty(Model.Ordinal) ? Model.Name : $"{Model.Ordinal} {Model.Name}")</h2>
     <h5 class="text-muted">@Model.LeagueName</h5>
     <hr />
     

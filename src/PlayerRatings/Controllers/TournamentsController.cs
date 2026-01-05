@@ -1313,6 +1313,16 @@ namespace PlayerRatings.Controllers
                 : null;
             tournament.TournamentType = model.TournamentType;
             tournament.Factor = model.Factor;
+            
+            // Update all matches in the tournament to use the new factor
+            if (model.Factor.HasValue)
+            {
+                foreach (var match in tournament.Matches)
+                {
+                    match.Factor = model.Factor.Value;
+                }
+            }
+            
             tournament.Notes = model.Notes;
             tournament.ExternalLinks = model.ExternalLinks;
             tournament.Photo = model.Photo;
