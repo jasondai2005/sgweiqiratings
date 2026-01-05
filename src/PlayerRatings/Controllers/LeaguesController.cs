@@ -104,8 +104,10 @@ namespace PlayerRatings.Controllers
             if (!isSgLeague)
                 return matches.Where(x => dateFilter(x)).OrderBy(m => m.Date);
             
+            // Match filter includes SWA matches by MatchName OR by Tournament Organizer
+            // This matches RatingCalculationHelper.FilterMatches logic
             return swaOnly
-                ? matches.Where(x => dateFilter(x) && x.MatchName.Contains(MATCH_SWA)).OrderBy(m => m.Date)
+                ? matches.Where(x => dateFilter(x) && (x.MatchName.Contains(MATCH_SWA) || (x.Tournament?.Organizer?.Contains(MATCH_SWA.Trim()) ?? false))).OrderBy(m => m.Date)
                 : matches.Where(x => dateFilter(x)).OrderBy(m => m.Date);
         }
 
@@ -572,6 +574,9 @@ namespace PlayerRatings.Controllers
             var matches = FilterMatches(league.Matches, cutoffDate, swaOnly, isSgLeague: isSgLeague);
             foreach (var match in matches)
             {
+                if (match.Factor == 0)
+                    continue; // skip matches with zero factor
+
                 // Add users (with optional filter) - skip NULL players for bye matches
                 if (match.FirstPlayer != null && (allowedUserIds == null || allowedUserIds.Contains(match.FirstPlayerId)))
                 {
