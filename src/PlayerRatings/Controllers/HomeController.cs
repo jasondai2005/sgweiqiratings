@@ -94,5 +94,29 @@ namespace PlayerRatings.Controllers
 
             return Redirect(curUrl);
         }
+        
+        /// <summary>
+        /// Cookie name for SWA Only preference
+        /// </summary>
+        public const string SwaOnlyCookieName = "SwaOnly";
+        
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult ToggleSwaOnly(string curUrl)
+        {
+            // Read current value and toggle it
+            var currentValue = Request.Cookies[SwaOnlyCookieName] == "true";
+            var newValue = !currentValue;
+            
+            Response.Cookies.Append(SwaOnlyCookieName, newValue.ToString().ToLower(), new Microsoft.AspNetCore.Http.CookieOptions
+            {
+                Expires = DateTimeOffset.Now.AddYears(1),
+                Path = "/",
+                IsEssential = true,
+                SameSite = Microsoft.AspNetCore.Http.SameSiteMode.Lax
+            });
+
+            return Redirect(curUrl);
+        }
     }
 }

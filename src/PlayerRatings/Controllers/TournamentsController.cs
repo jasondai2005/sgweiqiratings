@@ -26,6 +26,14 @@ namespace PlayerRatings.Controllers
             _context = context;
             _userManager = userManager;
         }
+        
+        /// <summary>
+        /// Gets the SWA Only preference from cookie.
+        /// </summary>
+        private bool GetSwaOnlyPreference()
+        {
+            return Request.Cookies[HomeController.SwaOnlyCookieName] == "true";
+        }
 
         /// <summary>
         /// Calculate Swiss-system stats for tournament players
@@ -720,9 +728,28 @@ namespace PlayerRatings.Controllers
             }
 
             var isAdmin = league.CreatedByUserId == currentUser.Id;
+            
+            // Set ViewData for navbar toggle visibility
+            bool isSgLeague = league.Name?.Contains("Singapore Weiqi") ?? false;
+            ViewData["IsSgLeague"] = isSgLeague;
+            
+            // Get SWA Only preference (only applies to SG league)
+            bool swaOnly = isSgLeague && GetSwaOnlyPreference();
 
-            var tournaments = await _context.Tournaments
-                .Where(t => t.LeagueId == leagueId)
+            var tournamentsQuery = _context.Tournaments
+                .Where(t => t.LeagueId == leagueId);
+            
+            // When SWA Only is on, only show SWA tournaments or international tournaments
+            if (swaOnly)
+            {
+                var swaOrganizer = RatingCalculationHelper.MATCH_SWA.Trim();
+                tournamentsQuery = tournamentsQuery.Where(t => 
+                    (t.Organizer != null && t.Organizer.Contains(swaOrganizer)) ||
+                    t.TournamentType == Tournament.TypeIntlOpen ||
+                    t.TournamentType == Tournament.TypeIntlSelection);
+            }
+            
+            var tournaments = await tournamentsQuery
                 .OrderByDescending(t => t.StartDate ?? DateTimeOffset.MinValue)
                 .ThenBy(t => t.Name)
                 .Select(t => new TournamentSummary
@@ -742,7 +769,7 @@ namespace PlayerRatings.Controllers
                     PlayerCount = t.TournamentPlayers.Count
                 })
                 .ToListAsync();
-
+            
             var viewModel = new TournamentListViewModel
             {
                 LeagueId = leagueId,
@@ -835,18 +862,24 @@ namespace PlayerRatings.Controllers
             // Determine league type for rating calculation
             bool isSgLeague = tournament.League?.Name?.Contains("Singapore Weiqi") ?? false;
             
+            // Set ViewData for navbar toggle visibility
+            ViewData["IsSgLeague"] = isSgLeague;
+            
+            // Get SWA Only preference (only applies to SG league)
+            bool swaOnly = isSgLeague && GetSwaOnlyPreference();
+            
             // Calculate ratings and ranked status before and after tournament using shared helper
             // Uses full rating calculation with match filtering and performance corrections
             // "Ranked" means the player would appear in the Ratings page at that date
             var ratingsBefore = RatingCalculationHelper.GetPlayerRatingsAndRankedStatus(
-                leagueMatches, tournamentStartDate, swaOnly: false, isSgLeague, tournamentPlayerIds, PlayerLookup);
+                leagueMatches, tournamentStartDate, swaOnly, isSgLeague, tournamentPlayerIds, PlayerLookup);
             
             var ratingsAfter = RatingCalculationHelper.GetPlayerRatingsAndRankedStatus(
-                leagueMatches, tournamentEndDate, swaOnly: false, isSgLeague, tournamentPlayerIds, PlayerLookup);
+                leagueMatches, tournamentEndDate, swaOnly, isSgLeague, tournamentPlayerIds, PlayerLookup);
             
             // Get promotion bonuses awarded during/after the tournament (not before it started)
             var promotionBonuses = RatingCalculationHelper.GetPromotionBonuses(
-                leagueMatches, tournamentStartDate, tournamentEndDate, swaOnly: false, isSgLeague, tournamentPlayerIds);
+                leagueMatches, tournamentStartDate, tournamentEndDate, swaOnly, isSgLeague, tournamentPlayerIds);
             
             // Track first match date for each round (for creating new matches)
             var roundDates = new Dictionary<int, DateTimeOffset>();
@@ -951,7 +984,7 @@ namespace PlayerRatings.Controllers
             
             // Run ELO calculation on league matches to populate OldFirstPlayerRating, OldSecondPlayerRating, ShiftRating
             // This is the same calculation done in the Ratings page
-            RatingCalculationHelper.CalculateRatings(leagueMatches, tournamentEndDate, swaOnly: false, isSgLeague);
+            RatingCalculationHelper.CalculateRatings(leagueMatches, tournamentEndDate, swaOnly, isSgLeague);
             
             // Get tournament matches from the calculated league matches (same objects with populated ratings)
             var tournamentMatchIds = tournament.Matches.Select(m => m.Id).ToHashSet();

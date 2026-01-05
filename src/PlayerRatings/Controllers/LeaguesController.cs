@@ -85,6 +85,14 @@ namespace PlayerRatings.Controllers
         }
 
         /// <summary>
+        /// Gets the SWA Only preference from cookie.
+        /// </summary>
+        private bool GetSwaOnlyPreference()
+        {
+            return Request.Cookies[HomeController.SwaOnlyCookieName] == "true";
+        }
+        
+        /// <summary>
         /// Filters matches for a specific player based on date and match type.
         /// For non-SG leagues (international), all matches are included.
         /// </summary>
@@ -132,6 +140,10 @@ namespace PlayerRatings.Controllers
             
             // For Singapore Weiqi league, separate local and non-local players
             bool isSgLeague = league.Name?.Contains("Singapore Weiqi") ?? false;
+            
+            // Set ViewData for navbar toggle visibility
+            ViewData["IsSgLeague"] = isSgLeague;
+            
             List<LeaguePlayer> players;
             List<LeaguePlayer> nonLocalPlayers = new List<LeaguePlayer>();
             
@@ -342,7 +354,7 @@ namespace PlayerRatings.Controllers
 
         // GET: Leagues/Rating/5
         private EloStat elo = new EloStat();
-        public async Task<IActionResult> Rating(Guid? id, string byDate, bool swaOnly = false, bool refresh = false)
+        public async Task<IActionResult> Rating(Guid? id, string byDate, bool refresh = false)
         {
             if (id == null)
             {
@@ -368,6 +380,13 @@ namespace PlayerRatings.Controllers
             {
                 return NotFound();
             }
+            
+            // Get SWA Only preference from cookie (only applies to SG league)
+            bool isSgLeague = league.Name?.Contains("Singapore Weiqi") ?? false;
+            bool swaOnly = isSgLeague && GetSwaOnlyPreference();
+            
+            // Set ViewData for navbar toggle visibility
+            ViewData["IsSgLeague"] = isSgLeague;
 
             // Get player statuses for filtering
             var (notBlockedUserIds, hiddenUserIds, alwaysShownUserIds) = GetPlayerStatuses(league.Id);
@@ -375,7 +394,7 @@ namespace PlayerRatings.Controllers
             // Use shared calculation method - also collect matches for lastMatches display
             var winRateStat = new WinRateStat();
             var recentMatches = new List<Match>();
-            var (eloResult, activeUsers, isSgLeague) = CalculateRatings(
+            var (eloResult, activeUsers, _) = CalculateRatings(
                 league, date, swaOnly,
                 allowedUserIds: notBlockedUserIds,
                 onMatchProcessed: (match, _) => {
@@ -639,7 +658,7 @@ namespace PlayerRatings.Controllers
         }
 
         // GET: Leagues/Player/5?playerId=xxx
-        public async Task<IActionResult> Player(Guid id, string playerId, bool swaOnly = false, bool refresh = false)
+        public async Task<IActionResult> Player(Guid id, string playerId, bool refresh = false)
         {
             if (string.IsNullOrEmpty(playerId))
             {
@@ -665,6 +684,12 @@ namespace PlayerRatings.Controllers
             // Get player statuses and league type info
             var (notBlockedUserIds, hiddenUserIds, _) = GetPlayerStatuses(league.Id);
             bool isSgLeague = league.Name?.Contains("Singapore Weiqi") ?? false;
+            
+            // Get SWA Only preference from cookie (only applies to SG league)
+            bool swaOnly = isSgLeague && GetSwaOnlyPreference();
+            
+            // Set ViewData for navbar toggle visibility
+            ViewData["IsSgLeague"] = isSgLeague;
 
             // Get player from already loaded match data (includes Rankings via ThenInclude)
             var player = league.Matches
