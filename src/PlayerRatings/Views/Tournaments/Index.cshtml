@@ -70,7 +70,6 @@ else
                     <td class="text-center">@t.PlayerCount</td>
                     <td>@(t.Factor?.ToString("F1") ?? "-")</td>
                     <td>
-                        <a asp-action="Details" asp-route-id="@t.Id" class="btn btn-sm btn-outline-primary">@LocString[nameof(LocalizationKey.Details)]</a>
                         @if (Model.IsAdmin)
                         {
                             <a asp-action="Edit" asp-route-id="@t.Id" class="btn btn-sm btn-outline-secondary">@LocString[nameof(LocalizationKey.Edit)]</a>

@@ -25,7 +25,7 @@ namespace PlayerRatings.Engine.Rating
         /// </summary>
         public static double GetK(double rating)
         {
-            return Math.Pow((3500 - rating) / 200, 1.6);
+            return Math.Pow((3300 - rating) / 200, 1.6);
         }
 
         /// <summary>

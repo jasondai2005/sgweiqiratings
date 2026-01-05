@@ -437,7 +437,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var team in Model.TeamStandings.Where(t => t.Players.Count(p => p.CountsForTeamAward) >= 2))
+                    @foreach (var team in Model.TeamStandings)
                     {
                         var isFirstRow = true;
                         var allPlayers = team.Players.ToList();

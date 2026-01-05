@@ -271,6 +271,10 @@ namespace PlayerRatings.Controllers
                     
                     sumOfPositions += playerPenalty;
                     
+                    // Skip teams with fewer than 2 counting players (not qualified)
+                    if (countingPlayers.Count < 2)
+                        continue;
+                    
                     // Get saved team position from the first counting player (if any)
                     var savedTeamPosition = countingPlayers.FirstOrDefault()?.TeamPosition;
                     
@@ -794,7 +798,7 @@ namespace PlayerRatings.Controllers
             // Get the tournament start/end dates for rating calculations
             // Use previous day of start date for "before" ratings, end date for "after" ratings
             var hasMatches = tournament.Matches.Any();
-            var tournamentStartDate = (tournament.StartDate ?? (hasMatches ? tournament.Matches.Min(m => m.Date) : DateTimeOffset.Now)).AddDays(-1);
+            var tournamentStartDate = (tournament.StartDate ?? (hasMatches ? tournament.Matches.Min(m => m.Date) : DateTimeOffset.Now));
             var tournamentEndDate = tournament.EndDate ?? (hasMatches ? tournament.Matches.Max(m => m.Date) : DateTimeOffset.Now);
             
             // Load all league matches for rating calculation
