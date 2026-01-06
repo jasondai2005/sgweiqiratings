@@ -110,7 +110,7 @@ namespace PlayerRatings.Controllers
             
             Response.Cookies.Append(SwaOnlyCookieName, newValue.ToString().ToLower(), new Microsoft.AspNetCore.Http.CookieOptions
             {
-                Expires = DateTimeOffset.Now.AddYears(1),
+                Expires = DateTimeOffset.UtcNow.AddYears(1),
                 Path = "/",
                 IsEssential = true,
                 SameSite = Microsoft.AspNetCore.Http.SameSiteMode.Lax

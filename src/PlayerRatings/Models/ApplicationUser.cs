@@ -57,7 +57,7 @@ namespace PlayerRatings.Models
         /// Gets the current residence (first entry in residence history, without year).
         /// Used for display purposes.
         /// </summary>
-        public string CurrentResidence => GetResidenceAt(DateTimeOffset.Now);
+        public string CurrentResidence => GetResidenceAt(DateTimeOffset.UtcNow);
 
         /// <summary>
         /// Gets the residence at a specific date.
@@ -117,7 +117,7 @@ namespace PlayerRatings.Models
         /// <summary>
         /// Determines if this is a local player (lives in Singapore) at the current date.
         /// </summary>
-        public bool IsLocalPlayer => IsLocalPlayerAt(DateTimeOffset.Now);
+        public bool IsLocalPlayer => IsLocalPlayerAt(DateTimeOffset.UtcNow);
 
         /// <summary>
         /// Determines if this player lived in Singapore at the specified date.
@@ -370,7 +370,7 @@ namespace PlayerRatings.Models
         /// Gets the latest ranking in combined format showing SWA ranking and highest other ranking.
         /// Examples: "1D (2D)" for SWA 1D + TGA 2D, "3D [5D]" for SWA 3D + foreign 5D
         /// </summary>
-        public string LatestRanking => GetCombinedRankingBeforeDate(DateTimeOffset.Now.AddDays(1));
+        public string LatestRanking => GetCombinedRankingBeforeDate(DateTimeOffset.UtcNow.AddDays(1));
 
         public string LatestRankedDate
         {
@@ -578,7 +578,7 @@ namespace PlayerRatings.Models
         {
             get
             {
-                var oneYearAgo = DateTimeOffset.Now.AddYears(-1);
+                var oneYearAgo = DateTimeOffset.UtcNow.AddYears(-1);
                 return GetTitles().Where(t => t.WonDate > oneYearAgo).ToList();
             }
         }
@@ -590,7 +590,7 @@ namespace PlayerRatings.Models
         {
             get
             {
-                var oneYearAgo = DateTimeOffset.Now.AddYears(-1);
+                var oneYearAgo = DateTimeOffset.UtcNow.AddYears(-1);
                 return GetTitles().Where(t => t.WonDate <= oneYearAgo).ToList();
             }
         }

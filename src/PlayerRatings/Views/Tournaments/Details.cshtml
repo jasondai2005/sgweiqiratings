@@ -270,7 +270,7 @@
                                         // Use first match date for this round, or tournament start date as fallback
                                         var roundDate = Model.RoundDates.TryGetValue(r, out var rd) 
                                             ? rd 
-                                            : (Model.StartDate ?? DateTimeOffset.Now);
+                                            : (Model.StartDate ?? DateTimeOffset.UtcNow);
                                         <a asp-controller="Matches" asp-action="Create" 
                                            asp-route-leagueId="@Model.LeagueId"
                                            asp-route-tournamentId="@Model.Id"

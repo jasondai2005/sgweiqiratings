@@ -362,7 +362,7 @@ namespace PlayerRatings.Controllers
             }
             // When a date is specified, use end of day (23:59:59) to include all matches on that day
             var date = byDate == null 
-                ? DateTimeOffset.Now 
+                ? DateTimeOffset.UtcNow 
                 : DateTimeOffset.ParseExact(byDate, "dd/MM/yyyy", null).AddDays(1).AddSeconds(-1);
             League.CutoffDate = date;
             var currentUser = await User.GetApplicationUser(_userManager);
@@ -759,7 +759,7 @@ namespace PlayerRatings.Controllers
                     .ToListAsync();
                 
                 // Build title lists for empty player
-                var emptyOneYearAgo = DateTimeOffset.Now.AddYears(-1);
+                var emptyOneYearAgo = DateTimeOffset.UtcNow.AddYears(-1);
                 var emptyActiveTitles = emptyTournamentParticipations
                     .Where(tp => tp.IsTitle && tp.Position == 1 && !string.IsNullOrEmpty(tp.TitleEn) && tp.StartDate > emptyOneYearAgo)
                     .OrderByDescending(tp => tp.StartDate)
@@ -912,7 +912,7 @@ namespace PlayerRatings.Controllers
                     
                     // For the current month, use 'now' instead of month-end to reflect current state
                     // This avoids confusion (e.g., showing position based on future end-of-month)
-                    var now = DateTimeOffset.Now;
+                    var now = DateTimeOffset.UtcNow;
                     var isCurrentMonth = monthToCapture.Year == now.Year && monthToCapture.Month == now.Month;
                     var effectiveDate = isCurrentMonth ? now : monthEnd;
                     
@@ -980,7 +980,7 @@ namespace PlayerRatings.Controllers
             // Use shared calculation (same as Rating page)
             var (eloStat, activeUsers, _) = CalculateRatings(
                 league, 
-                DateTimeOffset.Now, 
+                DateTimeOffset.UtcNow, 
                 swaOnly,
                 allowedUserIds: notBlockedUserIds,
                 onMatchProcessed: OnMatchProcessed);
@@ -1010,7 +1010,7 @@ namespace PlayerRatings.Controllers
             int totalPlayers = latestMonthlyRating?.TotalPlayers ?? 0;
             
             // Build ranked players list for navigation (previous/next player)
-            var now = DateTimeOffset.Now;
+            var now = DateTimeOffset.UtcNow;
             var twoYearsAgoNav = now.AddYears(-2);
             var rankedPlayerIds = new HashSet<string>();
             var rankedPlayersForNav = allPlayersInMatches.Values
@@ -1165,7 +1165,7 @@ namespace PlayerRatings.Controllers
             }
             
             // Build title lists
-            var oneYearAgo = DateTimeOffset.Now.AddYears(-1);
+            var oneYearAgo = DateTimeOffset.UtcNow.AddYears(-1);
             var activeTitles = tournamentParticipations
                 .Where(tp => tp.IsTitle && tp.Position == 1 && !string.IsNullOrEmpty(tp.TitleEn) && tp.StartDate > oneYearAgo)
                 .OrderByDescending(tp => tp.StartDate)

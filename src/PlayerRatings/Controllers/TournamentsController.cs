@@ -825,8 +825,8 @@ namespace PlayerRatings.Controllers
             // Get the tournament start/end dates for rating calculations
             // Use previous day of start date for "before" ratings, end date for "after" ratings
             var hasMatches = tournament.Matches.Any();
-            var tournamentStartDate = (tournament.StartDate ?? (hasMatches ? tournament.Matches.Min(m => m.Date) : DateTimeOffset.Now));
-            var tournamentEndDate = tournament.EndDate ?? (hasMatches ? tournament.Matches.Max(m => m.Date) : DateTimeOffset.Now);
+            var tournamentStartDate = (tournament.StartDate ?? (hasMatches ? tournament.Matches.Min(m => m.Date) : DateTimeOffset.UtcNow));
+            var tournamentEndDate = tournament.EndDate ?? (hasMatches ? tournament.Matches.Max(m => m.Date) : DateTimeOffset.UtcNow);
             
             // Load all league matches for rating calculation
             var leagueMatches = await _context.Match
@@ -1421,11 +1421,11 @@ namespace PlayerRatings.Controllers
             // Default filter to tournament dates or current month
             if (!filterYear.HasValue)
             {
-                filterYear = tournament.StartDate?.Year ?? DateTimeOffset.Now.Year;
+                filterYear = tournament.StartDate?.Year ?? DateTimeOffset.UtcNow.Year;
             }
             if (!filterMonth.HasValue)
             {
-                filterMonth = tournament.StartDate?.Month ?? DateTimeOffset.Now.Month;
+                filterMonth = tournament.StartDate?.Month ?? DateTimeOffset.UtcNow.Month;
             }
 
             var filterStart = new DateTimeOffset(filterYear.Value, filterMonth.Value, 1, 0, 0, 0, TimeSpan.Zero);
