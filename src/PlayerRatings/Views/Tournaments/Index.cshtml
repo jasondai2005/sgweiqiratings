@@ -1,20 +1,21 @@
 @using PlayerRatings.Localization
 @model PlayerRatings.ViewModels.Tournament.TournamentListViewModel
+@inject Microsoft.Extensions.Localization.IStringLocalizer<LocalizationKey> LocString
 
 @{
-    ViewData["Title"] = "Tournaments";
+    ViewData["Title"] = LocString[nameof(LocalizationKey.Tournaments)];
 }
 
 <h3>@ViewData["Title"] - @Model.LeagueName</h3>
 
 <div class="mb-3">
     <a asp-controller="Leagues" asp-action="Rating" asp-route-id="@Model.LeagueId" class="btn btn-outline-secondary">
-        ← Back to Rating
+        ← @LocString[nameof(LocalizationKey.BackToRating)]
     </a>
     @if (Model.IsAdmin)
     {
         <a asp-action="Create" asp-route-leagueId="@Model.LeagueId" class="btn btn-primary">
-            + Create Tournament
+            + @LocString[nameof(LocalizationKey.CreateTournament)]
         </a>
     }
 </div>
@@ -30,13 +31,13 @@ else
     <table class="table table-striped table-hover">
         <thead>
             <tr>
-                <th>Name</th>
-                <th>Type</th>
-                <th>Dates</th>
-                <th>Location</th>
-                <th class="text-center">Matches</th>
-                <th class="text-center">Players</th>
-                <th>Factor</th>
+                <th>@LocString[nameof(LocalizationKey.TournamentName)]</th>
+                <th>@LocString[nameof(LocalizationKey.Type)]</th>
+                <th>@LocString[nameof(LocalizationKey.Dates)]</th>
+                <th>@LocString[nameof(LocalizationKey.Location)]</th>
+                <th class="text-center">@LocString[nameof(LocalizationKey.Matches)]</th>
+                <th class="text-center">@LocString[nameof(LocalizationKey.Players)]</th>
+                <th>@LocString[nameof(LocalizationKey.Factor)]</th>
                 <th></th>
             </tr>
         </thead>
@@ -69,10 +70,9 @@ else
                     <td class="text-center">@t.PlayerCount</td>
                     <td>@(t.Factor?.ToString("F1") ?? "-")</td>
                     <td>
-                        <a asp-action="Details" asp-route-id="@t.Id" class="btn btn-sm btn-outline-primary">View</a>
                         @if (Model.IsAdmin)
                         {
-                            <a asp-action="Edit" asp-route-id="@t.Id" class="btn btn-sm btn-outline-secondary">Edit</a>
+                            <a asp-action="Edit" asp-route-id="@t.Id" class="btn btn-sm btn-outline-secondary">@LocString[nameof(LocalizationKey.Edit)]</a>
                         }
                     </td>
                 </tr>

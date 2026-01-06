@@ -2,6 +2,22 @@
 @using PlayerRatings.Models
 @using PlayerRatings.ViewModels.Player
 @model PlayerRatings.ViewModels.Player.PlayerRatingHistoryViewModel
+@inject ILanguageData LanguageData
+
+@functions {
+    // Helper class for combining rated and unrated tournaments
+    public class TournamentDisplayItem
+    {
+        public Guid? TournamentId { get; set; }
+        public string TournamentName { get; set; }
+        public string MatchName { get; set; }
+        public int? TournamentPosition { get; set; }
+        public int? FemalePosition { get; set; }
+        public int? TeamPosition { get; set; }
+        public DateTimeOffset StartDate { get; set; }
+        public bool HasMatches { get; set; }
+    }
+}
 
 @{
     ViewData["Title"] = Model.Player.DisplayName;
@@ -38,10 +54,30 @@
                         {
                         <p style="margin-bottom: 5px;"><strong>@LocString[nameof(LocalizationKey.Position)]:</strong> @Model.PositionDisplay <span style="color: #666; font-size: 0.9em;">/ @Model.TotalPlayers</span></p>
                         }
+                        @if (Model.ActiveTitles.Any())
+                        {
+                        <p style="margin-bottom: 5px;"><strong style="color: #8b0000;">@LocString[nameof(LocalizationKey.Title)]:</strong>
+                            @foreach (var title in Model.ActiveTitles)
+                            {
+                                <span style="color: #8b0000; font-weight: bold;">@title.GetLocalizedTitle(LanguageData.CurrentLanguage)</span>
+                                <span style="color: #666; font-size: 0.85em;">(@title.WonDate.ToString("yyyy"))</span>
+                            }
+                        </p>
+                        }
+                        @if (Model.FormerTitles.Any())
+                        {
+                        <p style="margin-bottom: 5px;"><strong style="color: #666;">@LocString[nameof(LocalizationKey.FormerTitle)]:</strong>
+                            @foreach (var title in Model.FormerTitles)
+                            {
+                                <span style="color: #666;">@title.GetLocalizedTitle(LanguageData.CurrentLanguage)</span>
+                                <span style="font-size: 0.85em;">(@title.WonDate.ToString("yyyy"))</span>
+                            }
+                        </p>
+                        }
                     </div>
                 </div>
                 
-                @if (Model.TotalGames > 0)
+                @if (Model.TotalGames > 0 || Model.TotalTournaments > 0)
                 {
                 <!-- Statistics Section -->
                 <hr style="margin: 10px 0;" />
@@ -52,49 +88,108 @@
                 </div>
                 <div class="row" style="margin-top: 8px;">
                     <div class="col-sm-4">
-                        <div style="color: #666;">@LocString[nameof(LocalizationKey.Overall)]:</div>
-                        <div>
-                            <strong>@Model.TotalGames</strong> @LocString[nameof(LocalizationKey.Games)]
-                            <span style="color: #5cb85c; margin-left: 8px;">@Model.TotalWins W</span>
-                            <span style="color: #d9534f; margin-left: 4px;">@Model.TotalLosses L</span>
-                            <span style="margin-left: 8px; font-weight: bold;">(@Model.OverallWinRate.ToString("F1")%)</span>
-                        </div>
+                        <div style="color: #666; margin-bottom: 4px;">@LocString[nameof(LocalizationKey.Overall)]:</div>
+                        @if (Model.TotalTournaments > 0)
+                        {
+                            <div><strong>@Model.TotalTournaments</strong> @LocString[nameof(LocalizationKey.Tournaments)]</div>
+                        }
+                        @if (Model.TotalGames > 0)
+                        {
+                            <div>
+                                <strong>@Model.TotalGames</strong> @LocString[nameof(LocalizationKey.Games)]
+                                <span style="color: #5cb85c; margin-left: 8px;">@Model.TotalWins W</span>
+                                <span style="color: #d9534f; margin-left: 4px;">@Model.TotalLosses L</span>
+                                <span style="margin-left: 8px; font-weight: bold;">(@Model.OverallWinRate.ToString("F1")%)</span>
+                            </div>
+                        }
+                        @if (Model.ChampionshipCount > 0)
+                        {
+                            <div><span style="color: #f0ad4e;">🏆</span> <strong style="color: #f0ad4e;">@Model.ChampionshipCount</strong> <span style="color: #666;">@(Model.ChampionshipCount == 1 ? "Champion" : "Champions")</span></div>
+                        }
+                        @if (Model.TeamChampionshipCount > 0)
+                        {
+                            <div><span style="color: #337ab7;">🏅</span> <strong style="color: #337ab7;">@Model.TeamChampionshipCount</strong> <span style="color: #666;">Team @(Model.TeamChampionshipCount == 1 ? "Champion" : "Champions")</span></div>
+                        }
+                        @if (Model.FemaleChampionshipCount > 0)
+                        {
+                            <div><span style="color: #d63384;">👑</span> <strong style="color: #d63384;">@Model.FemaleChampionshipCount</strong> <span style="color: #666;">Female @(Model.FemaleChampionshipCount == 1 ? "Champion" : "Champions")</span></div>
+                        }
+                        @if (Model.IntlSelectionCount > 0)
+                        {
+                            <div><span style="color: #9932cc;">🌍</span> <strong style="color: #9932cc;">@Model.IntlSelectionCount</strong> <span style="color: #666;">Selected to Intl @(Model.IntlSelectionCount == 1 ? "Event" : "Events")</span></div>
+                        }
                     </div>
-                    @if (Model.CurrentYearGames > 0)
+                    @if (Model.CurrentYearGames > 0 || Model.CurrentYearTournaments > 0)
                     {
                     <div class="col-sm-4">
-                        <div style="color: #666;">@LocString[nameof(LocalizationKey.ThisYear)] (@DateTime.Now.Year):</div>
-                        <div>
-                            <strong>@Model.CurrentYearGames</strong> @LocString[nameof(LocalizationKey.Games)]
-                            <span style="color: #5cb85c; margin-left: 8px;">@Model.CurrentYearWins W</span>
-                            <span style="color: #d9534f; margin-left: 4px;">@Model.CurrentYearLosses L</span>
-                            <span style="margin-left: 8px; font-weight: bold;">(@Model.CurrentYearWinRate.ToString("F1")%)</span>
-                        </div>
+                        <div style="color: #666; margin-bottom: 4px;">@LocString[nameof(LocalizationKey.ThisYear)] (@DateTime.Now.Year):</div>
+                        @if (Model.CurrentYearTournaments > 0)
+                        {
+                            <div><strong>@Model.CurrentYearTournaments</strong> @LocString[nameof(LocalizationKey.Tournaments)]</div>
+                        }
+                        @if (Model.CurrentYearGames > 0)
+                        {
+                            <div>
+                                <strong>@Model.CurrentYearGames</strong> @LocString[nameof(LocalizationKey.Games)]
+                                <span style="color: #5cb85c; margin-left: 8px;">@Model.CurrentYearWins W</span>
+                                <span style="color: #d9534f; margin-left: 4px;">@Model.CurrentYearLosses L</span>
+                                <span style="margin-left: 8px; font-weight: bold;">(@Model.CurrentYearWinRate.ToString("F1")%)</span>
+                            </div>
+                        }
+                        @if (Model.CurrentYearChampionships > 0)
+                        {
+                            <div><span style="color: #f0ad4e;">🏆</span> <strong style="color: #f0ad4e;">@Model.CurrentYearChampionships</strong> <span style="color: #666;">@(Model.CurrentYearChampionships == 1 ? "Champion" : "Champions")</span></div>
+                        }
+                        @if (Model.CurrentYearTeamChampionships > 0)
+                        {
+                            <div><span style="color: #337ab7;">🏅</span> <strong style="color: #337ab7;">@Model.CurrentYearTeamChampionships</strong> <span style="color: #666;">Team @(Model.CurrentYearTeamChampionships == 1 ? "Champion" : "Champions")</span></div>
+                        }
+                        @if (Model.CurrentYearFemaleChampionships > 0)
+                        {
+                            <div><span style="color: #d63384;">👑</span> <strong style="color: #d63384;">@Model.CurrentYearFemaleChampionships</strong> <span style="color: #666;">Female @(Model.CurrentYearFemaleChampionships == 1 ? "Champion" : "Champions")</span></div>
+                        }
+                        @if (Model.CurrentYearIntlSelectionCount > 0)
+                        {
+                            <div><span style="color: #9932cc;">🌍</span> <strong style="color: #9932cc;">@Model.CurrentYearIntlSelectionCount</strong> <span style="color: #666;">Selected to Intl @(Model.CurrentYearIntlSelectionCount == 1 ? "Event" : "Events")</span></div>
+                        }
                     </div>
                     }
-                    @if (Model.LastYearGames > 0)
+                    @if (Model.LastYearGames > 0 || Model.LastYearTournaments > 0)
                     {
                     <div class="col-sm-4">
-                        <div style="color: #666;">@LocString[nameof(LocalizationKey.LastYear)] (@(DateTime.Now.Year - 1)):</div>
-                        <div>
-                            <strong>@Model.LastYearGames</strong> @LocString[nameof(LocalizationKey.Games)]
-                            <span style="color: #5cb85c; margin-left: 8px;">@Model.LastYearWins W</span>
-                            <span style="color: #d9534f; margin-left: 4px;">@Model.LastYearLosses L</span>
-                            <span style="margin-left: 8px; font-weight: bold;">(@Model.LastYearWinRate.ToString("F1")%)</span>
-                        </div>
+                        <div style="color: #666; margin-bottom: 4px;">@LocString[nameof(LocalizationKey.LastYear)] (@(DateTime.Now.Year - 1)):</div>
+                        @if (Model.LastYearTournaments > 0)
+                        {
+                            <div><strong>@Model.LastYearTournaments</strong> @LocString[nameof(LocalizationKey.Tournaments)]</div>
+                        }
+                        @if (Model.LastYearGames > 0)
+                        {
+                            <div>
+                                <strong>@Model.LastYearGames</strong> @LocString[nameof(LocalizationKey.Games)]
+                                <span style="color: #5cb85c; margin-left: 8px;">@Model.LastYearWins W</span>
+                                <span style="color: #d9534f; margin-left: 4px;">@Model.LastYearLosses L</span>
+                                <span style="margin-left: 8px; font-weight: bold;">(@Model.LastYearWinRate.ToString("F1")%)</span>
+                            </div>
+                        }
+                        @if (Model.LastYearChampionships > 0)
+                        {
+                            <div><span style="color: #f0ad4e;">🏆</span> <strong style="color: #f0ad4e;">@Model.LastYearChampionships</strong> <span style="color: #666;">@(Model.LastYearChampionships == 1 ? "Champion" : "Champions")</span></div>
+                        }
+                        @if (Model.LastYearTeamChampionships > 0)
+                        {
+                            <div><span style="color: #337ab7;">🏅</span> <strong style="color: #337ab7;">@Model.LastYearTeamChampionships</strong> <span style="color: #666;">Team @(Model.LastYearTeamChampionships == 1 ? "Champion" : "Champions")</span></div>
+                        }
+                        @if (Model.LastYearFemaleChampionships > 0)
+                        {
+                            <div><span style="color: #d63384;">👑</span> <strong style="color: #d63384;">@Model.LastYearFemaleChampionships</strong> <span style="color: #666;">Female @(Model.LastYearFemaleChampionships == 1 ? "Champion" : "Champions")</span></div>
+                        }
+                        @if (Model.LastYearIntlSelectionCount > 0)
+                        {
+                            <div><span style="color: #9932cc;">🌍</span> <strong style="color: #9932cc;">@Model.LastYearIntlSelectionCount</strong> <span style="color: #666;">Selected to Intl @(Model.LastYearIntlSelectionCount == 1 ? "Event" : "Events")</span></div>
+                        }
                     </div>
                     }
                 </div>
-                @if (Model.ChampionshipCount > 0)
-                {
-                <div class="row" style="margin-top: 8px;">
-                    <div class="col-xs-12">
-                        <span style="color: #f0ad4e;">🏆</span>
-                        <strong style="color: #f0ad4e;">@Model.ChampionshipCount</strong>
-                        <span style="color: #666;">@(Model.ChampionshipCount == 1 ? "Championship" : "Championships")</span>
-                    </div>
-                </div>
-                }
                 }
                 
                 <!-- Edit Player Info Form (collapsed by default) -->
@@ -321,6 +416,11 @@
 </div>
 
 @{
+    // Build a lookup of tournaments without matches by month (for display in Monthly Rating History)
+    var tournamentsWithoutMatchesByMonth = Model.TournamentParticipations
+        .Where(t => !t.HasMatches)
+        .GroupBy(t => new DateTime(t.StartDate.Year, t.StartDate.Month, 1).AddMonths(1).AddSeconds(-1).ToString("MMM yyyy"))
+        .ToDictionary(g => g.Key, g => g.ToList());
 
     // Build ranking labels for each month - show ranking when it changes
     // Use playerRankings from Rankings table directly
@@ -413,15 +513,15 @@
 }
 
 <div class="mb-3" style="display: inline-flex; gap: 8px; align-items: center;">
-    <a href="@Url.Action("Rating", new { id = Model.LeagueId, swaOnly = Model.SwaOnly })" class="btn btn-outline-secondary">← @LocString[nameof(LocalizationKey.BackToRating)]</a>
-    <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = Model.Player.Id, swaOnly = Model.SwaOnly, refresh = true })" class="btn btn-outline-secondary" title="Reload data from database">⟳</a>
+    <a href="@Url.Action("Rating", new { id = Model.LeagueId })" class="btn btn-outline-secondary">← @LocString[nameof(LocalizationKey.BackToRating)]</a>
+    <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = Model.Player.Id, refresh = true })" class="btn btn-outline-secondary" title="Reload data from database">⟳</a>
     
     @if (!string.IsNullOrEmpty(Model.PreviousPlayerId) || !string.IsNullOrEmpty(Model.NextPlayerId))
     {
         <span style="margin-left: 16px; color: #666;">|</span>
         @if (!string.IsNullOrEmpty(Model.PreviousPlayerId))
         {
-            <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = Model.PreviousPlayerId, swaOnly = Model.SwaOnly })" 
+            <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = Model.PreviousPlayerId })" 
                class="btn btn-outline-primary btn-sm" title="@LocString[nameof(LocalizationKey.PreviousPlayer)]">
                 ◀ @LocString[nameof(LocalizationKey.Prev)]
             </a>
@@ -440,7 +540,7 @@
         }
         @if (!string.IsNullOrEmpty(Model.NextPlayerId))
         {
-            <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = Model.NextPlayerId, swaOnly = Model.SwaOnly })" 
+            <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = Model.NextPlayerId })" 
                class="btn btn-outline-primary btn-sm" title="@LocString[nameof(LocalizationKey.NextPlayer)]">
                 @LocString[nameof(LocalizationKey.Next)] ▶
             </a>
@@ -451,21 +551,6 @@
         }
     }
 </div>
-
-@if (Model.IsSgLeague && Model.MonthlyRatings.Any())
-{
-<form asp-action="Player" method="get" class="mb-3">
-    <input type="hidden" name="id" value="@Model.LeagueId" />
-    <input type="hidden" name="playerId" value="@Model.Player.Id" />
-    <input type="hidden" id="swaOnlyHidden" name="swaOnly" value="@(Model.SwaOnly ? "true" : "false")" />
-    <div style="display: inline-flex; gap: 16px; align-items: center;">
-        <div class="form-check form-switch" style="display: flex; align-items: center; gap: 6px;">
-            <input class="form-check-input" type="checkbox" id="swaOnlyToggle" @(Model.SwaOnly ? "checked" : "") onchange="document.getElementById('swaOnlyHidden').value = this.checked; this.form.submit();" style="cursor: pointer;">
-            <label class="form-check-label" for="swaOnlyToggle" style="cursor: pointer; white-space: nowrap;">@LocString[nameof(LocalizationKey.SWATournamentsOnly)]</label>
-        </div>
-    </div>
-</form>
-}
 
 @if (Model.MonthlyRatings.Any())
 {
@@ -494,8 +579,9 @@
             @foreach (var item in Model.MonthlyRatings.OrderByDescending(r => r.Month))
             {
                 var hasRankings = monthRankingLabels.TryGetValue(item.MonthDisplay, out var rankingList);
-                // Only show rows with matches, ranking changes, or promotion bonuses
-                if (item.MatchesInMonth == 0 && !hasRankings && !item.HasPromotionBonus)
+                var hasTournamentsWithoutMatches = tournamentsWithoutMatchesByMonth.TryGetValue(item.MonthDisplay, out var noMatchTournaments);
+                // Only show rows with matches, ranking changes, promotion bonuses, or tournaments without matches
+                if (item.MatchesInMonth == 0 && !hasRankings && !item.HasPromotionBonus && !hasTournamentsWithoutMatches)
                 {
                     continue;
                 }
@@ -505,22 +591,59 @@
                     <td>@if (showPosition) { <span>@item.Position<span style="color: #999; font-size: 0.85em;">/@item.TotalPlayers</span></span> } else { <span>-</span> }</td>
                     <td>@item.RatingDisplay</td>
                     <td>
-                        @if (item.Matches.Any())
+                        @if (item.Matches.Any() || (hasTournamentsWithoutMatches && noMatchTournaments.Any()))
                         {
-                            @foreach (var match in item.Matches)
+                            @* Combine rated and unrated tournaments, order by start date descending *@
+                            var allTournaments = item.Matches
+                                .Select(m => new TournamentDisplayItem {
+                                    TournamentId = m.TournamentId,
+                                    TournamentName = m.TournamentName,
+                                    MatchName = m.MatchName,
+                                    TournamentPosition = m.TournamentPosition,
+                                    FemalePosition = m.FemalePosition,
+                                    TeamPosition = m.TeamPosition,
+                                    StartDate = m.TournamentStartDate ?? DateTimeOffset.MinValue,
+                                    HasMatches = true
+                                })
+                                .Concat(hasTournamentsWithoutMatches 
+                                    ? noMatchTournaments.Select(tp => new TournamentDisplayItem {
+                                        TournamentId = tp.TournamentId,
+                                        TournamentName = tp.TournamentName,
+                                        MatchName = null,
+                                        TournamentPosition = tp.Position,
+                                        FemalePosition = tp.FemalePosition,
+                                        TeamPosition = tp.TeamPosition,
+                                        StartDate = tp.StartDate,
+                                        HasMatches = false
+                                    })
+                                    : Enumerable.Empty<TournamentDisplayItem>())
+                                .OrderByDescending(t => t.StartDate)
+                                .ToList();
+                            
+                            @foreach (var t in allTournaments)
                             {
-                                <div style="font-size: 0.85em;">
-                                    @if (match.TournamentId.HasValue)
+                                var style = t.HasMatches ? "font-size: 0.85em;" : "font-size: 0.85em; color: #888; font-style: italic;";
+                                var linkStyle = t.HasMatches ? "" : "color: #888;";
+                                <div style="@style">
+                                    @if (t.TournamentId.HasValue)
                                     {
-                                        <a asp-controller="Tournaments" asp-action="Details" asp-route-id="@match.TournamentId">@match.TournamentName</a>
-                                        @if (match.TournamentPosition.HasValue)
+                                        <a asp-controller="Tournaments" asp-action="Details" asp-route-id="@t.TournamentId" style="@linkStyle">@t.TournamentName</a>
+                                        @if (t.TournamentPosition.HasValue)
                                         {
-                                            <span style="color: #f0ad4e; margin-left: 4px;">No. @match.TournamentPosition</span>
+                                            <span style="color: #f0ad4e; margin-left: 4px;">No. @t.TournamentPosition</span>
+                                        }
+                                        @if (t.FemalePosition.HasValue)
+                                        {
+                                            <span style="color: #d63384; margin-left: 4px;">Female No. @t.FemalePosition</span>
+                                        }
+                                        @if (t.TeamPosition.HasValue)
+                                        {
+                                            <span style="color: #337ab7; margin-left: 4px;">Team No. @t.TeamPosition</span>
                                         }
                                     }
-                                    else if (!string.IsNullOrEmpty(match.MatchName))
+                                    else if (!string.IsNullOrEmpty(t.MatchName))
                                     {
-                                        @match.MatchName
+                                        @t.MatchName
                                     }
                                 </div>
                             }
@@ -602,23 +725,41 @@
                 
                 // Get unique tournaments/matches before the first month shown in the rating history
                 var firstRatedMonth = Model.MonthlyRatings.Any() ? Model.MonthlyRatings.Min(r => r.Month) : DateTime.MaxValue;
+                
+                // Build tournament start date lookup from TournamentParticipations
+                var tournamentStartDates = Model.TournamentParticipations
+                    .ToDictionary(tp => tp.TournamentId, tp => tp.StartDate);
+                
                 var preEntryMatches = Model.GameRecords
                     .Where(g => g.Date.Year < firstRatedMonth.Year || 
                                (g.Date.Year == firstRatedMonth.Year && g.Date.Month < firstRatedMonth.Month))
                     .GroupBy(g => g.TournamentId?.ToString() ?? g.MatchName ?? "")
                     .Select(grp => grp.First())
-                    .OrderByDescending(g => g.Date)
                     .Select(g => new PlayerRatings.ViewModels.Player.MatchInfo
                     {
                         MatchName = g.MatchName,
                         TournamentId = g.TournamentId,
                         TournamentName = g.TournamentName,
-                        TournamentPosition = g.TournamentPosition
+                        TournamentPosition = g.TournamentPosition,
+                        FemalePosition = g.FemalePosition,
+                        TeamPosition = g.TeamPosition,
+                        TournamentStartDate = g.TournamentId.HasValue && tournamentStartDates.TryGetValue(g.TournamentId.Value, out var startDate) 
+                            ? startDate 
+                            : g.Date
                     })
                     .ToList();
                 
+                // Get tournaments without matches that are before the first rated month
+                var preEntryTournamentIds = new HashSet<Guid>(preEntryMatches.Where(m => m.TournamentId.HasValue).Select(m => m.TournamentId.Value));
+                var preEntryTournamentsWithoutMatches = Model.TournamentParticipations
+                    .Where(t => !t.HasMatches && 
+                           (t.StartDate.Year < firstRatedMonth.Year || 
+                            (t.StartDate.Year == firstRatedMonth.Year && t.StartDate.Month < firstRatedMonth.Month)) &&
+                           !preEntryTournamentIds.Contains(t.TournamentId))
+                    .ToList();
+                
                 // Only show Pre-entry row if there's something meaningful to display
-                var showPreEntry = earlyRankings.Any() || preEntryMatches.Any() || preEntryRating != null;
+                var showPreEntry = earlyRankings.Any() || preEntryMatches.Any() || preEntryTournamentsWithoutMatches.Any() || preEntryRating != null;
             }
             @if (showPreEntry)
             {
@@ -627,22 +768,64 @@
                     <td>-</td>
                     <td>@(preEntryRating ?? "-")</td>
                     <td>
-                        @if (preEntryMatches.Any())
+                        @if (preEntryMatches.Any() || preEntryTournamentsWithoutMatches.Any())
                         {
-                            @foreach (var match in preEntryMatches)
+                            @* Combine rated and unrated tournaments, order by start date descending *@
+                            var preEntryAllTournaments = preEntryMatches
+                                .Select(m => new TournamentDisplayItem {
+                                    TournamentId = m.TournamentId,
+                                    TournamentName = m.TournamentName,
+                                    MatchName = m.MatchName,
+                                    TournamentPosition = m.TournamentPosition,
+                                    FemalePosition = m.FemalePosition,
+                                    TeamPosition = m.TeamPosition,
+                                    StartDate = m.TournamentStartDate ?? DateTimeOffset.MinValue,
+                                    HasMatches = true
+                                })
+                                .Concat(preEntryTournamentsWithoutMatches.Select(tp => new TournamentDisplayItem {
+                                    TournamentId = tp.TournamentId,
+                                    TournamentName = tp.TournamentName,
+                                    MatchName = null,
+                                    TournamentPosition = tp.Position,
+                                    FemalePosition = tp.FemalePosition,
+                                    TeamPosition = tp.TeamPosition,
+                                    StartDate = tp.StartDate,
+                                    HasMatches = false
+                                }))
+                                .OrderByDescending(t => t.StartDate)
+                                .ToList();
+                            
+                            @foreach (var t in preEntryAllTournaments)
                             {
-                                <div style="font-size: 0.85em; color: #888;">
-                                    @if (match.TournamentId.HasValue)
+                                var style = t.HasMatches ? "font-size: 0.85em; color: #888;" : "font-size: 0.85em; color: #888; font-style: italic;";
+                                var linkStyle = t.HasMatches ? "" : "color: #888;";
+                                <div style="@style">
+                                    @if (t.TournamentId.HasValue)
                                     {
-                                        <a asp-controller="Tournaments" asp-action="Details" asp-route-id="@match.TournamentId">@match.TournamentName</a>
-                                        @if (match.TournamentPosition.HasValue)
+                                        <a asp-controller="Tournaments" asp-action="Details" asp-route-id="@t.TournamentId" style="@linkStyle">@t.TournamentName</a>
+                                        @if (t.TournamentPosition.HasValue)
                                         {
-                                            <span style="color: #f0ad4e; margin-left: 4px;">No. @match.TournamentPosition</span>
+                                            <span style="color: #f0ad4e; margin-left: 4px;">No. @t.TournamentPosition</span>
+                                        }
+                                        @if (t.FemalePosition.HasValue)
+                                        {
+                                            @if (t.FemalePosition == 1)
+                                            {
+                                                <span style="color: #d63384; margin-left: 4px;" title="Female Champion">👑</span>
+                                            }
+                                            else
+                                            {
+                                                <span style="color: #d63384; margin-left: 4px;">Female No. @t.FemalePosition</span>
+                                            }
+                                        }
+                                        @if (t.TeamPosition.HasValue)
+                                        {
+                                            <span style="color: #337ab7; margin-left: 4px;">Team No. @t.TeamPosition</span>
                                         }
                                     }
-                                    else if (!string.IsNullOrEmpty(match.MatchName))
+                                    else if (!string.IsNullOrEmpty(t.MatchName))
                                     {
-                                        @match.MatchName
+                                        @t.MatchName
                                     }
                                 </div>
                             }
@@ -727,7 +910,7 @@
                         }
                     </td>
                     <td>
-                        <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = game.OpponentId, swaOnly = Model.SwaOnly, })" style="@(isGrayedOut ? "color: #888;" : "")">@game.OpponentName</a>
+                        <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = game.OpponentId })" style="@(isGrayedOut ? "color: #888;" : "")">@game.OpponentName</a>
                         @if (!string.IsNullOrEmpty(game.OpponentRanking))
                         {
                             <span style="font-size: 0.8em; color: #666;">@game.OpponentRanking</span>
@@ -1180,4 +1363,5 @@
     <span style="position: absolute; top: 20px; right: 30px; color: #fff; font-size: 35px; font-weight: bold; cursor: pointer;" onclick="closePhotoModal()">&times;</span>
     <img id="photoModalImg" src="" alt="Player Photo" style="max-width: 90%; max-height: 90%; border-radius: 8px; box-shadow: 0 0 20px rgba(0,0,0,0.5);" />
 </div>
+
 

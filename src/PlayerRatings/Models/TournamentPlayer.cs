@@ -36,6 +36,40 @@ namespace PlayerRatings.Models
         public Guid? PromotionId { get; set; }
 
         /// <summary>
+        /// Team name the player belongs to in this tournament
+        /// </summary>
+        [MaxLength(200)]
+        public string Team { get; set; }
+
+        /// <summary>
+        /// Team position (for top 3 players of a team when SupportsTeamAward is true)
+        /// </summary>
+        public int? TeamPosition { get; set; }
+
+        /// <summary>
+        /// Female position (separate ranking for female players when SupportsFemaleAward is true)
+        /// </summary>
+        public int? FemalePosition { get; set; }
+
+        /// <summary>
+        /// Photo URL/path for this player in this tournament
+        /// </summary>
+        [MaxLength(500)]
+        public string Photo { get; set; }
+
+        /// <summary>
+        /// Team photo URL/path for when this player won team award
+        /// </summary>
+        [MaxLength(500)]
+        public string TeamPhoto { get; set; }
+
+        /// <summary>
+        /// Female award photo URL/path for when this player won female award
+        /// </summary>
+        [MaxLength(500)]
+        public string FemaleAwardPhoto { get; set; }
+
+        /// <summary>
         /// Navigation property to the tournament
         /// </summary>
         [ForeignKey("TournamentId")]

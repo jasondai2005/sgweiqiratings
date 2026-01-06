@@ -84,7 +84,7 @@ namespace PlayerRatings.Services
                 invitation = new Invite
                 {
                     Id = Guid.NewGuid(),
-                    CreatedOn = DateTimeOffset.Now,
+                    CreatedOn = DateTimeOffset.UtcNow,
                     CreatedUser = user,
                     InvitedBy = invitedBy
                 };

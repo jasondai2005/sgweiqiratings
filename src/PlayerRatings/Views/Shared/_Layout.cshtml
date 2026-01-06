@@ -48,13 +48,29 @@
 
                     @await Html.PartialAsync("_LoginPartial")
                     <ul class="nav navbar-nav navbar-right">
+                        @if (ViewData["IsSgLeague"] as bool? == true)
+                        {
+                            var swaOnly = Context.Request.Cookies["SwaOnly"] == "true";
+                            <li>
+                                <form asp-controller="Home" asp-action="ToggleSwaOnly" method="post" style="margin: 0; display: inline;">
+                                    <input type="hidden" name="curUrl" value="@(Context.Request.Path + Context.Request.QueryString)" />
+                                    <button type="submit" class="btn btn-link navbar-btn" style="color: @(swaOnly ? "#5cb85c" : "#999"); padding: 10px 8px;" title="@(swaOnly ? "SWA Only: ON" : "SWA Only: OFF")">
+                                        <span style="font-weight: bold;">SWA</span>
+                                        @if (swaOnly)
+                                        {
+                                            <span style="color: #5cb85c;">✓</span>
+                                        }
+                                    </button>
+                                </form>
+                            </li>
+                        }
                         <li>
                             <a href="#" onclick="captureScreenshot(); return false;" title="@LocString[nameof(LocalizationKey.Screenshot)]" style="padding: 15px 10px;">
                                 <span id="screenshotIcon">📷</span>
                             </a>
                         </li>
-                        @if (LanguageData.ValidLanguages.Count() > 1)
-                        {
+                    @if (LanguageData.ValidLanguages.Count() > 1)
+                    {
                             <li class="dropdown">
                                 <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">@LocString[LanguageData.CurrentLanguage] <span class="caret"></span></a>
                                 <ul class="dropdown-menu" role="menu" style="min-width: 100px">
@@ -77,7 +93,7 @@
                                 </ul>
                             </li>
                         }
-                    </ul>
+                        </ul>
             </div>
             </div>
         </div>

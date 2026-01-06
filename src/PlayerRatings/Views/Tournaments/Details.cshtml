@@ -1,5 +1,6 @@
 @using PlayerRatings.Localization
 @model PlayerRatings.ViewModels.Tournament.TournamentDetailsViewModel
+@inject Microsoft.Extensions.Localization.IStringLocalizer<LocalizationKey> LocString
 
 @{
     ViewData["Title"] = Model.FullName;
@@ -10,59 +11,65 @@
 
 <div class="form-group">
     <a asp-action="Index" asp-route-leagueId="@Model.LeagueId" class="btn btn-default">
-        ← Back to Tournaments
+        ← @LocString[nameof(LocalizationKey.BackToTournaments)]
     </a>
     @if (Model.IsAdmin)
     {
-        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Edit</a>
-        <a asp-action="Delete" asp-route-id="@Model.Id" class="btn btn-danger">Delete</a>
+        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">@LocString[nameof(LocalizationKey.Edit)]</a>
+        <a asp-action="Delete" asp-route-id="@Model.Id" class="btn btn-danger">@LocString[nameof(LocalizationKey.Delete)]</a>
     }
 </div>
 
 <div class="panel panel-default" style="margin-top: 20px;">
     <div class="panel-body">
         <div class="row">
-            <div class="col-md-6">
+            @if (!string.IsNullOrEmpty(Model.Photo))
+            {
+                <div class="col-md-3">
+                    <img src="@Model.Photo" alt="@Model.FullName" style="max-width: 100%; max-height: 200px; border-radius: 4px;" />
+                </div>
+            }
+            <div class="@(string.IsNullOrEmpty(Model.Photo) ? "col-md-6" : "col-md-4")">
                 <dl>
-                    <dt>Tournament Name</dt>
-                    <dd>@Model.Name</dd>
-                    
                     @if (!string.IsNullOrEmpty(Model.Ordinal))
                     {
-                        <dt>Ordinal</dt>
+                        <dt>@LocString[nameof(LocalizationKey.Ordinal)]</dt>
                         <dd>@Model.Ordinal</dd>
                     }
                     
+                    <dt>@LocString[nameof(LocalizationKey.TournamentName)]</dt>
+                    <dd>@Model.Name</dd>
+                    
                     @if (!string.IsNullOrEmpty(Model.Group))
                     {
-                        <dt>Group</dt>
+                        <dt>@(Model.IsTitleTournament ? LocString[nameof(LocalizationKey.Title)] : LocString[nameof(LocalizationKey.Group)])</dt>
                         <dd>@Model.Group</dd>
                     }
                     
                     @if (!string.IsNullOrEmpty(Model.TournamentType))
                     {
-                        <dt>Type</dt>
+                        <dt>@LocString[nameof(LocalizationKey.Type)]</dt>
                         <dd>@Model.TournamentType</dd>
                     }
                 </dl>
             </div>
-            <div class="col-md-6">
+            <div class="@(string.IsNullOrEmpty(Model.Photo) ? "col-md-6" : "col-md-5")">
                 <dl>
                     @if (!string.IsNullOrEmpty(Model.Organizer))
                     {
-                        <dt>Organizer</dt>
+                        <dt>@LocString[nameof(LocalizationKey.Organizer)]</dt>
                         <dd>@Model.Organizer</dd>
                     }
                     
                     @if (!string.IsNullOrEmpty(Model.Location))
                     {
-                        <dt>Location</dt>
+                        <dt>@LocString[nameof(LocalizationKey.Location)]</dt>
                         <dd>@Model.Location</dd>
                     }
                     
                     @if (Model.StartDate.HasValue)
                     {
-                        <dt>Dates</dt>
+                        <dt>@LocString[nameof(LocalizationKey.Dates)]</dt>
                         <dd>
                             @Model.StartDate.Value.ToString("dd MMM yyyy")
                             @if (Model.EndDate.HasValue && Model.EndDate.Value.Date != Model.StartDate.Value.Date)
@@ -74,18 +81,58 @@
                     
                     @if (Model.Factor.HasValue)
                     {
-                        <dt>Factor</dt>
+                        <dt>@LocString[nameof(LocalizationKey.Factor)]</dt>
                         <dd>@Model.Factor.Value.ToString("F1")</dd>
                     }
                 </dl>
             </div>
         </div>
+        
+        @if (!string.IsNullOrEmpty(Model.Notes))
+        {
+            <div class="row" style="margin-top: 10px;">
+                <div class="col-md-12">
+                    <dt>@LocString[nameof(LocalizationKey.Notes)]</dt>
+                    <dd style="white-space: pre-wrap;">@Model.Notes</dd>
+                </div>
+            </div>
+        }
+        
+        @if (Model.ExternalLinksList.Any())
+        {
+            <div class="row" style="margin-top: 10px;">
+                <div class="col-md-12">
+                    <dt>@LocString[nameof(LocalizationKey.ExternalLinks)]</dt>
+                    <dd>
+                        @foreach (var link in Model.ExternalLinksList)
+                        {
+                            <a href="@link.Trim()" target="_blank" rel="noopener noreferrer" style="margin-right: 10px;">@link.Trim()</a>
+                        }
+                    </dd>
+                </div>
+            </div>
+        }
     </div>
 </div>
 
-@if (Model.Players.Any() && Model.MaxRounds > 0)
+@* Show StandingsPhoto as separate section if no rounds exist but photo exists *@
+@if (Model.MaxRounds == 0 && !string.IsNullOrEmpty(Model.StandingsPhoto) && !Model.StandingsPhoto.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+{
+    <div style="margin-top: 20px;">
+        <div style="margin-top: 10px;">
+            <a href="@Model.StandingsPhoto" target="_blank">
+                <img src="@Model.StandingsPhoto" alt="@LocString[nameof(LocalizationKey.Standings)]" style="max-width: 100%; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" />
+            </a>
+        </div>
+    </div>
+}
+
+@if (Model.SupportsPersonalAward && Model.Players.Any())
 {
     var hasAnyPromotion = Model.Players.Any(p => !string.IsNullOrEmpty(p.PromotionRanking));
+    var hasFemaleAward = Model.SupportsFemaleAward && Model.Players.Any(p => p.IsFemale);
+    // Only show residence column for tournaments from 2023 onwards
+    var showResidence = Model.StartDate.HasValue && Model.StartDate.Value >= new DateTimeOffset(2023, 1, 1, 0, 0, 0, TimeSpan.Zero);
     // Build player index lookup (PlayerId -> sequential index)
     var playerIndex = new Dictionary<string, int>();
     var idx = 1;
@@ -95,28 +142,64 @@
     }
     
     <div style="margin-top: 20px;">
-        <h4>Standings</h4>
+        <h4 style="display: inline-block;">@LocString[nameof(LocalizationKey.Standings)]</h4>
+        @if (!string.IsNullOrEmpty(Model.StandingsPhoto))
+        {
+            var isPdf = Model.StandingsPhoto.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
+            <a href="@Model.StandingsPhoto" target="_blank" style="margin-left: 10px;">
+                @if (isPdf)
+                {
+                    <span style="font-size: 1.2em; vertical-align: middle;" title="PDF">📄</span>
+                }
+                else
+                {
+                    <img src="@Model.StandingsPhoto" alt="@LocString[nameof(LocalizationKey.Standings)]" style="max-height: 30px; vertical-align: middle; border-radius: 3px;" />
+                }
+            </a>
+            @if (Model.IsAdmin)
+            {
+                <a href="@Url.Action("EditPhoto", new { tournamentId = Model.Id, photoType = "standings_photo" })" 
+                   target="_blank" class="btn btn-xs btn-link" style="vertical-align: middle;">✏️</a>
+            }
+        }
+        else if (Model.IsAdmin)
+        {
+            <a href="@Url.Action("EditPhoto", new { tournamentId = Model.Id, photoType = "standings_photo" })" 
+               target="_blank" class="btn btn-xs btn-default" style="margin-left: 10px; vertical-align: middle;" 
+               title="@LocString[nameof(LocalizationKey.AddPhoto)]">+ 📷</a>
+        }
         <div style="overflow-x: auto;">
             <table class="table table-condensed table-bordered" style="background: white;">
                 <thead>
                     <tr style="background-color: #f5f5f5;">
                         <th style="width: 30px; text-align: center;">#</th>
-                        <th style="width: 40px; text-align: center;">Pos</th>
-                        <th style="white-space: nowrap;">Player</th>
-                        <th style="width: 80px;">Residence</th>
+                        <th style="width: 40px; text-align: center;">@LocString[nameof(LocalizationKey.Pos)]</th>
+                        <th style="white-space: nowrap;">@LocString[nameof(LocalizationKey.Player)]</th>
+                        @if (Model.IsAdmin)
+                        {
+                            <th style="width: 40px; text-align: center;" title="@LocString[nameof(LocalizationKey.Photo)]">📷</th>
+                        }
+                        @if (showResidence)
+                        {
+                            <th style="width: 80px;">@LocString[nameof(LocalizationKey.Residence)]</th>
+                        }
                         @for (var r = 1; r <= Model.MaxRounds; r++)
                         {
                             <th style="width: 60px; text-align: center;">R@(r)</th>
                         }
-                        <th style="width: 40px; text-align: center;" title="Number of Wins">NbW</th>
-                        <th style="width: 50px; text-align: center;" title="Sum of Opponents' Scores">SOS</th>
-                        <th style="width: 60px; text-align: center;" title="Sum of Opponents' SOS">SOSOS</th>
-                        <th style="width: 55px; text-align: center;" title="Rating Before Tournament">Before</th>
-                        <th style="width: 55px; text-align: center;" title="Rating After Tournament">After</th>
-                        <th style="width: 45px; text-align: center;" title="Rating Change">+/-</th>
+                        <th style="width: 40px; text-align: center;" title="@LocString[nameof(LocalizationKey.NumberOfWins)]">@LocString[nameof(LocalizationKey.NbW)]</th>
+                        <th style="width: 50px; text-align: center;" title="@LocString[nameof(LocalizationKey.SOS)]">@LocString[nameof(LocalizationKey.SOS)]</th>
+                        <th style="width: 60px; text-align: center;" title="@LocString[nameof(LocalizationKey.SOSOS)]">@LocString[nameof(LocalizationKey.SOSOS)]</th>
+                        <th style="width: 55px; text-align: center;" title="@LocString[nameof(LocalizationKey.Before)]">@LocString[nameof(LocalizationKey.Before)]</th>
+                        <th style="width: 55px; text-align: center;" title="@LocString[nameof(LocalizationKey.After)]">@LocString[nameof(LocalizationKey.After)]</th>
+                        <th style="width: 45px; text-align: center;" title="@LocString[nameof(LocalizationKey.ShiftRating)]">+/-</th>
+                        @if (hasFemaleAward)
+                        {
+                            <th style="width: 45px; text-align: center;" title="@LocString[nameof(LocalizationKey.FemaleAward)]">♀</th>
+                        }
                         @if (hasAnyPromotion)
                         {
-                            <th style="width: 70px;">Promotion</th>
+                            <th style="width: 70px;">@LocString[nameof(LocalizationKey.Promo)]</th>
                         }
                     </tr>
                 </thead>
@@ -140,7 +223,28 @@
                             <td style="white-space: nowrap;">
                                 <a asp-controller="Leagues" asp-action="Player" asp-route-id="@Model.LeagueId" asp-route-playerId="@p.PlayerId">@p.PlayerName</a>@if (!string.IsNullOrEmpty(p.PlayerRanking)){<text> </text><span style="color: rgb(255, 99, 132); font-weight: bold;">@p.PlayerRanking</span>}
                             </td>
-                            <td style="font-size: 0.9em;">@p.Residence</td>
+                            @if (Model.IsAdmin)
+                            {
+                                <td style="text-align: center;">
+                                    @if (!string.IsNullOrEmpty(p.Photo))
+                                    {
+                                        <a href="@p.Photo" target="_blank" title="@LocString[nameof(LocalizationKey.Photo)]">
+                                            <img src="@p.Photo" alt="" style="max-width: 30px; max-height: 30px; border-radius: 3px; cursor: pointer;" />
+                                        </a>
+                                        <a href="@Url.Action("EditPhoto", new { tournamentId = Model.Id, playerId = p.PlayerId, photoType = "photo" })" 
+                                           target="_blank" class="btn btn-xs btn-link" style="padding: 0; margin-left: 2px;">✏️</a>
+                                    }
+                                    else
+                                    {
+                                        <a href="@Url.Action("EditPhoto", new { tournamentId = Model.Id, playerId = p.PlayerId, photoType = "photo" })" 
+                                           target="_blank" class="btn btn-xs btn-default" title="@LocString[nameof(LocalizationKey.AddPhoto)]">+</a>
+                                    }
+                                </td>
+                            }
+                            @if (showResidence)
+                            {
+                                <td style="font-size: 0.9em;">@p.Residence</td>
+                            }
                             @for (var r = 1; r <= Model.MaxRounds; r++)
                             {
                                 <td style="text-align: center;">
@@ -166,7 +270,7 @@
                                         // Use first match date for this round, or tournament start date as fallback
                                         var roundDate = Model.RoundDates.TryGetValue(r, out var rd) 
                                             ? rd 
-                                            : (Model.StartDate ?? DateTimeOffset.Now);
+                                            : (Model.StartDate ?? DateTimeOffset.UtcNow);
                                         <a asp-controller="Matches" asp-action="Create" 
                                            asp-route-leagueId="@Model.LeagueId"
                                            asp-route-tournamentId="@Model.Id"
@@ -174,6 +278,7 @@
                                            asp-route-lastMatchDateTime="@roundDate.ToString("o")"
                                            asp-route-factor="0"
                                            asp-route-firstPlayerId="@p.PlayerId"
+                                           target="_blank"
                                            class="btn btn-xs btn-default" title="Add match for @p.PlayerName in Round @r">+</a>
                                     }
                                     else
@@ -182,9 +287,9 @@
                                     }
                                 </td>
                             }
-                            <td style="text-align: center; font-weight: bold;">@p.Wins</td>
-                            <td style="text-align: center;">@p.SOS</td>
-                            <td style="text-align: center;">@p.SOSOS</td>
+                            <td style="text-align: center; font-weight: bold;">@(p.Wins % 1 == 0 ? ((int)p.Wins).ToString() : p.Wins.ToString("0.#"))</td>
+                            <td style="text-align: center;">@(p.SOS % 1 == 0 ? ((int)p.SOS).ToString() : p.SOS.ToString("0.#"))</td>
+                            <td style="text-align: center;">@(p.SOSOS % 1 == 0 ? ((int)p.SOSOS).ToString() : p.SOSOS.ToString("0.#"))</td>
                             <td style="text-align: center; font-size: 0.9em;">
                                 @if (p.ShowRatingBefore && p.RatingBefore.HasValue)
                                 {
@@ -218,6 +323,26 @@
                                     <span class="text-muted">-</span>
                                 }
                             </td>
+                            @if (hasFemaleAward)
+                            {
+                                <td style="text-align: center;">
+                                    @if (p.IsFemale && p.FemalePosition.HasValue)
+                                    {
+                                        @if (p.FemalePosition == 1)
+                                        {
+                                            <span style="color: #d63384;" title="Female Champion">👑</span>
+                                        }
+                                        else
+                                        {
+                                            <span style="color: #d63384; font-weight: bold;">@p.FemalePosition</span>
+                                        }
+                                    }
+                                    else if (p.IsFemale)
+                                    {
+                                        <span class="text-muted">-</span>
+                                    }
+                                </td>
+                            }
                             @if (hasAnyPromotion)
                             {
                                 <td>
@@ -239,20 +364,274 @@
     </div>
 }
 
-@if (Model.IsAdmin && Model.Matches.Any())
+@if (Model.SupportsTeamAward && Model.TeamStandings.Any())
 {
     <div style="margin-top: 20px;">
-        <h4>Matches (@Model.Matches.Count)</h4>
+        <h4 style="display: inline-block;">@LocString[nameof(LocalizationKey.TeamStandings)]</h4>
+        @if (!Model.SupportsPersonalAward && !string.IsNullOrEmpty(Model.StandingsPhoto))
+        {
+            var isPdfTeam = Model.StandingsPhoto.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
+            <a href="@Model.StandingsPhoto" target="_blank" style="margin-left: 10px;">
+                @if (isPdfTeam)
+                {
+                    <span style="font-size: 1.2em; vertical-align: middle;" title="PDF">📄</span>
+                }
+                else
+                {
+                    <img src="@Model.StandingsPhoto" alt="@LocString[nameof(LocalizationKey.Standings)]" style="max-height: 30px; vertical-align: middle; border-radius: 3px;" />
+                }
+            </a>
+            @if (Model.IsAdmin)
+            {
+                <a href="@Url.Action("EditPhoto", new { tournamentId = Model.Id, photoType = "standings_photo" })" 
+                   target="_blank" class="btn btn-xs btn-link" style="vertical-align: middle;">✏️</a>
+            }
+        }
+        else if (!Model.SupportsPersonalAward && Model.IsAdmin)
+        {
+            <a href="@Url.Action("EditPhoto", new { tournamentId = Model.Id, photoType = "standings_photo" })" 
+               target="_blank" class="btn btn-xs btn-default" style="margin-left: 10px; vertical-align: middle;" 
+               title="@LocString[nameof(LocalizationKey.AddPhoto)]">+ 📷</a>
+        }
+        <div style="overflow-x: auto;">
+            <table class="table table-condensed table-bordered" style="background: white;">
+                <thead>
+                    <tr style="background-color: #f5f5f5;">
+                        <th style="width: 30px; text-align: center;">#</th>
+                        <th style="width: 40px; text-align: center;">@LocString[nameof(LocalizationKey.Pos)]</th>
+                        @if (Model.SupportsPersonalAward)
+                        {
+                            <th style="white-space: nowrap;">@LocString[nameof(LocalizationKey.Team)]</th>
+                            <th style="width: 60px; text-align: center;" title="@LocString[nameof(LocalizationKey.SumOfPlayerPositions)]">@LocString[nameof(LocalizationKey.SumPos)]</th>
+                            <th style="width: 60px; text-align: center;">@LocString[nameof(LocalizationKey.PlayerPos)]</th>
+                            <th>@LocString[nameof(LocalizationKey.Player)]</th>
+                        }
+                        else
+                        {
+                            <th style="white-space: nowrap;">@LocString[nameof(LocalizationKey.Team)]</th>
+                        }
+                        @if (Model.IsAdmin)
+                        {
+                            <th style="width: 40px; text-align: center;" title="@LocString[nameof(LocalizationKey.Photo)]">📷</th>
+                        }
+                        @if (!Model.SupportsPersonalAward)
+                        {
+                            @for (var r = 1; r <= Model.MaxRounds; r++)
+                            {
+                                <th style="width: 100px; text-align: center;">R@(r)</th>
+                            }
+                        }
+                        @if (!Model.SupportsPersonalAward)
+                        {
+                            <th style="width: 40px; text-align: center;" title="@LocString[nameof(LocalizationKey.NumberOfWins)]">@LocString[nameof(LocalizationKey.NbW)]</th>
+                            <th style="width: 50px; text-align: center;" title="@LocString[nameof(LocalizationKey.TeamSOS)]">@LocString[nameof(LocalizationKey.SOS)]</th>
+                            <th style="width: 60px; text-align: center;" title="@LocString[nameof(LocalizationKey.TeamSOSOS)]">@LocString[nameof(LocalizationKey.SOSOS)]</th>
+                            <th style="width: 50px; text-align: center;" title="@LocString[nameof(LocalizationKey.TotalWinsOfPlayers)]">@LocString[nameof(LocalizationKey.Wins)]</th>
+                        }
+                        @if (!Model.SupportsPersonalAward)
+                        {
+                            <th style="width: 55px; text-align: center;" title="@LocString[nameof(LocalizationKey.Before)]">@LocString[nameof(LocalizationKey.Before)]</th>
+                            <th style="width: 55px; text-align: center;" title="@LocString[nameof(LocalizationKey.After)]">@LocString[nameof(LocalizationKey.After)]</th>
+                            <th style="width: 45px; text-align: center;" title="@LocString[nameof(LocalizationKey.ShiftRating)]">+/-</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var team in Model.TeamStandings)
+                    {
+                        var isFirstRow = true;
+                        var allPlayers = team.Players.ToList();
+                        var playerCount = allPlayers.Count;
+                        @foreach (var player in allPlayers)
+                        {
+                            <tr>
+                                @if (isFirstRow)
+                                {
+                                    <td rowspan="@playerCount" style="text-align: center; font-weight: bold; vertical-align: middle;">@team.Index</td>
+                                    <td rowspan="@playerCount" style="text-align: center; vertical-align: middle;">@(team.Position?.ToString() ?? "-")</td>
+                                    @if (Model.SupportsPersonalAward)
+                                    {
+                                        <td rowspan="@playerCount" style="white-space: nowrap; vertical-align: middle;">@team.TeamName</td>
+                                        <td rowspan="@playerCount" style="text-align: center; font-weight: bold; vertical-align: middle;">@team.SumOfPlayerPositions</td>
+                                    }
+                                }
+                                @if (Model.SupportsPersonalAward)
+                                {
+                                    <td style="text-align: center;">
+                                        @if (player.CountsForTeamAward)
+                                        {
+                                            <strong>@(player.PersonalPosition?.ToString() ?? "-")</strong>
+                                        }
+                                        else
+                                        {
+                                            <span style="color: #888;">@(player.PersonalPosition?.ToString() ?? "-")</span>
+                                        }
+                                    </td>
+                                    <td style="white-space: nowrap;">
+                                        <a asp-controller="Leagues" asp-action="Player" asp-route-id="@Model.LeagueId" asp-route-playerId="@player.PlayerId">@player.PlayerName</a>
+                                    </td>
+                                }
+                                else
+                                {
+                                    @* Merged Team / Player column *@
+                                    <td style="white-space: nowrap;">
+                                        @if (isFirstRow)
+                                        {
+                                            <strong>@team.TeamName</strong>
+                                            <hr style="margin: 4px 0; border-top: 1px solid #ddd;" />
+                                        }
+                                        <span style="padding-left: 15px;">
+                                            <a asp-controller="Leagues" asp-action="Player" asp-route-id="@Model.LeagueId" asp-route-playerId="@player.PlayerId">@player.PlayerName</a>
+                                        </span>
+                                    </td>
+                                }
+                                @if (Model.IsAdmin && isFirstRow)
+                                {
+                                    var firstPlayer = allPlayers.First();
+                                    var teamPhoto = firstPlayer.TeamPhoto;
+                                    <td rowspan="@playerCount" style="text-align: center; vertical-align: middle;">
+                                        @if (!string.IsNullOrEmpty(teamPhoto))
+                                        {
+                                            <a href="@teamPhoto" target="_blank"><img src="@teamPhoto" alt="" style="max-width: 30px; max-height: 30px; border-radius: 2px;" /></a>
+                                            <a href="@Url.Action("EditPhoto", new { tournamentId = Model.Id, playerId = firstPlayer.PlayerId, photoType = "teamphoto" })" 
+                                               target="_blank" class="btn btn-xs btn-link" style="padding: 0;">✏️</a>
+                                        }
+                                        else
+                                        {
+                                            <a href="@Url.Action("EditPhoto", new { tournamentId = Model.Id, playerId = firstPlayer.PlayerId, photoType = "teamphoto" })" 
+                                               target="_blank" class="btn btn-xs btn-default" title="@LocString[nameof(LocalizationKey.AddPhoto)]">+</a>
+                                        }
+                                    </td>
+                                }
+                                @if (!Model.SupportsPersonalAward)
+                                {
+                                    @for (var r = 1; r <= Model.MaxRounds; r++)
+                                    {
+                                        <td style="text-align: center; font-size: 0.85em;">
+                                            @if (isFirstRow && team.TeamRoundResults.TryGetValue(r, out var teamResult))
+                                            {
+                                                var teamColor = teamResult.Won == true ? "green" : (teamResult.Won == false ? "red" : "gray");
+                                                var teamSymbol = teamResult.Won == true ? "+" : (teamResult.Won == false ? "-" : "=");
+                                                var totalRoundPoints = teamResult.RoundPoints + teamResult.RoundMainPlayerBonus;
+                                                var pointsDisplay = totalRoundPoints % 1 == 0 ? ((int)totalRoundPoints).ToString() : totalRoundPoints.ToString("0.#");
+                                                <div style="font-weight: bold; border-bottom: 1px solid #ddd; padding-bottom: 2px; margin-bottom: 2px;">
+                                                    <span title="vs @teamResult.OpponentTeamName">@teamResult.OpponentTeamIndex</span>
+                                                    <span style="color: @teamColor;">@teamSymbol</span>
+                                                    <span style="font-size: 0.8em; color: #666;">(@pointsDisplay)</span>
+                                                </div>
+                                            }
+                                            @if (player.RoundResults.TryGetValue(r, out var result))
+                                            {
+                                                var color = result.Won == true ? "green" : (result.Won == false ? "red" : "gray");
+                                                var symbol = result.Won == true ? "+" : (result.Won == false ? "-" : "=");
+                                                var mainPlayerStyle = result.IsMainPlayer ? "background-color: #fffacd; padding: 1px 3px; border-radius: 3px;" : "";
+                                                var mainPlayerTitle = result.IsMainPlayer ? " ★ Main Player (1.5 pts)" : "";
+                                                <span style="@mainPlayerStyle" title="@result.OpponentName (@result.Score)@mainPlayerTitle">
+                                                    @if (result.IsMainPlayer) { <text>★</text> }
+                                                    @result.OpponentName
+                                                </span>
+                                                <span style="color: @color; font-weight: bold;">@symbol</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">-</span>
+                                            }
+                                        </td>
+                                    }
+                                }
+                                @if (isFirstRow && !Model.SupportsPersonalAward)
+                                {
+                                    <td rowspan="@playerCount" style="text-align: center; font-weight: bold; vertical-align: middle;">@(team.TeamWins % 1 == 0 ? ((int)team.TeamWins).ToString() : team.TeamWins.ToString("0.#"))</td>
+                                    <td rowspan="@playerCount" style="text-align: center; vertical-align: middle;">@(team.TeamSOS % 1 == 0 ? ((int)team.TeamSOS).ToString() : team.TeamSOS.ToString("0.#"))</td>
+                                    <td rowspan="@playerCount" style="text-align: center; vertical-align: middle;">@(team.TeamSOSOS % 1 == 0 ? ((int)team.TeamSOSOS).ToString() : team.TeamSOSOS.ToString("0.#"))</td>
+                                    <td rowspan="@playerCount" style="text-align: center; font-weight: bold; vertical-align: middle;">@(team.TotalPlayerWins % 1 == 0 ? ((int)team.TotalPlayerWins).ToString() : team.TotalPlayerWins.ToString("0.#"))</td>
+                                }
+                                @if (!Model.SupportsPersonalAward)
+                                {
+                                    <td style="text-align: center; font-size: 0.85em;">
+                                        @if (isFirstRow)
+                                        {
+                                            <div style="border-bottom: 1px solid #ddd; padding-bottom: 2px; margin-bottom: 2px;">&nbsp;</div>
+                                        }
+                                        @if (player.ShowRatingBefore && player.RatingBefore.HasValue)
+                                        {
+                                            @player.RatingBefore.Value.ToString("F1")
+                                        }
+                                        else
+                                        {
+                                            <span>-</span>
+                                        }
+                                    </td>
+                                    <td style="text-align: center; font-size: 0.85em;">
+                                        @if (isFirstRow)
+                                        {
+                                            <div style="border-bottom: 1px solid #ddd; padding-bottom: 2px; margin-bottom: 2px;">&nbsp;</div>
+                                        }
+                                        @if (player.ShowRatingAfter && player.RatingAfter.HasValue)
+                                        {
+                                            @player.RatingAfter.Value.ToString("F1")
+                                        }
+                                        else
+                                        {
+                                            <span>-</span>
+                                        }
+                                    </td>
+                                    <td style="text-align: center; font-size: 0.85em;">
+                                        @if (isFirstRow)
+                                        {
+                                            <div style="border-bottom: 1px solid #ddd; padding-bottom: 2px; margin-bottom: 2px;">&nbsp;</div>
+                                        }
+                                        @if (player.RatingDelta.HasValue)
+                                        {
+                                            var deltaColor = player.RatingDelta.Value > 0 ? "green" : (player.RatingDelta.Value < 0 ? "red" : "gray");
+                                            var deltaPrefix = player.RatingDelta.Value > 0 ? "+" : "";
+                                            <span style="color: @deltaColor;">@deltaPrefix@player.RatingDelta.Value.ToString("F1")</span>
+                                        }
+                                        else
+                                        {
+                                            <span>-</span>
+                                        }
+                                    </td>
+                                }
+                                @{isFirstRow = false;}
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@if (Model.Matches.Any())
+{
+    <div style="margin-top: 20px;">
+        <h4>@LocString[nameof(LocalizationKey.Matches)] (@Model.Matches.Count)</h4>
+        @if (Model.IsAdmin)
+        {
+            <p class="text-muted" style="font-size: 0.85em; margin-bottom: 10px;">
+                <em>@LocString[nameof(LocalizationKey.MatchesNotRatedNote)]</em>
+            </p>
+        }
         <table class="table table-striped table-condensed">
             <thead>
                 <tr>
-                    <th>Match</th>
-                    <th>Score</th>
-                    <th style="text-align: center;">Round</th>
-                    <th>Date</th>
-                    <th style="text-align: center;">Factor</th>
-                    <th style="text-align: center;">@LocString[nameof(LocalizationKey.ShiftRating)]</th>
-                    <th></th>
+                    <th>@LocString[nameof(LocalizationKey.Match)]</th>
+                    <th>@LocString[nameof(LocalizationKey.Score)]</th>
+                    <th style="text-align: center;">@LocString[nameof(LocalizationKey.Round)]</th>
+                    <th>@LocString[nameof(LocalizationKey.Date)]</th>
+                    @if (Model.IsAdmin)
+                    {
+                        <th style="text-align: center;">@LocString[nameof(LocalizationKey.Factor)]</th>
+                        <th style="text-align: center;">@LocString[nameof(LocalizationKey.ShiftRating)]</th>
+                    }
+                    <th style="text-align: center; width: 40px;" title="@LocString[nameof(LocalizationKey.MatchPhoto)]">📷</th>
+                    <th style="text-align: center; width: 40px;" title="@LocString[nameof(LocalizationKey.ResultPhoto)]">📷</th>
+                    <th style="text-align: center; width: 40px;" title="@LocString[nameof(LocalizationKey.GameRecordLink)]">📋</th>
+                    @if (Model.IsAdmin)
+                    {
+                        <th></th>
+                    }
                 </tr>
             </thead>
             <tbody>
@@ -263,7 +642,11 @@
                             @if (!string.IsNullOrEmpty(m.FirstPlayerId))
                             {
                                 <a asp-controller="Leagues" asp-action="Player" asp-route-id="@Model.LeagueId" asp-route-playerId="@m.FirstPlayerId">@m.FirstPlayerName</a>
-                                @if (!string.IsNullOrEmpty(m.FirstPlayerRatingBefore))
+                                @if (!string.IsNullOrEmpty(m.FirstPlayerRanking)){
+                                <text> </text>
+                                    <span style="color: rgb(255, 99, 132); font-weight: bold;">@m.FirstPlayerRanking</span>
+                                }
+                                @if (Model.IsAdmin && !string.IsNullOrEmpty(m.FirstPlayerRatingBefore))
                                 {
                                     <span style="color: #666; font-size: 0.85em;">(@m.FirstPlayerRatingBefore)</span>
                                 }
@@ -276,7 +659,12 @@
                             @if (!string.IsNullOrEmpty(m.SecondPlayerId))
                             {
                                 <a asp-controller="Leagues" asp-action="Player" asp-route-id="@Model.LeagueId" asp-route-playerId="@m.SecondPlayerId">@m.SecondPlayerName</a>
-                                @if (!string.IsNullOrEmpty(m.SecondPlayerRatingBefore))
+                                @if (!string.IsNullOrEmpty(m.SecondPlayerRanking))
+                                {
+                                    <text> </text>
+                                    <span style="color: rgb(255, 99, 132); font-weight: bold;">@m.SecondPlayerRanking</span>
+                                }
+                                @if (Model.IsAdmin && !string.IsNullOrEmpty(m.SecondPlayerRatingBefore))
                                 {
                                     <span style="color: #666; font-size: 0.85em;">(@m.SecondPlayerRatingBefore)</span>
                                 }
@@ -289,18 +677,85 @@
                         <td>@m.GetScore()</td>
                         <td style="text-align: center;">@(m.Round.HasValue ? $"R{m.Round}" : "-")</td>
                         <td>@m.Date.ToString("dd/MM/yyyy")</td>
-                        <td style="text-align: center;">@(m.Factor.HasValue ? m.Factor.Value.ToString("0.#") : "-")</td>
+                        @if (Model.IsAdmin)
+                        {
+                            <td style="text-align: center;">@(m.Factor.HasValue ? m.Factor.Value.ToString("0.#") : "-")</td>
+                            <td style="text-align: center;">
+                                @(string.IsNullOrEmpty(m.ShiftRating) ? "-" : m.ShiftRating)
+                            </td>
+                        }
                         <td style="text-align: center;">
-                            @(string.IsNullOrEmpty(m.ShiftRating) ? "-" : m.ShiftRating)
+                            @if (!string.IsNullOrEmpty(m.MatchPhoto))
+                            {
+                                <a href="@m.MatchPhoto" target="_blank"><img src="@m.MatchPhoto" alt="" style="max-width: 25px; max-height: 25px; border-radius: 2px;" /></a>
+                                @if (Model.IsAdmin)
+                                {
+                                    <a href="@Url.Action("EditPhoto", new { tournamentId = Model.Id, matchId = m.Id, photoType = "matchphoto" })" 
+                                       target="_blank" class="btn btn-xs btn-link" style="padding: 0;">✏️</a>
+                                }
+                            }
+                            else if (Model.IsAdmin)
+                            {
+                                <a href="@Url.Action("EditPhoto", new { tournamentId = Model.Id, matchId = m.Id, photoType = "matchphoto" })" 
+                                   target="_blank" class="btn btn-xs btn-default" title="@LocString[nameof(LocalizationKey.AddPhoto)]">+</a>
+                            }
+                            else
+                            {
+                                <span class="text-muted">-</span>
+                            }
                         </td>
-                        <td>
-                            <a asp-controller="Matches" asp-action="Edit" asp-route-id="@m.Id">Edit</a>
-                            |
-                            <a asp-controller="Matches" asp-action="Delete" asp-route-id="@m.Id">Delete</a>
+                        <td style="text-align: center;">
+                            @if (!string.IsNullOrEmpty(m.MatchResultPhoto))
+                            {
+                                <a href="@m.MatchResultPhoto" target="_blank"><img src="@m.MatchResultPhoto" alt="" style="max-width: 25px; max-height: 25px; border-radius: 2px;" /></a>
+                                @if (Model.IsAdmin)
+                                {
+                                    <a href="@Url.Action("EditPhoto", new { tournamentId = Model.Id, matchId = m.Id, photoType = "matchresultphoto" })" 
+                                       target="_blank" class="btn btn-xs btn-link" style="padding: 0;">✏️</a>
+                                }
+                            }
+                            else if (Model.IsAdmin)
+                            {
+                                <a href="@Url.Action("EditPhoto", new { tournamentId = Model.Id, matchId = m.Id, photoType = "matchresultphoto" })" 
+                                   target="_blank" class="btn btn-xs btn-default" title="@LocString[nameof(LocalizationKey.AddPhoto)]">+</a>
+                            }
+                            else
+                            {
+                                <span class="text-muted">-</span>
+                            }
                         </td>
+                        <td style="text-align: center;">
+                            @if (!string.IsNullOrEmpty(m.GameRecord))
+                            {
+                                <a href="@m.GameRecord" target="_blank" title="@LocString[nameof(LocalizationKey.GameRecordLink)]">🔗</a>
+                                @if (Model.IsAdmin)
+                                {
+                                    <a href="@Url.Action("EditPhoto", new { tournamentId = Model.Id, matchId = m.Id, photoType = "gamerecord" })" 
+                                       target="_blank" class="btn btn-xs btn-link" style="padding: 0;">✏️</a>
+                                }
+                            }
+                            else if (Model.IsAdmin)
+                            {
+                                <a href="@Url.Action("EditPhoto", new { tournamentId = Model.Id, matchId = m.Id, photoType = "gamerecord" })" 
+                                   target="_blank" class="btn btn-xs btn-default" title="@LocString[nameof(LocalizationKey.AddGameRecord)]">+</a>
+                            }
+                            else
+                            {
+                                <span class="text-muted">-</span>
+                            }
+                        </td>
+                        @if (Model.IsAdmin)
+                        {
+                            <td>
+                                <a asp-controller="Matches" asp-action="Edit" asp-route-id="@m.Id" target="_blank">@LocString[nameof(LocalizationKey.Edit)]</a>
+                                |
+                                <a asp-controller="Matches" asp-action="Delete" asp-route-id="@m.Id" target="_blank">@LocString[nameof(LocalizationKey.Delete)]</a>
+                            </td>
+                        }
                     </tr>
                 }
             </tbody>
         </table>
     </div>
 }
+

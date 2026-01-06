@@ -1,0 +1,104 @@
+@using PlayerRatings.Localization
+@inject Microsoft.Extensions.Localization.IStringLocalizer<LocalizationKey> LocString
+
+@{
+    ViewData["Title"] = ViewBag.Title ?? "Edit Photo";
+    Layout = "_Layout";
+}
+
+<div class="container" style="max-width: 500px; margin-top: 30px;">
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            <h4 style="margin: 0;">@ViewBag.Title</h4>
+        </div>
+        <div class="panel-body">
+            @if (TempData["Error"] != null)
+            {
+                <div class="alert alert-danger">@TempData["Error"]</div>
+            }
+
+            <form asp-action="EditPhoto" method="post" enctype="multipart/form-data">
+                <input type="hidden" name="tournamentId" value="@ViewBag.TournamentId" />
+                <input type="hidden" name="playerId" value="@ViewBag.PlayerId" />
+                <input type="hidden" name="matchId" value="@ViewBag.MatchId" />
+                <input type="hidden" name="photoType" value="@ViewBag.PhotoType" />
+
+                <div class="form-group">
+                    <label>URL</label>
+                    <input type="text" name="photoUrl" class="form-control" value="@ViewBag.CurrentUrl" placeholder="https://..." />
+                </div>
+
+                @if (ViewBag.IsGameRecord)
+                {
+                    <div class="form-group">
+                        <label>@LocString[nameof(LocalizationKey.UploadFile)]</label>
+                        <input type="file" name="photoFile" class="form-control" accept=".sgf,.SGF,.txt" />
+                        <p class="help-block" style="font-size: 0.85em; color: #666;">
+                            @LocString[nameof(LocalizationKey.SupportedFormats)]: SGF, TXT
+                        </p>
+                    </div>
+                }
+                else if (ViewBag.IsStandingsPhoto)
+                {
+                    <div class="form-group">
+                        <label>@LocString[nameof(LocalizationKey.UploadFile)]</label>
+                        <input type="file" name="photoFile" class="form-control" accept="image/*,.pdf" />
+                        <p class="help-block" style="font-size: 0.85em; color: #666;">
+                            @LocString[nameof(LocalizationKey.SupportedFormats)]: JPG, PNG, GIF, WebP, PDF (max 10MB)
+                        </p>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty((string)ViewBag.CurrentUrl))
+                    {
+                        var isPdf = ((string)ViewBag.CurrentUrl).EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
+                        <div class="form-group">
+                            <label>Current:</label>
+                            <div>
+                                @if (isPdf)
+                                {
+                                    <a href="@ViewBag.CurrentUrl" target="_blank" style="font-size: 2em;">📄 PDF</a>
+                                }
+                                else
+                                {
+                                    <img src="@ViewBag.CurrentUrl" style="max-width: 100%; max-height: 200px; border-radius: 4px;" />
+                                }
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="form-group">
+                        <label>@LocString[nameof(LocalizationKey.UploadPhoto)]</label>
+                        <input type="file" name="photoFile" class="form-control" accept="image/*" />
+                        <p class="help-block" style="font-size: 0.85em; color: #666;">
+                            @LocString[nameof(LocalizationKey.SupportedFormats)]: JPG, PNG, GIF, WebP (max 5MB)
+                        </p>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty((string)ViewBag.CurrentUrl))
+                    {
+                        <div class="form-group">
+                            <label>Current:</label>
+                            <div>
+                                <img src="@ViewBag.CurrentUrl" style="max-width: 100%; max-height: 200px; border-radius: 4px;" />
+                            </div>
+                        </div>
+                    }
+                }
+
+                <div class="form-group" style="margin-top: 20px;">
+                    <button type="submit" class="btn btn-primary">@LocString[nameof(LocalizationKey.Save)]</button>
+                    <button type="button" class="btn btn-default" onclick="window.close();">@LocString[nameof(LocalizationKey.Cancel)]</button>
+                    @if (!string.IsNullOrEmpty((string)ViewBag.CurrentUrl))
+                    {
+                        <button type="submit" class="btn btn-danger" onclick="document.querySelector('[name=photoUrl]').value=''; return true;">
+                            @LocString[nameof(LocalizationKey.Delete)]
+                        </button>
+                    }
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+

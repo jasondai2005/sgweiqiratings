@@ -53,13 +53,46 @@ namespace PlayerRatings.ViewModels.Tournament
         [Range(0, 10)]
         public double? Factor { get; set; }
         
+        [Display(Name = "Notes")]
+        public string Notes { get; set; }
+        
+        [Display(Name = "External Links (URLs separated by semicolons)")]
+        public string ExternalLinks { get; set; }
+        
+        [MaxLength(500)]
+        [Display(Name = "Photo URL")]
+        public string Photo { get; set; }
+        
+        [MaxLength(500)]
+        [Display(Name = "Standings Photo URL")]
+        public string StandingsPhoto { get; set; }
+        
+        [Display(Name = "Supports Personal Award")]
+        public bool SupportsPersonalAward { get; set; }
+        
+        [Display(Name = "Supports Team Award")]
+        public bool SupportsTeamAward { get; set; }
+        
+        [Display(Name = "Supports Female Award")]
+        public bool SupportsFemaleAward { get; set; }
+        
+        // Player data for saving with the form
+        public List<string> PlayerIds { get; set; } = new List<string>();
+        public List<int?> PositionValues { get; set; } = new List<int?>();
+        public List<string> TeamValues { get; set; } = new List<string>();
+        public List<int?> TeamPositionValues { get; set; } = new List<int?>();
+        public List<int?> FemalePositionValues { get; set; } = new List<int?>();
+        
         /// <summary>
         /// Common tournament types for dropdown
         /// </summary>
         public static readonly List<string> CommonTypes = new List<string>
         {
-            "Competition",
-            "Selection",
+            Models.Tournament.TypeCompetition,    // Competition
+            Models.Tournament.TypeSelection,      // Selection
+            Models.Tournament.TypeIntlSelection,  // International+ - selected players only (achievement)
+            Models.Tournament.TypeIntlOpen,       // International - open to anyone
+            Models.Tournament.TypeTitle,          // Title - winner gets title for 1 year
             "Certification",
             "League",
             "Friendly"
@@ -84,6 +117,11 @@ namespace PlayerRatings.ViewModels.Tournament
         /// Year filter for match selection
         /// </summary>
         public int? FilterYear { get; set; }
+        
+        /// <summary>
+        /// Match name filter for match selection (filters by MatchName containing this value)
+        /// </summary>
+        public string FilterMatchName { get; set; }
         
         /// <summary>
         /// Available matches for selection (populated by controller)
@@ -166,9 +204,9 @@ namespace PlayerRatings.ViewModels.Tournament
         public string PromotionRanking { get; set; }
         
         /// <summary>
-        /// Number of wins in this tournament
+        /// Number of wins in this tournament (draws count as 0.5)
         /// </summary>
-        public int Wins { get; set; }
+        public double Wins { get; set; }
         
         /// <summary>
         /// Number of losses in this tournament
@@ -176,19 +214,39 @@ namespace PlayerRatings.ViewModels.Tournament
         public int Losses { get; set; }
         
         /// <summary>
-        /// SOS - Sum of Opponents' Scores (sum of opponents' wins)
+        /// SOS - Sum of Opponents' Scores (sum of opponents' wins, draws count as 0.5)
         /// </summary>
-        public int SOS { get; set; }
+        public double SOS { get; set; }
         
         /// <summary>
         /// SOSOS - Sum of Opponents' SOS (sum of opponents' SOS scores)
         /// </summary>
-        public int SOSOS { get; set; }
+        public double SOSOS { get; set; }
         
         /// <summary>
         /// True if player is undefeated (0 losses) - champion status
         /// </summary>
         public bool IsUndefeated => Losses == 0 && Wins > 0;
+        
+        /// <summary>
+        /// Team name
+        /// </summary>
+        public string Team { get; set; }
+        
+        /// <summary>
+        /// Team position (for top 3 players)
+        /// </summary>
+        public int? TeamPosition { get; set; }
+        
+        /// <summary>
+        /// Female position
+        /// </summary>
+        public int? FemalePosition { get; set; }
+        
+        /// <summary>
+        /// Whether this player is female (DisplayName contains '♀')
+        /// </summary>
+        public bool IsFemale { get; set; }
     }
     
     /// <summary>

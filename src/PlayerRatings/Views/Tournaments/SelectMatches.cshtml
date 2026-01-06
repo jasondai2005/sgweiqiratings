@@ -1,0 +1,295 @@
+@using PlayerRatings.Localization
+@model PlayerRatings.ViewModels.Tournament.TournamentEditViewModel
+@inject Microsoft.Extensions.Localization.IStringLocalizer<LocalizationKey> LocString
+
+@{
+    ViewData["Title"] = LocString[nameof(LocalizationKey.SelectMatches)];
+    
+    var months = new[] {
+        new { Value = 1, Text = "January" },
+        new { Value = 2, Text = "February" },
+        new { Value = 3, Text = "March" },
+        new { Value = 4, Text = "April" },
+        new { Value = 5, Text = "May" },
+        new { Value = 6, Text = "June" },
+        new { Value = 7, Text = "July" },
+        new { Value = 8, Text = "August" },
+        new { Value = 9, Text = "September" },
+        new { Value = 10, Text = "October" },
+        new { Value = 11, Text = "November" },
+        new { Value = 12, Text = "December" }
+    };
+    
+    var currentYear = DateTime.Now.Year;
+    var years = Enumerable.Range(currentYear - 5, 7).Reverse().ToList();
+}
+
+<div class="form-horizontal">
+    <h2>@LocString[nameof(LocalizationKey.SelectMatches)]: @(string.IsNullOrEmpty(Model.Ordinal) ? Model.Name : $"{Model.Ordinal} {Model.Name}")</h2>
+    <h5 class="text-muted">@Model.LeagueName</h5>
+    <hr />
+    
+    <div class="form-group">
+        <div class="col-md-12">
+            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-default">
+                ← @LocString[nameof(LocalizationKey.BackToEdit)]
+            </a>
+            <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-default">
+                @LocString[nameof(LocalizationKey.Details)]
+            </a>
+        </div>
+    </div>
+</div>
+
+<div style="margin-top: 20px;">
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <span>@LocString[nameof(LocalizationKey.SelectMatches)]</span>
+                <form asp-action="SelectMatches" method="get" style="display: flex; gap: 5px; flex-wrap: wrap;">
+                    <input type="hidden" name="id" value="@Model.Id" />
+                    <select name="filterMonth" class="form-control input-sm" style="width: 110px;">
+                        @foreach (var m in months)
+                        {
+                            <option value="@m.Value" selected="@(m.Value == Model.FilterMonth)">@m.Text</option>
+                        }
+                    </select>
+                    <select name="filterYear" class="form-control input-sm" style="width: 80px;">
+                        @foreach (var y in years)
+                        {
+                            <option value="@y" selected="@(y == Model.FilterYear)">@y</option>
+                        }
+                    </select>
+                    <input type="text" name="filterMatchName" value="@Model.FilterMatchName" class="form-control input-sm" placeholder="Match name..." style="width: 150px;" />
+                    <button type="submit" class="btn btn-sm btn-default">@LocString[nameof(LocalizationKey.Filter)]</button>
+                </form>
+            </div>
+        </div>
+        <div class="panel-body" style="padding: 0;">
+            <form asp-action="AddMatches" method="post" id="addMatchesForm">
+                <input type="hidden" name="tournamentId" value="@Model.Id" />
+                <input type="hidden" name="filterMonth" value="@Model.FilterMonth" />
+                <input type="hidden" name="filterYear" value="@Model.FilterYear" />
+                <input type="hidden" name="filterMatchName" value="@Model.FilterMatchName" />
+                
+                @if (!Model.AvailableMatches.Any())
+                {
+                    <p class="text-muted" style="padding: 15px; margin: 0;">@LocString[nameof(LocalizationKey.NoMatchesFound)]</p>
+                }
+                else
+                {
+                    <!-- Bulk Actions -->
+                    <div style="padding: 10px; background: #f5f5f5; border-bottom: 1px solid #ddd;">
+                        <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                            <label style="margin: 0;">
+                                <input type="checkbox" id="selectAllMatches" /> @LocString[nameof(LocalizationKey.SelectAll)]
+                            </label>
+                            <span style="color: #999;">|</span>
+                            <label style="margin: 0;">@LocString[nameof(LocalizationKey.SetRoundForSelected)]:</label>
+                            <input type="number" id="bulkRoundInput" class="form-control input-sm" style="width: 60px;" placeholder="R#" />
+                            <button type="button" id="applyBulkRound" class="btn btn-xs btn-default">@LocString[nameof(LocalizationKey.Apply)]</button>
+                        </div>
+                    </div>
+                    
+                    <table class="table table-condensed table-hover" style="margin-bottom: 0;">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px;"></th>
+                                <th>@LocString[nameof(LocalizationKey.Date)]</th>
+                                <th>@LocString[nameof(LocalizationKey.Match)]</th>
+                                <th class="text-center">@LocString[nameof(LocalizationKey.Score)]</th>
+                                <th style="width: 60px;">@LocString[nameof(LocalizationKey.Round)]</th>
+                                <th>@LocString[nameof(LocalizationKey.Status)]</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @{ var index = 0; }
+                            @foreach (var m in Model.AvailableMatches)
+                            {
+                                var isInOther = m.CurrentTournamentId.HasValue && m.CurrentTournamentId != Model.Id;
+                                var isInThis = m.IsSelected;
+                                var rowClass = isInThis ? "success" : (isInOther ? "active" : "");
+                                
+                                <tr class="@rowClass">
+                                    <td>
+                                        @if (!isInOther)
+                                        {
+                                            <input type="checkbox" name="matchIds" value="@m.Id" class="match-checkbox" 
+                                                   checked="@isInThis" data-index="@index" />
+                                        }
+                                    </td>
+                                    <td>@m.Date.ToString("dd MMM")</td>
+                                    <td>
+                                        @(string.IsNullOrEmpty(m.FirstPlayerName) ? "BYE" : m.FirstPlayerName) vs @(string.IsNullOrEmpty(m.SecondPlayerName) ? "BYE" : m.SecondPlayerName)
+                                        @if (!string.IsNullOrEmpty(m.MatchName))
+                                        {
+                                            <br /><small class="text-muted">@m.MatchName</small>
+                                        }
+                                    </td>
+                                    <td class="text-center">@m.FirstPlayerScore : @m.SecondPlayerScore</td>
+                                    <td>
+                                        @if (!isInOther)
+                                        {
+                                            <input type="number" name="rounds" value="@m.Round" class="form-control input-sm round-input"
+                                                   style="width: 50px;" data-index="@index" placeholder="R#" />
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (isInThis)
+                                        {
+                                            <span class="label label-success">@LocString[nameof(LocalizationKey.InTournament)]</span>
+                                            <form asp-action="RemoveMatch" method="post" style="display: inline;">
+                                                <input type="hidden" name="tournamentId" value="@Model.Id" />
+                                                <input type="hidden" name="matchId" value="@m.Id" />
+                                                <input type="hidden" name="filterMonth" value="@Model.FilterMonth" />
+                                                <input type="hidden" name="filterYear" value="@Model.FilterYear" />
+                                                <input type="hidden" name="filterMatchName" value="@Model.FilterMatchName" />
+                                                <button type="submit" class="btn btn-xs btn-link text-danger" style="padding: 0;">@LocString[nameof(LocalizationKey.Remove)]</button>
+                                            </form>
+                                        }
+                                        else if (isInOther)
+                                        {
+                                            <span class="label label-default" title="@m.CurrentTournamentName">@LocString[nameof(LocalizationKey.InAnother)]</span>
+                                        }
+                                    </td>
+                                </tr>
+                                index++;
+                            }
+                        </tbody>
+                    </table>
+                }
+            </form>
+        </div>
+        @if (Model.AvailableMatches.Any(m => !m.CurrentTournamentId.HasValue || m.CurrentTournamentId == Model.Id))
+        {
+            <div class="panel-footer">
+                <button type="submit" form="addMatchesForm" class="btn btn-primary">@LocString[nameof(LocalizationKey.AddSelectedMatches)]</button>
+                @if (Model.AvailableMatches.Any(m => m.IsSelected))
+                {
+                    <button type="button" id="saveRoundsBtn" class="btn btn-success" style="margin-left: 10px;">@LocString[nameof(LocalizationKey.SaveRounds)]</button>
+                    <span style="margin-left: 20px; border-left: 1px solid #ddd; padding-left: 20px;">
+                        <label style="font-weight: normal;">@LocString[nameof(LocalizationKey.ShiftSelectedBy)]</label>
+                        <input type="number" id="shiftHours" class="form-control" style="width: 70px; display: inline-block; margin: 0 5px;" value="0" />
+                        <label style="font-weight: normal;">@LocString[nameof(LocalizationKey.Hours)]</label>
+                        <button type="button" id="shiftTimesBtn" class="btn btn-default" style="margin-left: 5px;">@LocString[nameof(LocalizationKey.Apply)]</button>
+                    </span>
+                }
+                <br /><small class="text-muted">@LocString[nameof(LocalizationKey.MatchSelectionHelp)]</small>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Hidden form for Save Rounds -->
+<form asp-controller="Tournaments" asp-action="SaveRounds" method="post" id="saveRoundsForm">
+    <input type="hidden" name="tournamentId" value="@Model.Id" />
+    <input type="hidden" name="filterMonth" value="@Model.FilterMonth" />
+    <input type="hidden" name="filterYear" value="@Model.FilterYear" />
+    <input type="hidden" name="filterMatchName" value="@Model.FilterMatchName" />
+    @{ var saveIdx = 0; }
+    @foreach (var m in Model.AvailableMatches.Where(x => x.IsSelected))
+    {
+        <input type="hidden" name="matchIds[@saveIdx]" value="@m.Id" class="save-round-match-id" data-match-id="@m.Id" />
+        <input type="hidden" name="rounds[@saveIdx]" value="@m.Round" class="save-round-value" data-match-id="@m.Id" />
+        saveIdx++;
+    }
+</form>
+
+<!-- Hidden form for Shift Match Times -->
+<form asp-controller="Tournaments" asp-action="ShiftMatchTimes" method="post" id="shiftTimesForm">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="tournamentId" value="@Model.Id" />
+    <input type="hidden" name="filterMonth" value="@Model.FilterMonth" />
+    <input type="hidden" name="filterYear" value="@Model.FilterYear" />
+    <input type="hidden" name="filterMatchName" value="@Model.FilterMatchName" />
+    <input type="hidden" name="hours" id="shiftHoursValue" value="0" />
+    <div id="shiftMatchIds"></div>
+</form>
+
+@section Scripts {
+    <script>
+        $(function() {
+            // Select All functionality
+            $('#selectAllMatches').on('change', function() {
+                var isChecked = this.checked;
+                $('.match-checkbox').each(function() {
+                    this.checked = isChecked;
+                });
+            });
+            
+            // Update "Select All" checkbox state when individual checkboxes change
+            $('.match-checkbox').on('change', function() {
+                var allChecked = $('.match-checkbox').length === $('.match-checkbox:checked').length;
+                $('#selectAllMatches').prop('checked', allChecked);
+            });
+            
+            // Apply bulk round to selected matches
+            $('#applyBulkRound').on('click', function() {
+                var roundValue = $('#bulkRoundInput').val();
+                if (roundValue === '') {
+                    alert('Please enter a round number first.');
+                    return;
+                }
+                
+                $('.match-checkbox:checked').each(function() {
+                    var index = $(this).data('index');
+                    $('.round-input[data-index="' + index + '"]').val(roundValue);
+                });
+            });
+            
+            // Save Rounds button - sync values from main form and submit
+            $('#saveRoundsBtn').on('click', function() {
+                // Update hidden form values from the visible round inputs
+                $('.save-round-value').each(function() {
+                    var matchId = $(this).data('match-id');
+                    // Find the corresponding round input by matching the checkbox value
+                    var checkbox = $('input.match-checkbox[value="' + matchId + '"]');
+                    if (checkbox.length > 0) {
+                        var idx = checkbox.data('index');
+                        var roundInput = $('.round-input[data-index="' + idx + '"]');
+                        if (roundInput.length > 0) {
+                            $(this).val(roundInput.val());
+                        }
+                    }
+                });
+                $('#saveRoundsForm').submit();
+            });
+            
+            // Shift Match Times button - collect selected match IDs and submit
+            $('#shiftTimesBtn').on('click', function() {
+                var hours = parseInt($('#shiftHours').val()) || 0;
+                if (hours === 0) {
+                    alert('Please enter a non-zero number of hours.');
+                    return;
+                }
+                
+                // Get checked matches that are in the tournament (IsSelected)
+                var matchIds = [];
+                $('.match-checkbox:checked').each(function() {
+                    var matchId = $(this).val();
+                    // Only include matches that are already in the tournament
+                    var isInTournament = $(this).closest('tr').find('.label-success').length > 0;
+                    if (isInTournament) {
+                        matchIds.push(matchId);
+                    }
+                });
+                
+                if (matchIds.length === 0) {
+                    alert('Please select matches that are already in the tournament.');
+                    return;
+                }
+                
+                // Update hidden form
+                $('#shiftHoursValue').val(hours);
+                var container = $('#shiftMatchIds');
+                container.empty();
+                matchIds.forEach(function(id, idx) {
+                    container.append('<input type="hidden" name="matchIds[' + idx + ']" value="' + id + '" />');
+                });
+                
+                $('#shiftTimesForm').submit();
+            });
+        });
+    </script>
+}
+

@@ -25,13 +25,6 @@ namespace PlayerRatings.Controllers
         private readonly IWebHostEnvironment _env;
         private readonly IMemoryCache _cache;
 
-        // Match type constants (kept for local use, shared constants are in RatingCalculationHelper)
-        private const string MATCH_SWA = "SWA ";
-        private const string MATCH_TGA = "TGA ";
-        private const string MATCH_SG = "SG ";
-
-        // Reference shared constant for minimum date
-        private static readonly DateTimeOffset RATING_START_DATE = RatingCalculationHelper.RATING_START_DATE;
 
         /// <summary>
         /// Gets the last second of the month for the given date.
@@ -92,42 +85,21 @@ namespace PlayerRatings.Controllers
         }
 
         /// <summary>
-        /// Filters matches based on date and match type for rating calculations.
-        /// Excludes matches before RATING_START_DATE (01/01/2023).
-        /// For non-SG leagues (international), all match types are included.
+        /// Gets the SWA Only preference from cookie.
         /// </summary>
-        /// <param name="isSgLeague">If true, filters by match type (SWA/TGA/SG). If false, includes all match types.</param>
-        private static IOrderedEnumerable<Match> FilterMatches(IEnumerable<Match> matches, DateTimeOffset date, bool swaOnly, bool isSgLeague = true)
+        private bool GetSwaOnlyPreference()
         {
-            // Date filter: between RATING_START_DATE and cutoff date
-            Func<Match, bool> dateFilter = x => x.Date >= RATING_START_DATE && x.Date <= date;
-            
-            // Non-SG (international) leagues include all match types
-            if (!isSgLeague)
-                return matches.Where(x => dateFilter(x)).OrderBy(m => m.Date);
-            
-            return swaOnly
-                ? matches.Where(x => dateFilter(x) && x.MatchName.Contains(MATCH_SWA)).OrderBy(m => m.Date)
-                : matches.Where(x => dateFilter(x) && 
-                    (x.MatchName.Contains(MATCH_SWA) || x.MatchName.Contains(MATCH_TGA) || x.MatchName.Contains(MATCH_SG))).OrderBy(m => m.Date);
+            return Request.Cookies[HomeController.SwaOnlyCookieName] == "true";
         }
-
+        
         /// <summary>
         /// Filters matches for a specific player based on date and match type.
         /// For non-SG leagues (international), all matches are included.
         /// </summary>
         private static IOrderedEnumerable<Match> FilterPlayerMatches(IEnumerable<Match> matches, string playerId, bool swaOnly, bool isSgLeague = true)
         {
-            Func<Match, bool> playerFilter = m => m.FirstPlayerId == playerId || m.SecondPlayerId == playerId;
-            
-            // Non-SG (international) leagues include all matches
-            if (!isSgLeague)
-                return matches.Where(m => playerFilter(m)).OrderBy(m => m.Date);
-            
-            return swaOnly
-                ? matches.Where(m => playerFilter(m) && m.MatchName.Contains(MATCH_SWA)).OrderBy(m => m.Date)
-                : matches.Where(m => playerFilter(m) && 
-                    (m.MatchName.Contains(MATCH_SWA) || m.MatchName.Contains(MATCH_TGA) || m.MatchName.Contains(MATCH_SG))).OrderBy(m => m.Date);
+            var playerFiltered = matches.Where(m => m.FirstPlayerId == playerId || m.SecondPlayerId == playerId);
+            return RatingCalculationHelper.ApplySwaFilter(playerFiltered, swaOnly, isSgLeague);
         }
 
         // GET: Leagues
@@ -155,18 +127,23 @@ namespace PlayerRatings.Controllers
                 return NotFound();
             }
 
+            var swaOnly = Elo.SwaRankedPlayersOnly;
+            
             var allPlayers = _context.LeaguePlayers
                 .AsNoTracking()
                 .Include(lp => lp.User).ThenInclude(u => u.Rankings)
                 .Where(lp =>
                     lp.LeagueId == league.Id &&
-                    !lp.User.DisplayName.Contains("[") &&
                     lp.User.DisplayName != "Admin").ToList();
-            if (Elo.SwaRankedPlayersOnly)
+            if (swaOnly)
                 allPlayers = allPlayers.Where(x => x.User.LatestSwaRanking.Any()).ToList();
             
             // For Singapore Weiqi league, separate local and non-local players
             bool isSgLeague = league.Name?.Contains("Singapore Weiqi") ?? false;
+            
+            // Set ViewData for navbar toggle visibility
+            ViewData["IsSgLeague"] = isSgLeague;
+            
             List<LeaguePlayer> players;
             List<LeaguePlayer> nonLocalPlayers = new List<LeaguePlayer>();
             
@@ -180,9 +157,9 @@ namespace PlayerRatings.Controllers
             {
                 players = allPlayers;
             }
-            
+
             players.Sort(CompareByRankingAndName);
-            
+
             // Check if current user is admin for this league
             var isAdmin = _leaguesRepository.GetAdminAuthorizedLeague(currentUser, id) != null;
             
@@ -377,7 +354,7 @@ namespace PlayerRatings.Controllers
 
         // GET: Leagues/Rating/5
         private EloStat elo = new EloStat();
-        public async Task<IActionResult> Rating(Guid? id, string byDate, bool swaOnly = false, bool refresh = false)
+        public async Task<IActionResult> Rating(Guid? id, string byDate, bool refresh = false)
         {
             if (id == null)
             {
@@ -385,7 +362,7 @@ namespace PlayerRatings.Controllers
             }
             // When a date is specified, use end of day (23:59:59) to include all matches on that day
             var date = byDate == null 
-                ? DateTimeOffset.Now 
+                ? DateTimeOffset.UtcNow 
                 : DateTimeOffset.ParseExact(byDate, "dd/MM/yyyy", null).AddDays(1).AddSeconds(-1);
             League.CutoffDate = date;
             var currentUser = await User.GetApplicationUser(_userManager);
@@ -403,6 +380,13 @@ namespace PlayerRatings.Controllers
             {
                 return NotFound();
             }
+            
+            // Get SWA Only preference from cookie (only applies to SG league)
+            bool isSgLeague = league.Name?.Contains("Singapore Weiqi") ?? false;
+            bool swaOnly = isSgLeague && GetSwaOnlyPreference();
+            
+            // Set ViewData for navbar toggle visibility
+            ViewData["IsSgLeague"] = isSgLeague;
 
             // Get player statuses for filtering
             var (notBlockedUserIds, hiddenUserIds, alwaysShownUserIds) = GetPlayerStatuses(league.Id);
@@ -410,7 +394,7 @@ namespace PlayerRatings.Controllers
             // Use shared calculation method - also collect matches for lastMatches display
             var winRateStat = new WinRateStat();
             var recentMatches = new List<Match>();
-            var (eloResult, activeUsers, isSgLeague) = CalculateRatings(
+            var (eloResult, activeUsers, _) = CalculateRatings(
                 league, date, swaOnly,
                 allowedUserIds: notBlockedUserIds,
                 onMatchProcessed: (match, _) => {
@@ -524,8 +508,6 @@ namespace PlayerRatings.Controllers
             return View(new RatingViewModel(stats, users, promotedPlayers, recentMatches, id.Value, byDate, swaOnly, isSgLeague, nonLocalUsers, inactiveUsers, previousRatings, previousPositions, comparisonDate));
         }
 
-        private static void AddUser(HashSet<ApplicationUser> activeUsers, Match match, ApplicationUser player)
-            => RatingCalculationHelper.AddUser(activeUsers, match, player);
 
         /// <summary>
         /// Loads player statuses for filtering (blocked, hidden, always shown).
@@ -545,7 +527,7 @@ namespace PlayerRatings.Controllers
 
         /// <summary>
         /// Shared rating calculation used by both Rating and Player pages.
-        /// Ensures consistent results across both views.
+        /// Wraps RatingCalculationHelper.CalculateRatings and adds isSgLeague detection.
         /// </summary>
         /// <param name="league">League with matches loaded</param>
         /// <param name="cutoffDate">Date to calculate ratings up to</param>
@@ -553,7 +535,7 @@ namespace PlayerRatings.Controllers
         /// <param name="allowedUserIds">Optional filter - only include these user IDs (null = include all)</param>
         /// <param name="onMatchProcessed">Optional callback for each match with EloStat (for monthly snapshots)</param>
         /// <returns>Tuple of (EloStat, activeUsers, isSgLeague)</returns>
-        private (EloStat eloStat, HashSet<ApplicationUser> activeUsers, bool isSgLeague) 
+        private static (EloStat eloStat, HashSet<ApplicationUser> activeUsers, bool isSgLeague) 
             CalculateRatings(
                 League league, 
                 DateTimeOffset cutoffDate, 
@@ -561,54 +543,18 @@ namespace PlayerRatings.Controllers
                 HashSet<string> allowedUserIds = null,
                 Action<Match, EloStat> onMatchProcessed = null)
         {
-            // Reset player transient state at the start (important for cached data)
-            ResetPlayerState(league.Matches);
-
-            League.CutoffDate = cutoffDate;
-            EloStat.SwaOnly = swaOnly;
-
             bool isSgLeague = league.Name?.Contains("Singapore Weiqi") ?? false;
-
-            var activeUsers = new HashSet<ApplicationUser>();
-            var eloStat = new EloStat();
-
-            var matches = FilterMatches(league.Matches, cutoffDate, swaOnly, isSgLeague: isSgLeague);
-            foreach (var match in matches)
-            {
-                // Add users (with optional filter) - skip NULL players for bye matches
-                if (match.FirstPlayer != null && (allowedUserIds == null || allowedUserIds.Contains(match.FirstPlayerId)))
-                {
-                    AddUser(activeUsers, match, match.FirstPlayer);
-                }
-                if (match.SecondPlayer != null && (allowedUserIds == null || allowedUserIds.Contains(match.SecondPlayerId)))
-                {
-                    AddUser(activeUsers, match, match.SecondPlayer);
-                }
-
-                eloStat.AddMatch(match);
-                
-                // Callback for additional processing (e.g., monthly snapshots)
-                onMatchProcessed?.Invoke(match, eloStat);
-            }
-
-            // Check promotions for all active users
-            foreach (var user in activeUsers)
-            {
-                eloStat.CheckPlayerPromotion(user, cutoffDate, isSgLeague);
-            }
+            
+            var (eloStat, activeUsers) = RatingCalculationHelper.CalculateRatings(
+                league.Matches,
+                cutoffDate,
+                swaOnly,
+                isSgLeague,
+                allowedUserIds,
+                onMatchProcessed);
 
             return (eloStat, activeUsers, isSgLeague);
         }
-
-        /// <summary>
-        /// Resets player transient state before rating calculation.
-        /// This is important when using cached data to ensure each calculation starts fresh.
-        /// </summary>
-        private static void ResetPlayerState(IEnumerable<Match> matches)
-            => RatingCalculationHelper.ResetPlayerState(matches);
-
-        private static void ResetPlayer(ApplicationUser player)
-            => RatingCalculationHelper.ResetPlayer(player);
 
         private int CompareByRatingAndName(ApplicationUser x, ApplicationUser y)
         {
@@ -644,14 +590,8 @@ namespace PlayerRatings.Controllers
 
         private int CompareRatings(ApplicationUser x, ApplicationUser y, string ranking1, string ranking2)
         {
-            var result1 = elo.GetResult(x);
-            var result2 = elo.GetResult(y);
-            
-            // Handle users with no rating (empty string from GetResult) - use their ranking rating instead
-            if (!double.TryParse(result1, out double rating1))
-                rating1 = x.GetRatingByRanking(ranking1);
-            if (!double.TryParse(result2, out double rating2))
-                rating2 = y.GetRatingByRanking(ranking2);
+            var rating1 = elo.GetDoubleResult(x);
+            var rating2 = elo.GetDoubleResult(y);
             
             if (rating1 == rating2) // the same rating
             {
@@ -718,7 +658,7 @@ namespace PlayerRatings.Controllers
         }
 
         // GET: Leagues/Player/5?playerId=xxx
-        public async Task<IActionResult> Player(Guid id, string playerId, bool swaOnly = false, bool refresh = false)
+        public async Task<IActionResult> Player(Guid id, string playerId, bool refresh = false)
         {
             if (string.IsNullOrEmpty(playerId))
             {
@@ -744,6 +684,12 @@ namespace PlayerRatings.Controllers
             // Get player statuses and league type info
             var (notBlockedUserIds, hiddenUserIds, _) = GetPlayerStatuses(league.Id);
             bool isSgLeague = league.Name?.Contains("Singapore Weiqi") ?? false;
+            
+            // Get SWA Only preference from cookie (only applies to SG league)
+            bool swaOnly = isSgLeague && GetSwaOnlyPreference();
+            
+            // Set ViewData for navbar toggle visibility
+            ViewData["IsSgLeague"] = isSgLeague;
 
             // Get player from already loaded match data (includes Rankings via ThenInclude)
             var player = league.Matches
@@ -776,7 +722,7 @@ namespace PlayerRatings.Controllers
             // Load player's tournament positions for display in rating history
             var playerTournamentPositions = await _context.TournamentPlayers
                 .Where(tp => tp.PlayerId == playerId)
-                .ToDictionaryAsync(tp => tp.TournamentId, tp => tp.Position);
+                .ToDictionaryAsync(tp => tp.TournamentId, tp => new { tp.Position, tp.FemalePosition, tp.TeamPosition });
 
             // If player has no matches, show page with just their info (no rating history)
             if (!playerMatches.Any())
@@ -791,6 +737,52 @@ namespace PlayerRatings.Controllers
                         Name = t.FullName
                     })
                     .ToListAsync();
+                
+                // Load tournament participations even for players with no matches
+                var emptyTournamentParticipations = await _context.TournamentPlayers
+                    .Where(tp => tp.PlayerId == playerId && tp.Tournament.StartDate.HasValue)
+                    .Include(tp => tp.Tournament)
+                    .Select(tp => new ViewModels.Player.TournamentParticipation
+                    {
+                        TournamentId = tp.TournamentId,
+                        TournamentName = tp.Tournament.FullName,
+                        StartDate = tp.Tournament.StartDate.Value,
+                        Position = tp.Position,
+                        FemalePosition = tp.FemalePosition,
+                        TeamPosition = tp.TeamPosition,
+                        HasMatches = false,
+                        IsIntlSelection = tp.Tournament.TournamentType == Tournament.TypeIntlSelection,
+                        IsTitle = tp.Tournament.TournamentType == Tournament.TypeTitle,
+                        TitleEn = tp.Tournament.TournamentType == Tournament.TypeTitle ? tp.Tournament.TitleEn : null,
+                        TitleCn = tp.Tournament.TournamentType == Tournament.TypeTitle ? tp.Tournament.TitleCn : null
+                    })
+                    .ToListAsync();
+                
+                // Build title lists for empty player
+                var emptyOneYearAgo = DateTimeOffset.UtcNow.AddYears(-1);
+                var emptyActiveTitles = emptyTournamentParticipations
+                    .Where(tp => tp.IsTitle && tp.Position == 1 && !string.IsNullOrEmpty(tp.TitleEn) && tp.StartDate > emptyOneYearAgo)
+                    .OrderByDescending(tp => tp.StartDate)
+                    .Select(tp => new ViewModels.Player.TitleInfo
+                    {
+                        TitleEn = tp.TitleEn,
+                        TitleCn = tp.TitleCn,
+                        WonDate = tp.StartDate,
+                        TournamentName = tp.TournamentName
+                    })
+                    .ToList();
+                
+                var emptyFormerTitles = emptyTournamentParticipations
+                    .Where(tp => tp.IsTitle && tp.Position == 1 && !string.IsNullOrEmpty(tp.TitleEn) && tp.StartDate <= emptyOneYearAgo)
+                    .OrderByDescending(tp => tp.StartDate)
+                    .Select(tp => new ViewModels.Player.TitleInfo
+                    {
+                        TitleEn = tp.TitleEn,
+                        TitleCn = tp.TitleCn,
+                        WonDate = tp.StartDate,
+                        TournamentName = tp.TournamentName
+                    })
+                    .ToList();
                     
                 return View(new PlayerRatingHistoryViewModel
                 {
@@ -799,7 +791,14 @@ namespace PlayerRatings.Controllers
                     MonthlyRatings = new List<MonthlyRating>(),
                     SwaOnly = swaOnly,
                     GameRecords = new List<GameRecord>(),
-                    TournamentOptions = emptyTournamentOptions
+                    TournamentOptions = emptyTournamentOptions,
+                    TournamentParticipations = emptyTournamentParticipations,
+                    ChampionshipCount = emptyTournamentParticipations.Count(tp => tp.Position == 1),
+                    TeamChampionshipCount = emptyTournamentParticipations.Count(tp => tp.TeamPosition == 1),
+                    FemaleChampionshipCount = emptyTournamentParticipations.Count(tp => tp.FemalePosition == 1),
+                    ActiveTitles = emptyActiveTitles,
+                    FormerTitles = emptyFormerTitles,
+                    IntlSelectionCount = emptyTournamentParticipations.Count(tp => tp.IsIntlSelection)
                 });
             }
 
@@ -875,9 +874,13 @@ namespace PlayerRatings.Controllers
                     if (!matchInfosInCurrentMonth.Any(m => (m.TournamentId?.ToString() ?? m.MatchName ?? "") == matchKey))
                     {
                         int? tournamentPosition = null;
-                        if (match.TournamentId.HasValue && playerTournamentPositions.TryGetValue(match.TournamentId.Value, out var pos))
+                        int? femalePosition = null;
+                        int? teamPosition = null;
+                        if (match.TournamentId.HasValue && playerTournamentPositions.TryGetValue(match.TournamentId.Value, out var posInfo))
                         {
-                            tournamentPosition = pos;
+                            tournamentPosition = posInfo.Position;
+                            femalePosition = posInfo.FemalePosition;
+                            teamPosition = posInfo.TeamPosition;
                         }
                         matchInfosInCurrentMonth.Add(new MatchInfo
                         {
@@ -885,7 +888,10 @@ namespace PlayerRatings.Controllers
                             TournamentId = match.TournamentId,
                             TournamentName = match.Tournament?.FullName,
                             Round = match.Round,
-                            TournamentPosition = tournamentPosition
+                            TournamentPosition = tournamentPosition,
+                            FemalePosition = femalePosition,
+                            TeamPosition = teamPosition,
+                            TournamentStartDate = match.Tournament?.StartDate
                         });
                     }
                 }
@@ -899,15 +905,17 @@ namespace PlayerRatings.Controllers
                 bool hasEnoughGames = !isNewForeignPlayer || playerMatchCount >= 12;
                 if (playerMatchCount > 0 && hasEnoughGames)
                 {
-                    var reversed = new List<MatchInfo>(matchInfosInCurrentMonth);
-                    reversed.Reverse();
+                    // Order tournaments by start date descending (latest at top)
+                    var orderedMatches = matchInfosInCurrentMonth
+                        .OrderByDescending(m => m.TournamentStartDate ?? DateTimeOffset.MinValue)
+                        .ToList();
                     
                     // monthToCapture is already end-of-month, just convert to DateTimeOffset
                     var monthEnd = new DateTimeOffset(monthToCapture, TimeSpan.Zero);
                     
                     // For the current month, use 'now' instead of month-end to reflect current state
                     // This avoids confusion (e.g., showing position based on future end-of-month)
-                    var now = DateTimeOffset.Now;
+                    var now = DateTimeOffset.UtcNow;
                     var isCurrentMonth = monthToCapture.Year == now.Year && monthToCapture.Month == now.Month;
                     var effectiveDate = isCurrentMonth ? now : monthEnd;
                     
@@ -964,7 +972,7 @@ namespace PlayerRatings.Controllers
                         Month = monthToCapture,
                         Rating = currentEloStat[player],
                         MatchesInMonth = matchesInCurrentMonth,
-                        Matches = reversed,
+                        Matches = orderedMatches,
                         Position = monthPosition,
                         TotalPlayers = monthTotalPlayers,
                         PromotionBonuses = promotionBonuses
@@ -975,7 +983,7 @@ namespace PlayerRatings.Controllers
             // Use shared calculation (same as Rating page)
             var (eloStat, activeUsers, _) = CalculateRatings(
                 league, 
-                DateTimeOffset.Now, 
+                DateTimeOffset.UtcNow, 
                 swaOnly,
                 allowedUserIds: notBlockedUserIds,
                 onMatchProcessed: OnMatchProcessed);
@@ -1005,7 +1013,7 @@ namespace PlayerRatings.Controllers
             int totalPlayers = latestMonthlyRating?.TotalPlayers ?? 0;
             
             // Build ranked players list for navigation (previous/next player)
-            var now = DateTimeOffset.Now;
+            var now = DateTimeOffset.UtcNow;
             var twoYearsAgoNav = now.AddYears(-2);
             var rankedPlayerIds = new HashSet<string>();
             var rankedPlayersForNav = allPlayersInMatches.Values
@@ -1093,9 +1101,13 @@ namespace PlayerRatings.Controllers
                 var opponentRanking = opponent?.GetCombinedRankingBeforeDate(match.Date.Date);
                 
                 int? tournamentPosition = null;
-                if (match.TournamentId.HasValue && playerTournamentPositions.TryGetValue(match.TournamentId.Value, out var pos))
+                int? femalePosition = null;
+                int? teamPosition = null;
+                if (match.TournamentId.HasValue && playerTournamentPositions.TryGetValue(match.TournamentId.Value, out var posInfo))
                 {
-                    tournamentPosition = pos;
+                    tournamentPosition = posInfo.Position;
+                    femalePosition = posInfo.FemalePosition;
+                    teamPosition = posInfo.TeamPosition;
                 }
                 gameRecords.Add(new GameRecord
                 {
@@ -1109,7 +1121,9 @@ namespace PlayerRatings.Controllers
                     TournamentId = match.TournamentId,
                     TournamentName = match.Tournament?.FullName,
                     Round = match.Round,
-                    TournamentPosition = tournamentPosition
+                    TournamentPosition = tournamentPosition,
+                    FemalePosition = femalePosition,
+                    TeamPosition = teamPosition
                 });
             }
 
@@ -1124,10 +1138,72 @@ namespace PlayerRatings.Controllers
                 })
                 .ToListAsync();
 
+            // Load all tournament participations (including those without match records)
+            var tournamentIdsWithMatches = new HashSet<Guid>(
+                gameRecords.Where(g => g.TournamentId.HasValue && g.Factor != 0).Select(g => g.TournamentId.Value));
+            
+            var tournamentParticipations = await _context.TournamentPlayers
+                .Where(tp => tp.PlayerId == playerId && tp.Tournament.StartDate.HasValue)
+                .Include(tp => tp.Tournament)
+                .Select(tp => new ViewModels.Player.TournamentParticipation
+                {
+                    TournamentId = tp.TournamentId,
+                    TournamentName = tp.Tournament.FullName,
+                    StartDate = tp.Tournament.StartDate.Value,
+                    Position = tp.Position,
+                    FemalePosition = tp.FemalePosition,
+                    TeamPosition = tp.TeamPosition,
+                    HasMatches = false, // Will be set after query
+                    IsIntlSelection = tp.Tournament.TournamentType == Tournament.TypeIntlSelection,
+                    IsTitle = tp.Tournament.TournamentType == Tournament.TypeTitle,
+                    TitleEn = tp.Tournament.TournamentType == Tournament.TypeTitle ? tp.Tournament.TitleEn : null,
+                    TitleCn = tp.Tournament.TournamentType == Tournament.TypeTitle ? tp.Tournament.TitleCn : null
+                })
+                .ToListAsync();
+            
+            // Mark which tournaments have matches
+            foreach (var tp in tournamentParticipations)
+            {
+                tp.HasMatches = tournamentIdsWithMatches.Contains(tp.TournamentId);
+            }
+            
+            // Build title lists
+            var oneYearAgo = DateTimeOffset.UtcNow.AddYears(-1);
+            var activeTitles = tournamentParticipations
+                .Where(tp => tp.IsTitle && tp.Position == 1 && !string.IsNullOrEmpty(tp.TitleEn) && tp.StartDate > oneYearAgo)
+                .OrderByDescending(tp => tp.StartDate)
+                .Select(tp => new ViewModels.Player.TitleInfo
+                {
+                    TitleEn = tp.TitleEn,
+                    TitleCn = tp.TitleCn,
+                    WonDate = tp.StartDate,
+                    TournamentName = tp.TournamentName
+                })
+                .ToList();
+            
+            var formerTitles = tournamentParticipations
+                .Where(tp => tp.IsTitle && tp.Position == 1 && !string.IsNullOrEmpty(tp.TitleEn) && tp.StartDate <= oneYearAgo)
+                .OrderByDescending(tp => tp.StartDate)
+                .Select(tp => new ViewModels.Player.TitleInfo
+                {
+                    TitleEn = tp.TitleEn,
+                    TitleCn = tp.TitleCn,
+                    WonDate = tp.StartDate,
+                    TournamentName = tp.TournamentName
+                })
+                .ToList();
+            
+            // Count international selections
+            var intlSelectionCount = tournamentParticipations.Count(tp => tp.IsIntlSelection);
+
             // Count championships (tournaments where player has Position = 1)
-            var championshipCount = await _context.TournamentPlayers
-                .Where(tp => tp.PlayerId == playerId && tp.Position == 1)
-                .CountAsync();
+            var championshipCount = tournamentParticipations.Count(tp => tp.Position == 1);
+            
+            // Count team championships (tournaments where player has TeamPosition = 1)
+            var teamChampionshipCount = tournamentParticipations.Count(tp => tp.TeamPosition == 1);
+            
+            // Count female championships (tournaments where player has FemalePosition = 1)
+            var femaleChampionshipCount = tournamentParticipations.Count(tp => tp.FemalePosition == 1);
 
             return View(new PlayerRatingHistoryViewModel
             {
@@ -1142,7 +1218,13 @@ namespace PlayerRatings.Controllers
                 PreviousPlayerId = previousPlayerId,
                 NextPlayerId = nextPlayerId,
                 TournamentOptions = tournamentOptions,
-                ChampionshipCount = championshipCount
+                TournamentParticipations = tournamentParticipations,
+                ChampionshipCount = championshipCount,
+                TeamChampionshipCount = teamChampionshipCount,
+                FemaleChampionshipCount = femaleChampionshipCount,
+                ActiveTitles = activeTitles,
+                FormerTitles = formerTitles,
+                IntlSelectionCount = intlSelectionCount
             });
         }
 
@@ -1407,6 +1489,167 @@ namespace PlayerRatings.Controllers
 
             if (isAjax) return Json(new { success = true, message = "Ranking deleted", rankingId = rankingId });
             return RedirectToAction(nameof(Player), new { id = leagueId, playerId = playerId });
+        }
+
+        // POST: Leagues/SetPlayerStatus
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SetPlayerStatus(Guid playerId, int status)
+        {
+            var leaguePlayer = await _context.LeaguePlayers.FindAsync(playerId);
+            if (leaguePlayer == null)
+            {
+                return NotFound();
+            }
+
+            leaguePlayer.Status = (PlayerStatus)status;
+            await _context.SaveChangesAsync();
+
+            return RedirectToAction(nameof(Details), new { id = leaguePlayer.LeagueId });
+        }
+
+        // GET: Leagues/DeletePlayer - Confirmation page
+        public async Task<IActionResult> DeletePlayer(Guid leagueId, string playerId)
+        {
+            var currentUser = await User.GetApplicationUser(_userManager);
+            
+            // Check if user is admin for this league
+            var league = _leaguesRepository.GetAdminAuthorizedLeague(currentUser, leagueId);
+            if (league == null)
+            {
+                return NotFound();
+            }
+
+            var user = await _context.Users
+                .Include(u => u.Rankings)
+                .FirstOrDefaultAsync(u => u.Id == playerId);
+            
+            if (user == null)
+            {
+                return NotFound();
+            }
+
+            // Get all matches involving this player
+            var matchesToDelete = await _context.Match
+                .Where(m => m.LeagueId == leagueId && (m.FirstPlayerId == playerId || m.SecondPlayerId == playerId))
+                .Include(m => m.Tournament)
+                .OrderByDescending(m => m.Date)
+                .ToListAsync();
+
+            // Get tournament players entries
+            var tournamentPlayers = await _context.TournamentPlayers
+                .Where(tp => tp.PlayerId == playerId)
+                .Include(tp => tp.Tournament)
+                .ToListAsync();
+
+            var viewModel = new DeletePlayerViewModel
+            {
+                LeagueId = leagueId,
+                LeagueName = league.Name,
+                PlayerId = playerId,
+                PlayerName = user.DisplayName,
+                PlayerUsername = user.UserName,
+                MatchCount = matchesToDelete.Count,
+                Matches = matchesToDelete,
+                TournamentCount = tournamentPlayers.Select(tp => tp.TournamentId).Distinct().Count(),
+                RankingCount = user.Rankings?.Count ?? 0
+            };
+
+            return View(viewModel);
+        }
+
+        // POST: Leagues/DeletePlayerConfirmed
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeletePlayerConfirmed(Guid leagueId, string playerId)
+        {
+            var currentUser = await User.GetApplicationUser(_userManager);
+            
+            // Check if user is admin for this league
+            var league = _leaguesRepository.GetAdminAuthorizedLeague(currentUser, leagueId);
+            if (league == null)
+            {
+                return NotFound();
+            }
+
+            // Get rankings to delete (needed for clearing PromotionId references)
+            var rankingIds = await _context.PlayerRankings
+                .Where(r => r.PlayerId == playerId)
+                .Select(r => r.RankingId)
+                .ToListAsync();
+
+            // Clear PromotionId references in TournamentPlayers that point to this player's rankings
+            var tournamentPlayersWithPromotion = await _context.TournamentPlayers
+                .Where(tp => tp.PromotionId.HasValue && rankingIds.Contains(tp.PromotionId.Value))
+                .ToListAsync();
+            foreach (var tp in tournamentPlayersWithPromotion)
+            {
+                tp.PromotionId = null;
+            }
+
+            // Clear CreatedByUserId in matches created by this player (set to null or current admin)
+            var matchesCreatedByPlayer = await _context.Match
+                .Where(m => m.CreatedByUserId == playerId)
+                .ToListAsync();
+            foreach (var m in matchesCreatedByPlayer)
+            {
+                m.CreatedByUserId = currentUser.Id; // Transfer ownership to current admin
+            }
+
+            // Delete all matches involving this player in this league
+            var matchesToDelete = await _context.Match
+                .Where(m => m.LeagueId == leagueId && (m.FirstPlayerId == playerId || m.SecondPlayerId == playerId))
+                .ToListAsync();
+            _context.Match.RemoveRange(matchesToDelete);
+
+            // Delete all tournament player entries for this player
+            var tournamentPlayersToDelete = await _context.TournamentPlayers
+                .Where(tp => tp.PlayerId == playerId)
+                .ToListAsync();
+            _context.TournamentPlayers.RemoveRange(tournamentPlayersToDelete);
+
+            // Delete all player rankings
+            var rankingsToDelete = await _context.PlayerRankings
+                .Where(r => r.PlayerId == playerId)
+                .ToListAsync();
+            _context.PlayerRankings.RemoveRange(rankingsToDelete);
+
+            // Delete league player entries
+            var leaguePlayers = await _context.LeaguePlayers
+                .Where(lp => lp.UserId == playerId)
+                .ToListAsync();
+            _context.LeaguePlayers.RemoveRange(leaguePlayers);
+
+            // Delete invites sent by this player OR created for this player
+            var invites = await _context.Invites
+                .Where(i => i.InvitedById == playerId || i.CreatedUserId == playerId)
+                .ToListAsync();
+            _context.Invites.RemoveRange(invites);
+
+            // Transfer league ownership if this player created any leagues
+            var leaguesCreatedByPlayer = await _context.League
+                .Where(l => l.CreatedByUserId == playerId)
+                .ToListAsync();
+            foreach (var l in leaguesCreatedByPlayer)
+            {
+                l.CreatedByUserId = currentUser.Id; // Transfer ownership to current admin
+            }
+
+            // Save changes first before deleting user (to clear all references)
+            await _context.SaveChangesAsync();
+
+            // Delete the user account using UserManager (handles Identity tables properly)
+            var user = await _userManager.FindByIdAsync(playerId);
+            if (user != null)
+            {
+                await _userManager.DeleteAsync(user);
+            }
+
+            // Invalidate cache for this league
+            _cache.Remove($"League_{leagueId}");
+
+            TempData["SuccessMessage"] = "Player and all related data deleted successfully.";
+            return RedirectToAction(nameof(Details), new { id = leagueId });
         }
 
     }

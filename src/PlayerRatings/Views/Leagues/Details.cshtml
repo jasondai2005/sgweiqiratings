@@ -121,6 +121,9 @@ else
                                 }
                             </select>
                         </form>
+                        <a asp-action="DeletePlayer" asp-route-leagueId="@Model.League.Id" asp-route-playerId="@player.User.Id" 
+                           class="btn btn-xs btn-danger" style="margin-left: 5px;" 
+                           title="@LocString[nameof(LocalizationKey.DeletePlayer)]">🗑️</a>
                     </td>
                 }
             </tr>
@@ -181,6 +184,9 @@ else
                                     }
                                 </select>
                             </form>
+                            <a asp-action="DeletePlayer" asp-route-leagueId="@Model.League.Id" asp-route-playerId="@player.User.Id" 
+                               class="btn btn-xs btn-danger" style="margin-left: 5px;" 
+                               title="@LocString[nameof(LocalizationKey.DeletePlayer)]">🗑️</a>
                         </td>
                     }
                 </tr>

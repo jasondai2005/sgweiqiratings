@@ -1,0 +1,83 @@
+@using PlayerRatings.Localization
+@model PlayerRatings.ViewModels.League.DeletePlayerViewModel
+@{
+    ViewData["Title"] = LocString[nameof(LocalizationKey.DeletePlayer)];
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<div class="panel panel-danger">
+    <div class="panel-heading">
+        <h3 class="panel-title">⚠️ @LocString[nameof(LocalizationKey.DeletePlayerConfirm)]</h3>
+    </div>
+    <div class="panel-body">
+        <dl class="dl-horizontal">
+            <dt>@LocString[nameof(LocalizationKey.Username)]</dt>
+            <dd>@Model.PlayerUsername</dd>
+            
+            <dt>@LocString[nameof(LocalizationKey.DisplayName)]</dt>
+            <dd><strong>@Model.PlayerName</strong></dd>
+            
+            <dt>@LocString[nameof(LocalizationKey.MatchesToDelete)]</dt>
+            <dd><span class="label label-danger">@Model.MatchCount</span></dd>
+            
+            <dt>@LocString[nameof(LocalizationKey.TournamentsAffected)]</dt>
+            <dd><span class="label label-warning">@Model.TournamentCount</span></dd>
+            
+            <dt>@LocString[nameof(LocalizationKey.RankingHistory)]</dt>
+            <dd><span class="label label-info">@Model.RankingCount</span></dd>
+        </dl>
+        
+        @if (Model.Matches.Any())
+        {
+            <h4>@LocString[nameof(LocalizationKey.MatchesToDelete)]:</h4>
+            <div style="max-height: 300px; overflow-y: auto;">
+                <table class="table table-condensed table-striped">
+                    <thead>
+                        <tr>
+                            <th>@LocString[nameof(LocalizationKey.Date)]</th>
+                            <th>@LocString[nameof(LocalizationKey.MatchName)]</th>
+                            <th>@LocString[nameof(LocalizationKey.FirstPlayer)]</th>
+                            <th></th>
+                            <th>@LocString[nameof(LocalizationKey.SecondPlayer)]</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var match in Model.Matches.Take(50))
+                        {
+                            <tr>
+                                <td>@match.Date.ToString("dd/MM/yyyy")</td>
+                                <td>@match.MatchName</td>
+                                <td>@match.FirstPlayer?.DisplayName</td>
+                                <td>@match.FirstPlayerScore : @match.SecondPlayerScore</td>
+                                <td>@match.SecondPlayer?.DisplayName</td>
+                            </tr>
+                        }
+                        @if (Model.Matches.Count > 50)
+                        {
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">
+                                    ... and @(Model.Matches.Count - 50) more matches
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+    <div class="panel-footer">
+        <form asp-action="DeletePlayerConfirmed" method="post">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="leagueId" value="@Model.LeagueId" />
+            <input type="hidden" name="playerId" value="@Model.PlayerId" />
+            <button type="submit" class="btn btn-danger" onclick="return confirm('This action cannot be undone. Are you absolutely sure?');">
+                🗑️ @LocString[nameof(LocalizationKey.Delete)]
+            </button>
+            <a asp-action="Details" asp-route-id="@Model.LeagueId" class="btn btn-default">
+                @LocString[nameof(LocalizationKey.Cancel)]
+            </a>
+        </form>
+    </div>
+</div>
+

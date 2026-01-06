@@ -320,10 +320,21 @@ namespace PlayerRatings.Migrations
                     b.Property<int>("FirstPlayerScore")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("GameRecord")
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid>("LeagueId")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("MatchName")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("MatchPhoto")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("MatchResultPhoto")
+                        .HasMaxLength(500)
                         .HasColumnType("TEXT");
 
                     b.Property<int?>("Round")
@@ -412,6 +423,9 @@ namespace PlayerRatings.Migrations
                     b.Property<long?>("EndDate")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("ExternalLinks")
+                        .HasColumnType("TEXT");
+
                     b.Property<double?>("Factor")
                         .HasColumnType("REAL");
 
@@ -431,6 +445,9 @@ namespace PlayerRatings.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Notes")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Ordinal")
                         .HasMaxLength(50)
                         .HasColumnType("TEXT");
@@ -439,7 +456,24 @@ namespace PlayerRatings.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Photo")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("StandingsPhoto")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
                     b.Property<long?>("StartDate")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("SupportsFemaleAward")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("SupportsPersonalAward")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("SupportsTeamAward")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("TournamentType")
@@ -466,11 +500,33 @@ namespace PlayerRatings.Migrations
                         .HasMaxLength(450)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("FemaleAwardPhoto")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("FemalePosition")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Photo")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
                     b.Property<int?>("Position")
                         .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("PromotionId")
                         .HasColumnType("TEXT");
+
+                    b.Property<string>("Team")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TeamPhoto")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("TeamPosition")
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("TournamentId", "PlayerId");
 

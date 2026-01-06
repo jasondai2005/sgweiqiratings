@@ -61,14 +61,13 @@
 
 <form asp-action="Rating" method="get" class="mb-4">
     <input type="hidden" name="id" value="@Model.LeagueId" />
-    <input type="hidden" id="swaOnlyHidden" name="swaOnly" value="@(Model.SwaOnly ? "true" : "false")" />
     <div style="display: inline-flex; flex-wrap: nowrap; gap: 4px; align-items: center;">
-        <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = prevMonthStr, swaOnly = Model.SwaOnly })" class="btn btn-outline-primary">◀ @prevMonthLastDay.ToString("MMM", System.Globalization.CultureInfo.CurrentUICulture)</a>
+        <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = prevMonthStr })" class="btn btn-outline-primary">◀ @prevMonthLastDay.ToString("MMM", System.Globalization.CultureInfo.CurrentUICulture)</a>
         <input type="text" name="byDate" value="@currentDateStr" class="form-control text-center" style="width: 110px;" placeholder="dd/MM/yyyy" />
         <button type="submit" class="btn btn-primary">@LocString[nameof(LocalizationKey.Go)]</button>
         @if (nextMonthLastDay <= DateTime.Now)
         {
-            <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = nextMonthStr, swaOnly = Model.SwaOnly })" class="btn btn-outline-primary">@nextMonthLastDay.ToString("MMM", System.Globalization.CultureInfo.CurrentUICulture) ▶</a>
+            <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = nextMonthStr })" class="btn btn-outline-primary">@nextMonthLastDay.ToString("MMM", System.Globalization.CultureInfo.CurrentUICulture) ▶</a>
         }
         else
         {
@@ -76,19 +75,10 @@
         }
         @if (!isViewingToday)
         {
-            <a href="@Url.Action("Rating", new { id = Model.LeagueId, swaOnly = Model.SwaOnly })" class="btn btn-success">@LocString[nameof(LocalizationKey.Today)]</a>
+            <a href="@Url.Action("Rating", new { id = Model.LeagueId })" class="btn btn-success">@LocString[nameof(LocalizationKey.Today)]</a>
         }
-        <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = Model.ByDate, swaOnly = Model.SwaOnly, refresh = true })" class="btn btn-outline-secondary" title="Reload data from database">⟳</a>
+        <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = Model.ByDate, refresh = true })" class="btn btn-outline-secondary" title="Reload data from database">⟳</a>
     </div>
-    @if (Model.IsSgLeague)
-    {
-        <div class="mt-2" style="display: inline-flex; gap: 16px; align-items: center;">
-            <div class="form-check form-switch" style="display: flex; align-items: center; gap: 6px;">
-                <input class="form-check-input" type="checkbox" id="swaOnlyToggle" @(Model.SwaOnly ? "checked" : "") onchange="document.getElementById('swaOnlyHidden').value = this.checked; this.form.submit();" style="cursor: pointer;">
-                <label class="form-check-label" for="swaOnlyToggle" style="cursor: pointer; white-space: nowrap;">@LocString[nameof(LocalizationKey.SWATournamentsOnly)]</label>
-            </div>
-        </div>
-    }
 </form>
 
 <div class="table-responsive">
@@ -160,7 +150,7 @@
                     </td>
                 }
                 <td>
-                    <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = item.Id, swaOnly = Model.SwaOnly, })" style="@(isFemale ? "color: #d63384;" : "")">@item.DisplayName</a>
+                    <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = item.Id })" style="@(isFemale ? "color: #d63384;" : "")">@item.DisplayName</a>
                 </td>
                 <td>
                     @item.BirthYearU18
@@ -203,7 +193,7 @@
                     <td style="padding-left: 2px;"></td>
                 }
                 <td>
-                    <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = item.Id, swaOnly = Model.SwaOnly, })" style="@(isFemale ? "color: #d63384;" : "")">@item.DisplayName</a>
+                    <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = item.Id })" style="@(isFemale ? "color: #d63384;" : "")">@item.DisplayName</a>
                 </td>
                 <td>@item.BirthYearU18</td>
                 <td>@item.RankingBeforeCutoffDate.ToUpper()</td>
@@ -238,7 +228,7 @@
                     <td style="padding-left: 2px;"></td>
                 }
                 <td>
-                    <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = item.Id, swaOnly = Model.SwaOnly, })" style="@(isFemale ? "color: #d63384;" : "")">@item.DisplayName</a>
+                    <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = item.Id })" style="@(isFemale ? "color: #d63384;" : "")">@item.DisplayName</a>
                 </td>
                 <td>@item.BirthYearU18</td>
                 <td>@item.RankingBeforeCutoffDate.ToUpper()</td>
@@ -310,7 +300,7 @@
                     }
                     else if (!string.IsNullOrEmpty(item.MatchName))
                     {
-                        @item.MatchName
+                    @item.MatchName
                     }
                 </td>
                 <td>

@@ -91,18 +91,16 @@ namespace PlayerRatings.Engine.Stats
                 }
             }
 
-            var rating = new Elo(firstPlayerRating, secondPlayerRating, firstUserScore, 1 - firstUserScore, Elo.GetK(firstPlayerRating) * factor1);
-            Elo specialRating = factor1 != factor2 || match.SecondPlayer.IsProPlayer ? 
-                specialRating = new Elo(firstPlayerRating, secondPlayerRating, firstUserScore, 1 - firstUserScore, Elo.GetK(secondPlayerRating) * factor2) :
-                rating;
+            var rating1 = new Elo(firstPlayerRating, secondPlayerRating, firstUserScore, 1 - firstUserScore, Elo.GetK(firstPlayerRating) * factor1);
+            var rating2 = new Elo(firstPlayerRating, secondPlayerRating, firstUserScore, 1 - firstUserScore, Elo.GetK(secondPlayerRating) * factor2);
 
             match.OldFirstPlayerRating = firstPlayerRating.ToString("F1");
             match.OldSecondPlayerRating = secondPlayerRating.ToString("F1");
 
-            _dict[match.FirstPlayer.Id] = rating.NewRatingAPlayer;
-            _dict[match.SecondPlayer.Id] = specialRating.NewRatingBPlayer;
+            _dict[match.FirstPlayer.Id] = rating1.NewRatingAPlayer;
+            _dict[match.SecondPlayer.Id] = rating2.NewRatingBPlayer;
 
-            match.ShiftRating = rating.ShiftRatingAPlayer.ToString("F1");
+            match.ShiftRating = rating1.ShiftRatingAPlayer.ToString("F1");
             var player2ShiftRating = (secondPlayerRating - _dict[match.SecondPlayer.Id]).ToString("F1");
             if (match.ShiftRating != player2ShiftRating)
             {
@@ -213,7 +211,16 @@ namespace PlayerRatings.Engine.Stats
             }
 
             // Apply floor if current rating is lower
-            double currentRating = _dict.TryGetValue(player.Id, out var cached) ? cached : 0;
+            // Only apply bonus if we have a cached rating from processed matches
+            // If no matches processed yet, skip the bonus - the player will enter with their
+            // current ranking's rating, and any future promotions will be handled correctly
+            if (!_dict.TryGetValue(player.Id, out var currentRating))
+            {
+                // No matches processed yet - don't apply promotion bonus
+                // This prevents incorrect bonuses when "previousRanking" is actually from years ago
+                return;
+            }
+            
             if (currentRating < ratingFloor)
             {
                 double bonusAmount = ratingFloor - currentRating;
@@ -437,12 +444,17 @@ namespace PlayerRatings.Engine.Stats
 
         public virtual string GetResult(ApplicationUser user)
         {
+            return GetDoubleResult(user).ToString("F1");
+        }
+
+        public double GetDoubleResult(ApplicationUser user)
+        {
             if (_dict.TryGetValue(user.Id, out var rating))
-                return rating.ToString("F1");
-            
+                return rating;
+
             // Show ranking rating for users with no matches
             var rankingRating = user.GetRatingByRanking(user.GetCombinedRankingBeforeDate(League.CutoffDate));
-            return rankingRating.ToString("F1");
+            return rankingRating;
         }
 
         public virtual string NameLocalizationKey => nameof(LocalizationKey.Elo);
