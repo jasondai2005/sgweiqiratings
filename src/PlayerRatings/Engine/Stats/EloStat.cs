@@ -91,18 +91,16 @@ namespace PlayerRatings.Engine.Stats
                 }
             }
 
-            var rating = new Elo(firstPlayerRating, secondPlayerRating, firstUserScore, 1 - firstUserScore, Elo.GetK(firstPlayerRating) * factor1);
-            Elo specialRating = factor1 != factor2 || match.SecondPlayer.IsProPlayer ? 
-                specialRating = new Elo(firstPlayerRating, secondPlayerRating, firstUserScore, 1 - firstUserScore, Elo.GetK(secondPlayerRating) * factor2) :
-                rating;
+            var rating1 = new Elo(firstPlayerRating, secondPlayerRating, firstUserScore, 1 - firstUserScore, Elo.GetK(firstPlayerRating) * factor1);
+            var rating2 = new Elo(firstPlayerRating, secondPlayerRating, firstUserScore, 1 - firstUserScore, Elo.GetK(secondPlayerRating) * factor2);
 
             match.OldFirstPlayerRating = firstPlayerRating.ToString("F1");
             match.OldSecondPlayerRating = secondPlayerRating.ToString("F1");
 
-            _dict[match.FirstPlayer.Id] = rating.NewRatingAPlayer;
-            _dict[match.SecondPlayer.Id] = specialRating.NewRatingBPlayer;
+            _dict[match.FirstPlayer.Id] = rating1.NewRatingAPlayer;
+            _dict[match.SecondPlayer.Id] = rating2.NewRatingBPlayer;
 
-            match.ShiftRating = rating.ShiftRatingAPlayer.ToString("F1");
+            match.ShiftRating = rating1.ShiftRatingAPlayer.ToString("F1");
             var player2ShiftRating = (secondPlayerRating - _dict[match.SecondPlayer.Id]).ToString("F1");
             if (match.ShiftRating != player2ShiftRating)
             {
