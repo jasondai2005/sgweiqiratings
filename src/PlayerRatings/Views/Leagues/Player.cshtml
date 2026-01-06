@@ -4,6 +4,21 @@
 @model PlayerRatings.ViewModels.Player.PlayerRatingHistoryViewModel
 @inject ILanguageData LanguageData
 
+@functions {
+    // Helper class for combining rated and unrated tournaments
+    public class TournamentDisplayItem
+    {
+        public Guid? TournamentId { get; set; }
+        public string TournamentName { get; set; }
+        public string MatchName { get; set; }
+        public int? TournamentPosition { get; set; }
+        public int? FemalePosition { get; set; }
+        public int? TeamPosition { get; set; }
+        public DateTimeOffset StartDate { get; set; }
+        public bool HasMatches { get; set; }
+    }
+}
+
 @{
     ViewData["Title"] = Model.Player.DisplayName;
     var sortedRatings = Model.MonthlyRatings.OrderBy(r => r.Month).ToList();
@@ -578,52 +593,59 @@
                     <td>
                         @if (item.Matches.Any() || (hasTournamentsWithoutMatches && noMatchTournaments.Any()))
                         {
-                            @foreach (var match in item.Matches)
+                            @* Combine rated and unrated tournaments, order by start date descending *@
+                            var allTournaments = item.Matches
+                                .Select(m => new TournamentDisplayItem {
+                                    TournamentId = m.TournamentId,
+                                    TournamentName = m.TournamentName,
+                                    MatchName = m.MatchName,
+                                    TournamentPosition = m.TournamentPosition,
+                                    FemalePosition = m.FemalePosition,
+                                    TeamPosition = m.TeamPosition,
+                                    StartDate = m.TournamentStartDate ?? DateTimeOffset.MinValue,
+                                    HasMatches = true
+                                })
+                                .Concat(hasTournamentsWithoutMatches 
+                                    ? noMatchTournaments.Select(tp => new TournamentDisplayItem {
+                                        TournamentId = tp.TournamentId,
+                                        TournamentName = tp.TournamentName,
+                                        MatchName = null,
+                                        TournamentPosition = tp.Position,
+                                        FemalePosition = tp.FemalePosition,
+                                        TeamPosition = tp.TeamPosition,
+                                        StartDate = tp.StartDate,
+                                        HasMatches = false
+                                    })
+                                    : Enumerable.Empty<TournamentDisplayItem>())
+                                .OrderByDescending(t => t.StartDate)
+                                .ToList();
+                            
+                            @foreach (var t in allTournaments)
                             {
-                                <div style="font-size: 0.85em;">
-                                    @if (match.TournamentId.HasValue)
+                                var style = t.HasMatches ? "font-size: 0.85em;" : "font-size: 0.85em; color: #888; font-style: italic;";
+                                var linkStyle = t.HasMatches ? "" : "color: #888;";
+                                <div style="@style">
+                                    @if (t.TournamentId.HasValue)
                                     {
-                                        <a asp-controller="Tournaments" asp-action="Details" asp-route-id="@match.TournamentId">@match.TournamentName</a>
-                                        @if (match.TournamentPosition.HasValue)
+                                        <a asp-controller="Tournaments" asp-action="Details" asp-route-id="@t.TournamentId" style="@linkStyle">@t.TournamentName</a>
+                                        @if (t.TournamentPosition.HasValue)
                                         {
-                                            <span style="color: #f0ad4e; margin-left: 4px;">No. @match.TournamentPosition</span>
+                                            <span style="color: #f0ad4e; margin-left: 4px;">No. @t.TournamentPosition</span>
                                         }
-                                        @if (match.FemalePosition.HasValue)
+                                        @if (t.FemalePosition.HasValue)
                                         {
-                                            <span style="color: #d63384; margin-left: 4px;">Female No. @match.FemalePosition</span>
+                                            <span style="color: #d63384; margin-left: 4px;">Female No. @t.FemalePosition</span>
                                         }
-                                        @if (match.TeamPosition.HasValue)
+                                        @if (t.TeamPosition.HasValue)
                                         {
-                                            <span style="color: #337ab7; margin-left: 4px;">Team No. @match.TeamPosition</span>
+                                            <span style="color: #337ab7; margin-left: 4px;">Team No. @t.TeamPosition</span>
                                         }
                                     }
-                                    else if (!string.IsNullOrEmpty(match.MatchName))
+                                    else if (!string.IsNullOrEmpty(t.MatchName))
                                     {
-                                        @match.MatchName
+                                        @t.MatchName
                                     }
                                 </div>
-                            }
-                            @* Show tournaments without match records *@
-                            @if (hasTournamentsWithoutMatches)
-                            {
-                                @foreach (var tp in noMatchTournaments)
-                                {
-                                    <div style="font-size: 0.85em; color: #888; font-style: italic;">
-                                        <a asp-controller="Tournaments" asp-action="Details" asp-route-id="@tp.TournamentId" style="color: #888;">@tp.TournamentName</a>
-                                        @if (tp.Position.HasValue)
-                                        {
-                                            <span style="color: #f0ad4e; margin-left: 4px;">No. @tp.Position</span>
-                                        }
-                                        @if (tp.FemalePosition.HasValue)
-                                        {
-                                            <span style="color: #d63384; margin-left: 4px;">Female No. @tp.FemalePosition</span>
-                                        }
-                                        @if (tp.TeamPosition.HasValue)
-                                        {
-                                            <span style="color: #337ab7; margin-left: 4px;">Team No. @tp.TeamPosition</span>
-                                        }
-                                    </div>
-                                }
                             }
                         }
                         else
@@ -703,12 +725,16 @@
                 
                 // Get unique tournaments/matches before the first month shown in the rating history
                 var firstRatedMonth = Model.MonthlyRatings.Any() ? Model.MonthlyRatings.Min(r => r.Month) : DateTime.MaxValue;
+                
+                // Build tournament start date lookup from TournamentParticipations
+                var tournamentStartDates = Model.TournamentParticipations
+                    .ToDictionary(tp => tp.TournamentId, tp => tp.StartDate);
+                
                 var preEntryMatches = Model.GameRecords
                     .Where(g => g.Date.Year < firstRatedMonth.Year || 
                                (g.Date.Year == firstRatedMonth.Year && g.Date.Month < firstRatedMonth.Month))
                     .GroupBy(g => g.TournamentId?.ToString() ?? g.MatchName ?? "")
                     .Select(grp => grp.First())
-                    .OrderByDescending(g => g.Date)
                     .Select(g => new PlayerRatings.ViewModels.Player.MatchInfo
                     {
                         MatchName = g.MatchName,
@@ -716,7 +742,10 @@
                         TournamentName = g.TournamentName,
                         TournamentPosition = g.TournamentPosition,
                         FemalePosition = g.FemalePosition,
-                        TeamPosition = g.TeamPosition
+                        TeamPosition = g.TeamPosition,
+                        TournamentStartDate = g.TournamentId.HasValue && tournamentStartDates.TryGetValue(g.TournamentId.Value, out var startDate) 
+                            ? startDate 
+                            : g.Date
                     })
                     .ToList();
                 
@@ -727,7 +756,6 @@
                            (t.StartDate.Year < firstRatedMonth.Year || 
                             (t.StartDate.Year == firstRatedMonth.Year && t.StartDate.Month < firstRatedMonth.Month)) &&
                            !preEntryTournamentIds.Contains(t.TournamentId))
-                    .OrderByDescending(t => t.StartDate)
                     .ToList();
                 
                 // Only show Pre-entry row if there's something meaningful to display
@@ -742,54 +770,62 @@
                     <td>
                         @if (preEntryMatches.Any() || preEntryTournamentsWithoutMatches.Any())
                         {
-                            @foreach (var match in preEntryMatches)
+                            @* Combine rated and unrated tournaments, order by start date descending *@
+                            var preEntryAllTournaments = preEntryMatches
+                                .Select(m => new TournamentDisplayItem {
+                                    TournamentId = m.TournamentId,
+                                    TournamentName = m.TournamentName,
+                                    MatchName = m.MatchName,
+                                    TournamentPosition = m.TournamentPosition,
+                                    FemalePosition = m.FemalePosition,
+                                    TeamPosition = m.TeamPosition,
+                                    StartDate = m.TournamentStartDate ?? DateTimeOffset.MinValue,
+                                    HasMatches = true
+                                })
+                                .Concat(preEntryTournamentsWithoutMatches.Select(tp => new TournamentDisplayItem {
+                                    TournamentId = tp.TournamentId,
+                                    TournamentName = tp.TournamentName,
+                                    MatchName = null,
+                                    TournamentPosition = tp.Position,
+                                    FemalePosition = tp.FemalePosition,
+                                    TeamPosition = tp.TeamPosition,
+                                    StartDate = tp.StartDate,
+                                    HasMatches = false
+                                }))
+                                .OrderByDescending(t => t.StartDate)
+                                .ToList();
+                            
+                            @foreach (var t in preEntryAllTournaments)
                             {
-                                <div style="font-size: 0.85em; color: #888;">
-                                    @if (match.TournamentId.HasValue)
+                                var style = t.HasMatches ? "font-size: 0.85em; color: #888;" : "font-size: 0.85em; color: #888; font-style: italic;";
+                                var linkStyle = t.HasMatches ? "" : "color: #888;";
+                                <div style="@style">
+                                    @if (t.TournamentId.HasValue)
                                     {
-                                        <a asp-controller="Tournaments" asp-action="Details" asp-route-id="@match.TournamentId">@match.TournamentName</a>
-                                        @if (match.TournamentPosition.HasValue)
+                                        <a asp-controller="Tournaments" asp-action="Details" asp-route-id="@t.TournamentId" style="@linkStyle">@t.TournamentName</a>
+                                        @if (t.TournamentPosition.HasValue)
                                         {
-                                            <span style="color: #f0ad4e; margin-left: 4px;">No. @match.TournamentPosition</span>
+                                            <span style="color: #f0ad4e; margin-left: 4px;">No. @t.TournamentPosition</span>
                                         }
-                                        @if (match.FemalePosition.HasValue)
+                                        @if (t.FemalePosition.HasValue)
                                         {
-                                            @if (match.FemalePosition == 1)
+                                            @if (t.FemalePosition == 1)
                                             {
                                                 <span style="color: #d63384; margin-left: 4px;" title="Female Champion">👑</span>
                                             }
                                             else
                                             {
-                                                <span style="color: #d63384; margin-left: 4px;">Female No. @match.FemalePosition</span>
+                                                <span style="color: #d63384; margin-left: 4px;">Female No. @t.FemalePosition</span>
                                             }
                                         }
-                                        @if (match.TeamPosition.HasValue)
+                                        @if (t.TeamPosition.HasValue)
                                         {
-                                            <span style="color: #337ab7; margin-left: 4px;">Team No. @match.TeamPosition</span>
+                                            <span style="color: #337ab7; margin-left: 4px;">Team No. @t.TeamPosition</span>
                                         }
                                     }
-                                    else if (!string.IsNullOrEmpty(match.MatchName))
+                                    else if (!string.IsNullOrEmpty(t.MatchName))
                                     {
-                                        @match.MatchName
-                                    }
-                                </div>
-                            }
-                            @* Show tournaments without match records *@
-                            @foreach (var tp in preEntryTournamentsWithoutMatches)
-                            {
-                                <div style="font-size: 0.85em; color: #888; font-style: italic;">
-                                    <a asp-controller="Tournaments" asp-action="Details" asp-route-id="@tp.TournamentId" style="color: #888;">@tp.TournamentName</a>
-                                    @if (tp.Position.HasValue)
-                                    {
-                                        <span style="color: #f0ad4e; margin-left: 4px;">No. @tp.Position</span>
-                                    }
-                                    @if (tp.FemalePosition.HasValue)
-                                    {
-                                        <span style="color: #d63384; margin-left: 4px;">Female No. @tp.FemalePosition</span>
-                                    }
-                                    @if (tp.TeamPosition.HasValue)
-                                    {
-                                        <span style="color: #337ab7; margin-left: 4px;">Team No. @tp.TeamPosition</span>
+                                        @t.MatchName
                                     }
                                 </div>
                             }
@@ -1327,4 +1363,5 @@
     <span style="position: absolute; top: 20px; right: 30px; color: #fff; font-size: 35px; font-weight: bold; cursor: pointer;" onclick="closePhotoModal()">&times;</span>
     <img id="photoModalImg" src="" alt="Player Photo" style="max-width: 90%; max-height: 90%; border-radius: 8px; box-shadow: 0 0 20px rgba(0,0,0,0.5);" />
 </div>
+
 

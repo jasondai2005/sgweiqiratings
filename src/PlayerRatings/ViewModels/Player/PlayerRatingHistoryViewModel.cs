@@ -406,6 +406,11 @@ namespace PlayerRatings.ViewModels.Player
         public int? TeamPosition { get; set; }
         
         /// <summary>
+        /// Tournament start date for ordering (latest at top within the same month)
+        /// </summary>
+        public DateTimeOffset? TournamentStartDate { get; set; }
+        
+        /// <summary>
         /// Display name - tournament name if available, otherwise match name
         /// </summary>
         public string DisplayName => TournamentName ?? MatchName ?? "";

@@ -890,7 +890,8 @@ namespace PlayerRatings.Controllers
                             Round = match.Round,
                             TournamentPosition = tournamentPosition,
                             FemalePosition = femalePosition,
-                            TeamPosition = teamPosition
+                            TeamPosition = teamPosition,
+                            TournamentStartDate = match.Tournament?.StartDate
                         });
                     }
                 }
@@ -904,8 +905,10 @@ namespace PlayerRatings.Controllers
                 bool hasEnoughGames = !isNewForeignPlayer || playerMatchCount >= 12;
                 if (playerMatchCount > 0 && hasEnoughGames)
                 {
-                    var reversed = new List<MatchInfo>(matchInfosInCurrentMonth);
-                    reversed.Reverse();
+                    // Order tournaments by start date descending (latest at top)
+                    var orderedMatches = matchInfosInCurrentMonth
+                        .OrderByDescending(m => m.TournamentStartDate ?? DateTimeOffset.MinValue)
+                        .ToList();
                     
                     // monthToCapture is already end-of-month, just convert to DateTimeOffset
                     var monthEnd = new DateTimeOffset(monthToCapture, TimeSpan.Zero);
@@ -969,7 +972,7 @@ namespace PlayerRatings.Controllers
                         Month = monthToCapture,
                         Rating = currentEloStat[player],
                         MatchesInMonth = matchesInCurrentMonth,
-                        Matches = reversed,
+                        Matches = orderedMatches,
                         Position = monthPosition,
                         TotalPlayers = monthTotalPlayers,
                         PromotionBonuses = promotionBonuses
