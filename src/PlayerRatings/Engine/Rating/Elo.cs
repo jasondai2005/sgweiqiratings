@@ -60,7 +60,7 @@ namespace PlayerRatings.Engine.Rating
             OldRatingPlayerA = playerARating;
             OldRatingPlayerB = playerBRating;
 
-            // Calculate expected scores using Bradley-Terry formula
+            // Calculate expected scores
             var expectedScoreA = ExpectedScore(playerARating, playerBRating);
             var expectedScoreB = ExpectedScore(playerBRating, playerARating);
 
