@@ -150,19 +150,19 @@ namespace PlayerRatings.Controllers
                 })
                 .ToList();
 
-            // Determine first player - use provided or default to current user
-            var effectiveFirstPlayerId = !string.IsNullOrEmpty(firstPlayerId) ? firstPlayerId : currentUser.Id;
+            // Determine first player - use provided only, no auto-selection
+            var effectiveFirstPlayerId = !string.IsNullOrEmpty(firstPlayerId) ? firstPlayerId : null;
             
-            // Determine second player - use provided, or default to first available
+            // Determine second player - use provided only, no auto-selection
             // "BYE" marker value means select BYE (empty string in dropdown)
-            // null means use default (first available player)
+            // null means no selection
             string effectiveSecondPlayerId;
             if (secondPlayerId == "BYE")
                 effectiveSecondPlayerId = "";  // Empty string selects BYE option in dropdown
             else if (!string.IsNullOrEmpty(secondPlayerId))
                 effectiveSecondPlayerId = secondPlayerId;
             else
-                effectiveSecondPlayerId = players.Keys.FirstOrDefault(p => p.Id != effectiveFirstPlayerId)?.Id;
+                effectiveSecondPlayerId = null;  // No auto-selection
 
             return View("Create", new NewResultViewModel(leagues, players, lastMatchDateTime, matchName, factor)
             {

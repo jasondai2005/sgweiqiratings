@@ -79,6 +79,14 @@
         display: none;
     }
     
+    /* Create button responsive display */
+    .create-tournament-btn .create-btn-short {
+        display: none;
+    }
+    .create-tournament-btn .create-btn-full {
+        display: inline;
+    }
+    
     @@media (max-width: 768px) {
         .desktop-table {
             display: none;
@@ -89,25 +97,19 @@
         .year-nav {
             justify-content: flex-start;
         }
-        .action-buttons {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-bottom: 12px;
-        }
-        .action-buttons .btn {
-            flex: 0 1 auto;
-        }
         h3 {
             font-size: 1.3em;
         }
-    }
-    
-    @@media (min-width: 769px) {
-        .action-buttons {
-            display: inline-flex;
-            gap: 8px;
-            margin-bottom: 16px;
+        /* Show + only in mobile */
+        .create-tournament-btn .create-btn-short {
+            display: inline;
+        }
+        .create-tournament-btn .create-btn-full {
+            display: none;
+        }
+        .create-tournament-btn {
+            padding: 6px 12px;
+            font-size: 1.1em;
         }
     }
     
@@ -121,18 +123,6 @@
 </style>
 
 <h3>@ViewData["Title"] - @Model.LeagueName</h3>
-
-<div class="action-buttons">
-    <a asp-controller="Leagues" asp-action="Rating" asp-route-id="@Model.LeagueId" class="btn btn-outline-secondary">
-        ← @LocString[nameof(LocalizationKey.BackToRating)]
-    </a>
-    @if (Model.IsAdmin)
-    {
-        <a asp-action="Create" asp-route-leagueId="@Model.LeagueId" class="btn btn-primary">
-            + @LocString[nameof(LocalizationKey.CreateTournament)]
-        </a>
-    }
-</div>
 
 <!-- Year Navigation -->
 <div class="year-nav">
@@ -173,6 +163,14 @@
     else
     {
         <span class="btn btn-outline-secondary disabled">Next →</span>
+    }
+
+    @if (Model.IsAdmin)
+    {
+        <a asp-action="Create" asp-route-leagueId="@Model.LeagueId" class="btn btn-success create-tournament-btn" title="@LocString[nameof(LocalizationKey.CreateTournament)]">
+            <span class="create-btn-full">+ @LocString[nameof(LocalizationKey.CreateTournament)]</span>
+            <span class="create-btn-short">+</span>
+        </a>
     }
 
     <span style="color: #666; margin-left: 8px;">(@Model.TotalTournamentCount @LocString[nameof(LocalizationKey.Tournaments)])</span>

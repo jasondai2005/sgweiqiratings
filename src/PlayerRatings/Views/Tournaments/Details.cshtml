@@ -15,6 +15,11 @@
     </a>
     @if (Model.IsAdmin)
     {
+        <a asp-controller="Matches" asp-action="Create" 
+           asp-route-leagueId="@Model.LeagueId" 
+           asp-route-tournamentId="@Model.Id"
+           asp-route-lastMatchDateTime="@((Model.StartDate ?? DateTimeOffset.UtcNow).ToString("o"))"
+           class="btn btn-success">+ @LocString[nameof(LocalizationKey.AddNewResult)]</a>
         <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">@LocString[nameof(LocalizationKey.Edit)]</a>
         <a asp-action="Delete" asp-route-id="@Model.Id" class="btn btn-danger">@LocString[nameof(LocalizationKey.Delete)]</a>
     }
