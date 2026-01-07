@@ -41,6 +41,9 @@ namespace PlayerRatings.Controllers
 
         // Cache duration for league data (5 minutes)
         private static readonly TimeSpan LeagueCacheDuration = TimeSpan.FromMinutes(5);
+        
+        // Cache duration for rating calculations (2 minutes - shorter since ratings change)
+        private static readonly TimeSpan RatingsCacheDuration = TimeSpan.FromMinutes(2);
 
         public LeaguesController(ApplicationDbContext context, UserManager<ApplicationUser> userManager,
             ILeaguesRepository leaguesRepository, IWebHostEnvironment env, IMemoryCache cache)
@@ -54,6 +57,8 @@ namespace PlayerRatings.Controllers
 
         /// <summary>
         /// Gets league with all matches and players from cache, or loads from database if not cached.
+        /// OPTIMIZED: Removed deep includes for Tournament.TournamentPlayers which caused exponential data loading.
+        /// Rankings only need date, grade, and organization - not the full tournament data.
         /// </summary>
         private League GetLeagueWithMatches(Guid leagueId, bool forceRefresh = false)
         {
@@ -67,9 +72,10 @@ namespace PlayerRatings.Controllers
             if (!_cache.TryGetValue(cacheKey, out League league))
             {
                 league = _context.League
-                    .Include(l => l.Matches).ThenInclude(m => m.FirstPlayer).ThenInclude(p => p.Rankings).ThenInclude(r => r.Tournament).ThenInclude(t => t.TournamentPlayers)
-                    .Include(l => l.Matches).ThenInclude(m => m.SecondPlayer).ThenInclude(p => p.Rankings).ThenInclude(r => r.Tournament).ThenInclude(t => t.TournamentPlayers)
+                    .Include(l => l.Matches).ThenInclude(m => m.FirstPlayer).ThenInclude(p => p.Rankings)
+                    .Include(l => l.Matches).ThenInclude(m => m.SecondPlayer).ThenInclude(p => p.Rankings)
                     .Include(l => l.Matches).ThenInclude(m => m.Tournament)
+                    .AsSplitQuery() // Use split queries for better performance with multiple includes
                     .SingleOrDefault(m => m.Id == leagueId);
 
                 if (league != null)
@@ -457,8 +463,8 @@ namespace PlayerRatings.Controllers
             var firstDayOfCurrentMonth = new DateTimeOffset(date.Year, date.Month, 1, 0, 0, 0, date.Offset);
             comparisonDate = firstDayOfCurrentMonth.AddSeconds(-1); // Last second of previous month
             
-            // Run calculation for comparison date
-            var (prevEloStat, prevActiveUsers, _) = CalculateRatings(
+            // Run calculation for comparison date (use cached version since no callback needed)
+            var (prevEloStat, prevActiveUsers, _) = CalculateRatingsCached(
                 league, comparisonDate.Value, swaOnly,
                 allowedUserIds: notBlockedUserIds);
             
@@ -554,6 +560,31 @@ namespace PlayerRatings.Controllers
                 onMatchProcessed);
 
             return (eloStat, activeUsers, isSgLeague);
+        }
+        
+        /// <summary>
+        /// Cached version of rating calculation. Use when no match callback is needed.
+        /// Caches results for 2 minutes to avoid redundant calculations.
+        /// </summary>
+        private (EloStat eloStat, HashSet<ApplicationUser> activeUsers, bool isSgLeague) 
+            CalculateRatingsCached(
+                League league, 
+                DateTimeOffset cutoffDate, 
+                bool swaOnly,
+                HashSet<string> allowedUserIds = null)
+        {
+            // Create cache key from parameters (use end of month for cutoff to maximize cache hits)
+            var endOfMonth = GetEndOfMonth(cutoffDate);
+            string cacheKey = $"Ratings_{league.Id}_{endOfMonth:yyyyMMdd}_{swaOnly}";
+            
+            if (_cache.TryGetValue(cacheKey, out (EloStat eloStat, HashSet<ApplicationUser> activeUsers, bool isSgLeague) cached))
+            {
+                return cached;
+            }
+            
+            var result = CalculateRatings(league, cutoffDate, swaOnly, allowedUserIds);
+            _cache.Set(cacheKey, result, RatingsCacheDuration);
+            return result;
         }
 
         private int CompareByRatingAndName(ApplicationUser x, ApplicationUser y)
@@ -704,10 +735,10 @@ namespace PlayerRatings.Controllers
             // If player not found in matches, load directly from database (they may have no matches yet)
             if (player == null)
             {
+                // Only include Rankings - don't need Tournament.TournamentPlayers for player page
                 player = await _context.Users
                     .Include(u => u.Rankings)
-                        .ThenInclude(r => r.Tournament)
-                            .ThenInclude(t => t.TournamentPlayers)
+                    .AsNoTracking()
                     .FirstOrDefaultAsync(u => u.Id == playerId);
                 
                 if (player == null)
@@ -1139,8 +1170,9 @@ namespace PlayerRatings.Controllers
                 .ToListAsync();
 
             // Load all tournament participations (including those without match records)
+            // Use tournament IDs from any match (regardless of factor) to determine if matches exist
             var tournamentIdsWithMatches = new HashSet<Guid>(
-                gameRecords.Where(g => g.TournamentId.HasValue && g.Factor != 0).Select(g => g.TournamentId.Value));
+                gameRecords.Where(g => g.TournamentId.HasValue).Select(g => g.TournamentId.Value));
             
             var tournamentParticipations = await _context.TournamentPlayers
                 .Where(tp => tp.PlayerId == playerId && tp.Tournament.StartDate.HasValue)
@@ -1154,6 +1186,7 @@ namespace PlayerRatings.Controllers
                     FemalePosition = tp.FemalePosition,
                     TeamPosition = tp.TeamPosition,
                     HasMatches = false, // Will be set after query
+                    TournamentFactor = tp.Tournament.Factor, // Tournament's own factor (determines if rated)
                     IsIntlSelection = tp.Tournament.TournamentType == Tournament.TypeIntlSelection,
                     IsTitle = tp.Tournament.TournamentType == Tournament.TypeTitle,
                     TitleEn = tp.Tournament.TournamentType == Tournament.TypeTitle ? tp.Tournament.TitleEn : null,
@@ -1161,7 +1194,7 @@ namespace PlayerRatings.Controllers
                 })
                 .ToListAsync();
             
-            // Mark which tournaments have matches
+            // Mark which tournaments have matches (regardless of factor)
             foreach (var tp in tournamentParticipations)
             {
                 tp.HasMatches = tournamentIdsWithMatches.Contains(tp.TournamentId);

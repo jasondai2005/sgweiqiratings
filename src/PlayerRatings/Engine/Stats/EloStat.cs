@@ -304,7 +304,8 @@ namespace PlayerRatings.Engine.Stats
                 // original ranking-based rating and performance-based estimate
                 if (_dict.TryGetValue(player.Id, out var currentRating))
                 {
-                    double originalInitialRating = player.GetRatingBeforeDate(player.FirstMatch.Date, !isSgLeague);
+                    // Use FirstMatch directly to avoid overflow when FirstMatch == DateTimeOffset.MinValue
+                    double originalInitialRating = player.GetRatingBeforeDate(player.FirstMatch, !isSgLeague);
                     double ratingCorrection = estimatedInitialRating - originalInitialRating;
                     
                     // Apply partial correction (50%) to avoid over-adjusting
@@ -470,7 +471,8 @@ namespace PlayerRatings.Engine.Stats
                 if (user.FirstMatch == DateTimeOffset.MinValue)
                     return user.GetRatingByRanking(user.LatestRanking);
                 
-                return user.GetRatingBeforeDate(user.FirstMatch.Date);
+                // Use FirstMatch directly to avoid overflow when FirstMatch == DateTimeOffset.MinValue
+                return user.GetRatingBeforeDate(user.FirstMatch);
             }
             set => _dict[user.Id] = value;
         }

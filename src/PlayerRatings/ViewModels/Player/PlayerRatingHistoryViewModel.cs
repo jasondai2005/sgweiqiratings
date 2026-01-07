@@ -291,6 +291,18 @@ namespace PlayerRatings.ViewModels.Player
         public bool HasMatches { get; set; }
         
         /// <summary>
+        /// The tournament's factor value. Determines if the tournament is rated.
+        /// </summary>
+        public double? TournamentFactor { get; set; }
+        
+        /// <summary>
+        /// Whether this tournament is rated (based on tournament's Factor, not individual match factors).
+        /// A tournament is NOT rated if: Factor == 0 OR StartDate is before 2023.
+        /// Factor null is considered rated (default).
+        /// </summary>
+        public bool IsRated => (TournamentFactor == null || TournamentFactor.Value != 0) && StartDate.Year >= 2023;
+        
+        /// <summary>
         /// Whether this is an International Selection tournament (achievement).
         /// </summary>
         public bool IsIntlSelection { get; set; }
@@ -432,9 +444,11 @@ namespace PlayerRatings.ViewModels.Player
         public double? Factor { get; set; }
         
         /// <summary>
-        /// Whether this match is rated (factor != 0).
+        /// Whether this match is rated.
+        /// A match is NOT rated if: Factor == 0 OR Date is before 2023.
+        /// Factor null is considered rated (default).
         /// </summary>
-        public bool IsRated => Factor != 0;
+        public bool IsRated => (Factor == null || Factor != 0) && Date.Year >= 2023;
         
         /// <summary>
         /// Tournament ID if match belongs to a tournament.

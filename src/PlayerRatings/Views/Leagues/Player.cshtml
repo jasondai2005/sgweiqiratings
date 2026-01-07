@@ -16,6 +16,7 @@
         public int? TeamPosition { get; set; }
         public DateTimeOffset StartDate { get; set; }
         public bool HasMatches { get; set; }
+        public bool IsRated { get; set; } // Based on tournament's Factor, not match factors
     }
 }
 
@@ -421,6 +422,10 @@
         .Where(t => !t.HasMatches)
         .GroupBy(t => new DateTime(t.StartDate.Year, t.StartDate.Month, 1).AddMonths(1).AddSeconds(-1).ToString("MMM yyyy"))
         .ToDictionary(g => g.Key, g => g.ToList());
+    
+    // Build a lookup for tournament IsRated status (based on tournament's Factor, not match factors)
+    var tournamentIsRatedLookup = Model.TournamentParticipations
+        .ToDictionary(t => t.TournamentId, t => t.IsRated);
 
     // Build ranking labels for each month - show ranking when it changes
     // Use playerRankings from Rankings table directly
@@ -603,7 +608,8 @@
                                     FemalePosition = m.FemalePosition,
                                     TeamPosition = m.TeamPosition,
                                     StartDate = m.TournamentStartDate ?? DateTimeOffset.MinValue,
-                                    HasMatches = true
+                                    HasMatches = true,
+                                    IsRated = m.TournamentId.HasValue && tournamentIsRatedLookup.TryGetValue(m.TournamentId.Value, out var isRated) && isRated
                                 })
                                 .Concat(hasTournamentsWithoutMatches 
                                     ? noMatchTournaments.Select(tp => new TournamentDisplayItem {
@@ -614,7 +620,8 @@
                                         FemalePosition = tp.FemalePosition,
                                         TeamPosition = tp.TeamPosition,
                                         StartDate = tp.StartDate,
-                                        HasMatches = false
+                                        HasMatches = false,
+                                        IsRated = tp.IsRated
                                     })
                                     : Enumerable.Empty<TournamentDisplayItem>())
                                 .OrderByDescending(t => t.StartDate)
@@ -622,8 +629,9 @@
                             
                             @foreach (var t in allTournaments)
                             {
-                                var style = t.HasMatches ? "font-size: 0.85em;" : "font-size: 0.85em; color: #888; font-style: italic;";
-                                var linkStyle = t.HasMatches ? "" : "color: #888;";
+                                // Style based on IsRated (tournament's Factor != 0 and StartDate >= 2023)
+                                var style = t.IsRated ? "font-size: 0.85em;" : "font-size: 0.85em; color: #888; font-style: italic;";
+                                var linkStyle = t.IsRated ? "" : "color: #888;";
                                 <div style="@style">
                                     @if (t.TournamentId.HasValue)
                                     {
@@ -780,7 +788,8 @@
                                     FemalePosition = m.FemalePosition,
                                     TeamPosition = m.TeamPosition,
                                     StartDate = m.TournamentStartDate ?? DateTimeOffset.MinValue,
-                                    HasMatches = true
+                                    HasMatches = true,
+                                    IsRated = m.TournamentId.HasValue && tournamentIsRatedLookup.TryGetValue(m.TournamentId.Value, out var isRatedPre) && isRatedPre
                                 })
                                 .Concat(preEntryTournamentsWithoutMatches.Select(tp => new TournamentDisplayItem {
                                     TournamentId = tp.TournamentId,
@@ -790,15 +799,17 @@
                                     FemalePosition = tp.FemalePosition,
                                     TeamPosition = tp.TeamPosition,
                                     StartDate = tp.StartDate,
-                                    HasMatches = false
+                                    HasMatches = false,
+                                    IsRated = tp.IsRated
                                 }))
                                 .OrderByDescending(t => t.StartDate)
                                 .ToList();
                             
                             @foreach (var t in preEntryAllTournaments)
                             {
-                                var style = t.HasMatches ? "font-size: 0.85em; color: #888;" : "font-size: 0.85em; color: #888; font-style: italic;";
-                                var linkStyle = t.HasMatches ? "" : "color: #888;";
+                                // Pre-entry tournaments are always shown in muted style, but unrated ones are italic
+                                var style = t.IsRated ? "font-size: 0.85em; color: #888;" : "font-size: 0.85em; color: #888; font-style: italic;";
+                                var linkStyle = t.IsRated ? "" : "color: #888;";
                                 <div style="@style">
                                     @if (t.TournamentId.HasValue)
                                     {

@@ -210,7 +210,8 @@ namespace PlayerRatings.Models
                 return EstimatedInitialRating.Value;
             
             // Otherwise fall back to ranking-based rating
-            return GetRatingBeforeDate(FirstMatch.Date, intl);
+            // Use FirstMatch directly to avoid overflow when FirstMatch == DateTimeOffset.MinValue
+            return GetRatingBeforeDate(FirstMatch, intl);
         }
 
         public bool Active
@@ -229,7 +230,8 @@ namespace PlayerRatings.Models
                 if (m_initRanking == null)
                 {
                     // Use combined ranking to show effective ranking (trusted kyu can override SWA kyu)
-                    m_initRanking = GetCombinedRankingBeforeDate(FirstMatch.Date);
+                    // Use FirstMatch directly to avoid overflow when FirstMatch == DateTimeOffset.MinValue
+                    m_initRanking = GetCombinedRankingBeforeDate(FirstMatch);
                 }
 
                 return m_initRanking;

@@ -696,7 +696,7 @@ namespace PlayerRatings.Migrations
             modelBuilder.Entity("PlayerRatings.Models.TournamentPlayer", b =>
                 {
                     b.HasOne("PlayerRatings.Models.ApplicationUser", "Player")
-                        .WithMany()
+                        .WithMany("TournamentPlayers")
                         .HasForeignKey("PlayerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -721,6 +721,8 @@ namespace PlayerRatings.Migrations
             modelBuilder.Entity("PlayerRatings.Models.ApplicationUser", b =>
                 {
                     b.Navigation("Rankings");
+
+                    b.Navigation("TournamentPlayers");
                 });
 
             modelBuilder.Entity("PlayerRatings.Models.League", b =>
