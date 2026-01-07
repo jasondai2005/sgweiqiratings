@@ -348,6 +348,11 @@ namespace PlayerRatings.ViewModels.Tournament
         public string OpponentName { get; set; }
         
         /// <summary>
+        /// Opponent's index in the team standings (for display purposes in team mode)
+        /// </summary>
+        public int OpponentIndex { get; set; }
+        
+        /// <summary>
         /// True if won, false if lost, null if draw
         /// </summary>
         public bool? Won { get; set; }
@@ -439,6 +444,11 @@ namespace PlayerRatings.ViewModels.Tournament
         public string PlayerId { get; set; }
         
         public string PlayerName { get; set; }
+        
+        /// <summary>
+        /// Player's index in the team standings table (1-based, unique across all players)
+        /// </summary>
+        public int PlayerIndex { get; set; }
         
         /// <summary>
         /// Player's individual position in the tournament

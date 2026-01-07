@@ -278,6 +278,7 @@
                                            asp-route-lastMatchDateTime="@roundDate.ToString("o")"
                                            asp-route-factor="0"
                                            asp-route-firstPlayerId="@p.PlayerId"
+                                           asp-route-secondPlayerId="BYE"
                                            target="_blank"
                                            class="btn btn-xs btn-default" title="Add match for @p.PlayerName in Round @r">+</a>
                                     }
@@ -408,6 +409,7 @@
                         }
                         else
                         {
+                            <th style="width: 30px; text-align: center;" title="@LocString[nameof(LocalizationKey.Player)] Index">#P</th>
                             <th style="white-space: nowrap;">@LocString[nameof(LocalizationKey.Team)]</th>
                         }
                         @if (Model.IsAdmin)
@@ -473,6 +475,14 @@
                                 }
                                 else
                                 {
+                                    @* Player index column (team mode) *@
+                                    <td style="text-align: center; font-size: 0.9em; color: #888;">
+                                        @if (isFirstRow)
+                                        {
+                                            <div style="border-bottom: 1px solid #ddd; padding-bottom: 2px; margin-bottom: 2px;">&nbsp;</div>
+                                        }
+                                        @player.PlayerIndex
+                                    </td>
                                     @* Merged Team / Player column *@
                                     <td style="white-space: nowrap;">
                                         @if (isFirstRow)
@@ -522,18 +532,50 @@
                                             }
                                             @if (player.RoundResults.TryGetValue(r, out var result))
                                             {
+                                                // Add separator for first player when there's a result but no team result
+                                                if (isFirstRow && !team.TeamRoundResults.ContainsKey(r))
+                                                {
+                                                    <div style="border-bottom: 1px solid #ddd; padding-bottom: 2px; margin-bottom: 2px;">&nbsp;</div>
+                                                }
                                                 var color = result.Won == true ? "green" : (result.Won == false ? "red" : "gray");
                                                 var symbol = result.Won == true ? "+" : (result.Won == false ? "-" : "=");
                                                 var mainPlayerStyle = result.IsMainPlayer ? "background-color: #fffacd; padding: 1px 3px; border-radius: 3px;" : "";
                                                 var mainPlayerTitle = result.IsMainPlayer ? " ★ Main Player (1.5 pts)" : "";
                                                 <span style="@mainPlayerStyle" title="@result.OpponentName (@result.Score)@mainPlayerTitle">
                                                     @if (result.IsMainPlayer) { <text>★</text> }
-                                                    @result.OpponentName
+                                                    @(result.OpponentIndex > 0 ? result.OpponentIndex.ToString() : result.OpponentName)
                                                 </span>
                                                 <span style="color: @color; font-weight: bold;">@symbol</span>
                                             }
+                                            else if (Model.IsAdmin)
+                                            {
+                                                // Add match button for team standings when no result exists
+                                                // Add separator for first player to align with player name row
+                                                if (isFirstRow && !team.TeamRoundResults.ContainsKey(r))
+                                                {
+                                                    <div style="border-bottom: 1px solid #ddd; padding-bottom: 2px; margin-bottom: 2px;">&nbsp;</div>
+                                                }
+                                                var roundDate = Model.RoundDates.TryGetValue(r, out var rd) 
+                                                    ? rd 
+                                                    : (Model.StartDate ?? DateTimeOffset.UtcNow);
+                                                <a asp-controller="Matches" asp-action="Create" 
+                                                   asp-route-leagueId="@Model.LeagueId"
+                                                   asp-route-tournamentId="@Model.Id"
+                                                   asp-route-round="@r"
+                                                   asp-route-lastMatchDateTime="@roundDate.ToString("o")"
+                                                   asp-route-factor="0"
+                                                   asp-route-firstPlayerId="@player.PlayerId"
+                                                   asp-route-secondPlayerId="BYE"
+                                                   target="_blank"
+                                                   class="btn btn-xs btn-default" title="Add match for @player.PlayerName in Round @r">+</a>
+                                            }
                                             else
                                             {
+                                                // Add separator for first player to align with player name row
+                                                if (isFirstRow && !team.TeamRoundResults.ContainsKey(r))
+                                                {
+                                                    <div style="border-bottom: 1px solid #ddd; padding-bottom: 2px; margin-bottom: 2px;">&nbsp;</div>
+                                                }
                                                 <span class="text-muted">-</span>
                                             }
                                         </td>

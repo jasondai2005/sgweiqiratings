@@ -417,38 +417,48 @@ namespace PlayerRatings.Controllers
                         var player1Team = tournament.TournamentPlayers.FirstOrDefault(tp => tp.PlayerId == match.FirstPlayerId)?.Team;
                         var player2Team = tournament.TournamentPlayers.FirstOrDefault(tp => tp.PlayerId == match.SecondPlayerId)?.Team;
                         
-                        if (string.IsNullOrEmpty(player1Team) || string.IsNullOrEmpty(player2Team))
+                        // Skip if first player has no team
+                        if (string.IsNullOrEmpty(player1Team))
                             continue;
                         
+                        // Check if this is a BYE match (no opponent or opponent has no team)
+                        bool isByeMatch = string.IsNullOrEmpty(player2Team);
+                        
                         // Check if this is the main player match (first match between these two teams in this round)
-                        var teamPairKey = string.Compare(player1Team, player2Team) < 0 
-                            ? $"{player1Team}:{player2Team}" 
-                            : $"{player2Team}:{player1Team}";
-                        bool isMainPlayerMatch = !teamPairMainPlayerAssigned.Contains(teamPairKey);
-                        if (isMainPlayerMatch)
+                        // BYE matches are not main player matches
+                        bool isMainPlayerMatch = false;
+                        if (!isByeMatch)
                         {
-                            teamPairMainPlayerAssigned.Add(teamPairKey);
-                            // Mark both players as main players for this round
-                            mainPlayerMatches[$"{round}:{match.FirstPlayerId}"] = true;
-                            mainPlayerMatches[$"{round}:{match.SecondPlayerId}"] = true;
+                            var teamPairKey = string.Compare(player1Team, player2Team) < 0 
+                                ? $"{player1Team}:{player2Team}" 
+                                : $"{player2Team}:{player1Team}";
+                            isMainPlayerMatch = !teamPairMainPlayerAssigned.Contains(teamPairKey);
+                            if (isMainPlayerMatch)
+                            {
+                                teamPairMainPlayerAssigned.Add(teamPairKey);
+                                // Mark both players as main players for this round
+                                mainPlayerMatches[$"{round}:{match.FirstPlayerId}"] = true;
+                                mainPlayerMatches[$"{round}:{match.SecondPlayerId}"] = true;
+                            }
+                            
+                            // Track opponents (only for non-BYE matches)
+                            if (!teamOpponents.ContainsKey(player1Team))
+                                teamOpponents[player1Team] = new HashSet<string>();
+                            if (!teamOpponents.ContainsKey(player2Team))
+                                teamOpponents[player2Team] = new HashSet<string>();
+                            teamOpponents[player1Team].Add(player2Team);
+                            teamOpponents[player2Team].Add(player1Team);
                         }
                         
-                        // Track opponents
-                        if (!teamOpponents.ContainsKey(player1Team))
-                            teamOpponents[player1Team] = new HashSet<string>();
-                        if (!teamOpponents.ContainsKey(player2Team))
-                            teamOpponents[player2Team] = new HashSet<string>();
-                        teamOpponents[player1Team].Add(player2Team);
-                        teamOpponents[player2Team].Add(player1Team);
-                        
-                        // Initialize wins
+                        // Initialize wins for player1's team
                         if (!teamWinsInRound.ContainsKey(player1Team))
                         {
                             teamWinsInRound[player1Team] = 0;
                             teamBaseWinsInRound[player1Team] = 0;
                             teamMainPlayerBonusInRound[player1Team] = 0;
                         }
-                        if (!teamWinsInRound.ContainsKey(player2Team))
+                        // Initialize wins for player2's team (only if not BYE)
+                        if (!isByeMatch && !teamWinsInRound.ContainsKey(player2Team))
                         {
                             teamWinsInRound[player2Team] = 0;
                             teamBaseWinsInRound[player2Team] = 0;
@@ -456,6 +466,7 @@ namespace PlayerRatings.Controllers
                         }
                         
                         // Determine winner - main player wins count as 1.5 points (1 base + 0.5 bonus)
+                        // BYE matches: just count the base win, no main player bonus
                         if (match.FirstPlayerScore > match.SecondPlayerScore)
                         {
                             teamBaseWinsInRound[player1Team] += 1;
@@ -466,7 +477,7 @@ namespace PlayerRatings.Controllers
                                 teamWinsInRound[player1Team] += 0.5;
                             }
                         }
-                        else if (match.SecondPlayerScore > match.FirstPlayerScore)
+                        else if (match.SecondPlayerScore > match.FirstPlayerScore && !isByeMatch)
                         {
                             teamBaseWinsInRound[player2Team] += 1;
                             teamWinsInRound[player2Team] += 1;
@@ -476,7 +487,7 @@ namespace PlayerRatings.Controllers
                                 teamWinsInRound[player2Team] += 0.5;
                             }
                         }
-                        else
+                        else if (!isByeMatch)
                         {
                             // Draw: 0.5 each (0.75 for main player draw = 0.5 base + 0.25 bonus)
                             teamBaseWinsInRound[player1Team] += 0.5;
@@ -493,27 +504,31 @@ namespace PlayerRatings.Controllers
                         }
                     }
                     
-                    // Now determine team vs team results
+                    // Now determine team vs team results by comparing scores
                     foreach (var team in teamWinsInRound.Keys)
                     {
                         if (!teamRoundWins.ContainsKey(team))
                             teamRoundWins[team] = new Dictionary<int, (double, double, double, string, double, double)>();
                         
-                        var wins = teamWinsInRound[team];
+                        var teamScore = teamWinsInRound[team];
                         var baseWins = teamBaseWinsInRound[team];
                         var mainPlayerBonus = teamMainPlayerBonusInRound[team];
                         var opponents = teamOpponents.GetValueOrDefault(team, new HashSet<string>());
                         var opponentTeam = opponents.FirstOrDefault() ?? "";
                         
-                        // Determine team result: 3+ wins = win, 2 wins = draw, <2 wins = loss
-                        // With main player bonus, thresholds adjust: 3.5+ = clear win, 2.5-3.5 = close win, etc.
+                        // Get opponent's score for comparison
+                        var opponentScore = !string.IsNullOrEmpty(opponentTeam) && teamWinsInRound.TryGetValue(opponentTeam, out var oppWins) 
+                            ? oppWins 
+                            : 0;
+                        
+                        // Determine team result by comparing scores (higher score wins)
                         double teamWin = 0, teamLoss = 0, teamDraw = 0;
-                        if (wins >= 2.5)
+                        if (teamScore > opponentScore)
                             teamWin = 1;
-                        else if (wins >= 2)
-                            teamDraw = 1;
-                        else
+                        else if (teamScore < opponentScore)
                             teamLoss = 1;
+                        else
+                            teamDraw = 1;
                         
                         teamRoundWins[team][round] = (teamWin, teamLoss, teamDraw, opponentTeam, baseWins, mainPlayerBonus);
                     }
@@ -744,6 +759,34 @@ namespace PlayerRatings.Controllers
                         if (!string.IsNullOrEmpty(roundResult.OpponentTeamName))
                         {
                             roundResult.OpponentTeamIndex = teamIndexLookup.GetValueOrDefault(roundResult.OpponentTeamName, 0);
+                        }
+                    }
+                }
+                
+                // Build player index lookup (sequential index across all teams, following team order)
+                var playerIndexLookup = new Dictionary<string, int>();
+                int playerIndex = 1;
+                foreach (var team in ranked)
+                {
+                    foreach (var player in team.Players)
+                    {
+                        player.PlayerIndex = playerIndex;
+                        playerIndexLookup[player.PlayerId] = playerIndex;
+                        playerIndex++;
+                    }
+                }
+                
+                // Update opponent indices in player round results
+                foreach (var team in ranked)
+                {
+                    foreach (var player in team.Players)
+                    {
+                        foreach (var roundResult in player.RoundResults.Values)
+                        {
+                            if (!string.IsNullOrEmpty(roundResult.OpponentId))
+                            {
+                                roundResult.OpponentIndex = playerIndexLookup.GetValueOrDefault(roundResult.OpponentId, 0);
+                            }
                         }
                     }
                 }

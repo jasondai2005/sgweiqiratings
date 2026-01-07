@@ -123,7 +123,7 @@ namespace PlayerRatings.Controllers
         }
 
         // GET: /<controller>/
-        public async Task<IActionResult> Create(Guid? leagueId, DateTimeOffset? lastMatchDateTime, string matchName, double? factor, Guid? tournamentId, int? round, string firstPlayerId)
+        public async Task<IActionResult> Create(Guid? leagueId, DateTimeOffset? lastMatchDateTime, string matchName, double? factor, Guid? tournamentId, int? round, string firstPlayerId = null, string secondPlayerId = null)
         {
             var currentUser = await _userManager.GetUserAsync(User);
 
@@ -152,12 +152,23 @@ namespace PlayerRatings.Controllers
 
             // Determine first player - use provided or default to current user
             var effectiveFirstPlayerId = !string.IsNullOrEmpty(firstPlayerId) ? firstPlayerId : currentUser.Id;
+            
+            // Determine second player - use provided, or default to first available
+            // "BYE" marker value means select BYE (empty string in dropdown)
+            // null means use default (first available player)
+            string effectiveSecondPlayerId;
+            if (secondPlayerId == "BYE")
+                effectiveSecondPlayerId = "";  // Empty string selects BYE option in dropdown
+            else if (!string.IsNullOrEmpty(secondPlayerId))
+                effectiveSecondPlayerId = secondPlayerId;
+            else
+                effectiveSecondPlayerId = players.Keys.FirstOrDefault(p => p.Id != effectiveFirstPlayerId)?.Id;
 
             return View("Create", new NewResultViewModel(leagues, players, lastMatchDateTime, matchName, factor)
             {
                 LeagueId = leagueId ?? leagues.First().Id,
                 FirstPlayerId = effectiveFirstPlayerId,
-                SecondPlayerId = players.Keys.FirstOrDefault(p => p.Id != effectiveFirstPlayerId)?.Id,
+                SecondPlayerId = effectiveSecondPlayerId,
                 Tournaments = tournaments,
                 TournamentId = tournamentId,
                 Round = round
@@ -309,7 +320,8 @@ namespace PlayerRatings.Controllers
                 }
                 else
                 {
-                    return RedirectToAction(nameof(Create), new { leagueId = model.LeagueId, lastMatchDateTime = model.Date, matchName = model.MatchName, factor = model.Factor, tournamentId = model.TournamentId });
+                    // Pass round to next match creation for convenience
+                    return RedirectToAction(nameof(Create), new { leagueId = model.LeagueId, lastMatchDateTime = model.Date, matchName = model.MatchName, factor = model.Factor, tournamentId = model.TournamentId, round = model.Round });
                 }
             }
 
