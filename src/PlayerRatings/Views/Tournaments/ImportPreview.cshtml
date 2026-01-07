@@ -133,8 +133,12 @@
         <div class="row" style="margin-bottom: 15px;">
             <div class="col-md-3">
                 <label class="control-label">Match Date</label>
+                @{
+                    var matchDate = Model.H9StartDate?.Date ?? DateTime.Now.Date;
+                    var defaultTime = matchDate.AddHours(10); // 10:00 AM
+                }
                 <input type="datetime-local" name="MatchDate" class="form-control" 
-                       value="@(Model.H9StartDate?.ToString("yyyy-MM-ddTHH:mm") ?? DateTime.Now.ToString("yyyy-MM-ddTHH:mm"))" required />
+                       value="@defaultTime.ToString("yyyy-MM-ddTHH:mm")" required />
             </div>
             <div class="col-md-2">
                 <label class="control-label">@LocString[nameof(LocalizationKey.Factor)]</label>
@@ -200,12 +204,8 @@
                                     }
                                 </td>
                                 <td style="text-align: center;">
-                                    @{
-                                        var shouldCreateNew = string.IsNullOrEmpty(mapping.SelectedPlayerId) && mapping.GamesCount > 0;
-                                    }
                                     <input type="checkbox" name="PlayerMappings[@i].CreateNewPlayer" value="true" 
-                                           class="create-checkbox" data-index="@i" style="transform: scale(1.3);"
-                                           @(shouldCreateNew ? "checked" : "") />
+                                           class="create-checkbox" data-index="@i" style="transform: scale(1.3);" />
                                 </td>
                             </tr>
                         }
@@ -368,13 +368,6 @@ else
                 }
                 updatePlayerDisplay(index);
             });
-            
-            // Initialize state
-            if (checkbox.checked) {
-                var index = checkbox.getAttribute('data-index');
-                var select = document.querySelector('.player-select[data-index="' + index + '"]');
-                if (select) select.disabled = true;
-            }
         });
 
         // Player select updates match display

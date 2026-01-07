@@ -3,12 +3,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
-using System.Xml.Linq;
 
 namespace PlayerRatings.Services
 {
     /// <summary>
-    /// Represents a player from an H9 file
+    /// Represents a player from a tournament file
     /// </summary>
     public class H9Player
     {
@@ -22,7 +21,7 @@ namespace PlayerRatings.Services
     }
 
     /// <summary>
-    /// Represents a game/match from an H9 file
+    /// Represents a game/match from a tournament file
     /// </summary>
     public class H9Game
     {
@@ -50,7 +49,7 @@ namespace PlayerRatings.Services
     }
 
     /// <summary>
-    /// Result of parsing an H9 file
+    /// Result of parsing a tournament file
     /// </summary>
     public class H9ParseResult
     {
@@ -66,7 +65,7 @@ namespace PlayerRatings.Services
     }
 
     /// <summary>
-    /// Parser for OpenGotha H9 tournament files
+    /// Parser for EGF text format tournament files
     /// </summary>
     public class H9FileParser
     {
@@ -74,8 +73,9 @@ namespace PlayerRatings.Services
         /// Special index indicating a BYE (no opponent)
         /// </summary>
         public const int BYE_INDEX = -1;
+        
         /// <summary>
-        /// Parse an H9 file from a stream. Supports both OpenGotha XML format and EGF text format.
+        /// Parse an EGF text format tournament file from a stream.
         /// </summary>
         public H9ParseResult Parse(Stream stream)
         {
@@ -99,22 +99,8 @@ namespace PlayerRatings.Services
                 // Trim any leading whitespace
                 content = content.TrimStart();
 
-                // Detect format: XML (OpenGotha H9) or text (EGF format)
-                if (content.StartsWith("<"))
-                {
-                    return ParseXmlFormat(content);
-                }
-                else if (content.StartsWith(";") || Regex.IsMatch(content, @"^\s*\d+\s+\w+"))
-                {
-                    return ParseEgfTextFormat(content);
-                }
-                else
-                {
-                    result.Success = false;
-                    var preview = content.Length > 100 ? content.Substring(0, 100) : content;
-                    result.ErrorMessage = $"Unknown file format. First 100 chars: {preview}";
-                    return result;
-                }
+                // Always parse as EGF text format
+                return ParseEgfTextFormat(content);
             }
             catch (Exception ex)
             {
@@ -351,143 +337,6 @@ namespace PlayerRatings.Services
             }
             
             return results;
-        }
-
-        /// <summary>
-        /// Parse OpenGotha XML format
-        /// </summary>
-        private H9ParseResult ParseXmlFormat(string content)
-        {
-            var result = new H9ParseResult();
-
-            try
-            {
-                // Check if it looks like an H9 file (should contain Tournament root)
-                if (!content.Contains("<Tournament") && !content.Contains("<tournament"))
-                {
-                    result.Success = false;
-                    result.ErrorMessage = "XML file does not appear to be an OpenGotha H9 file. Expected <Tournament> root element.";
-                    return result;
-                }
-
-                var doc = XDocument.Parse(content);
-                var root = doc.Root;
-
-                if (root == null || root.Name.LocalName != "Tournament")
-                {
-                    result.Success = false;
-                    result.ErrorMessage = "Invalid H9 file: Root element must be 'Tournament'";
-                    return result;
-                }
-
-                // Parse tournament parameters
-                var paramSet = root.Element("TournamentParameterSet");
-                if (paramSet != null)
-                {
-                    var generalParams = paramSet.Element("GeneralParameterSet");
-                    if (generalParams != null)
-                    {
-                        result.TournamentName = generalParams.Attribute("name")?.Value;
-                        result.Location = generalParams.Attribute("location")?.Value;
-                        
-                        // Parse dates
-                        var beginDate = generalParams.Attribute("beginDate")?.Value;
-                        var endDate = generalParams.Attribute("endDate")?.Value;
-                        
-                        if (!string.IsNullOrEmpty(beginDate) && DateTime.TryParse(beginDate, out var bd))
-                            result.StartDate = bd;
-                        if (!string.IsNullOrEmpty(endDate) && DateTime.TryParse(endDate, out var ed))
-                            result.EndDate = ed;
-
-                        var nbRounds = generalParams.Attribute("numberOfRounds")?.Value;
-                        if (!string.IsNullOrEmpty(nbRounds) && int.TryParse(nbRounds, out var rounds))
-                            result.NumberOfRounds = rounds;
-                    }
-                }
-
-                // Parse players
-                var playersElement = root.Element("Players");
-                if (playersElement != null)
-                {
-                    int index = 0;
-                    foreach (var playerElement in playersElement.Elements("Player"))
-                    {
-                        var player = new H9Player
-                        {
-                            PlayerIndex = index++,
-                            Name = playerElement.Attribute("name")?.Value ?? "",
-                            FirstName = playerElement.Attribute("firstName")?.Value ?? "",
-                            Rank = playerElement.Attribute("rank")?.Value ?? "",
-                            Country = playerElement.Attribute("country")?.Value ?? "",
-                            Club = playerElement.Attribute("club")?.Value ?? ""
-                        };
-                        result.Players.Add(player);
-                    }
-                }
-
-                // Parse games
-                var gamesElement = root.Element("Games");
-                if (gamesElement != null)
-                {
-                    foreach (var gameElement in gamesElement.Elements("Game"))
-                    {
-                        var game = new H9Game();
-
-                        var roundAttr = gameElement.Attribute("roundNumber")?.Value;
-                        if (!string.IsNullOrEmpty(roundAttr) && int.TryParse(roundAttr, out var round))
-                            game.RoundNumber = round;
-
-                        var tableAttr = gameElement.Attribute("tableNumber")?.Value;
-                        if (!string.IsNullOrEmpty(tableAttr) && int.TryParse(tableAttr, out var table))
-                            game.TableNumber = table;
-
-                        var whiteAttr = gameElement.Attribute("whitePlayer")?.Value;
-                        if (!string.IsNullOrEmpty(whiteAttr) && int.TryParse(whiteAttr, out var white))
-                            game.WhitePlayerIndex = white;
-
-                        var blackAttr = gameElement.Attribute("blackPlayer")?.Value;
-                        if (!string.IsNullOrEmpty(blackAttr) && int.TryParse(blackAttr, out var black))
-                            game.BlackPlayerIndex = black;
-
-                        game.Result = gameElement.Attribute("result")?.Value ?? "";
-
-                        var handicapAttr = gameElement.Attribute("handicap")?.Value;
-                        if (!string.IsNullOrEmpty(handicapAttr) && int.TryParse(handicapAttr, out var handicap))
-                            game.Handicap = handicap;
-
-                        result.Games.Add(game);
-                    }
-                }
-
-                result.Success = result.Players.Any() && result.Games.Any();
-                if (!result.Success)
-                {
-                    if (!result.Players.Any() && !result.Games.Any())
-                    {
-                        result.ErrorMessage = "No players or games found in the H9 file. Root element: " + root?.Name.LocalName;
-                    }
-                    else if (!result.Players.Any())
-                    {
-                        result.ErrorMessage = "No players found in the H9 file";
-                    }
-                    else
-                    {
-                        result.ErrorMessage = "No games found in the H9 file";
-                    }
-                }
-            }
-            catch (System.Xml.XmlException xmlEx)
-            {
-                result.Success = false;
-                result.ErrorMessage = $"Invalid XML format: {xmlEx.Message}";
-            }
-            catch (Exception ex)
-            {
-                result.Success = false;
-                result.ErrorMessage = $"Error parsing H9 file: {ex.Message}";
-            }
-
-            return result;
         }
 
         /// <summary>
