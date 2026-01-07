@@ -458,6 +458,33 @@ namespace PlayerRatings.Controllers
             return View("Create", model);
         }
 
+        /// <summary>
+        /// API endpoint to update match factor inline
+        /// </summary>
+        [HttpPost]
+        public async Task<IActionResult> UpdateFactor(Guid id, double? factor)
+        {
+            var match = await _context.Match.Include(m => m.League).FirstOrDefaultAsync(m => m.Id == id);
+            if (match == null)
+            {
+                return Json(new { success = false, error = "Match not found" });
+            }
+
+            var currentUser = await User.GetApplicationUser(_userManager);
+            var league = _leaguesRepository.GetUserAuthorizedLeague(currentUser, match.LeagueId);
+
+            if (league == null || league.CreatedByUserId != currentUser.Id)
+            {
+                return Json(new { success = false, error = "Not authorized" });
+            }
+
+            // Factor of 1 is stored as null (default)
+            match.Factor = factor == 1 ? null : factor;
+            await _context.SaveChangesAsync();
+
+            return Json(new { success = true, factor = match.Factor ?? 1.0 });
+        }
+
         public async Task<IActionResult> Delete(Guid id)
         {
             var match = _context.Match.Include(m => m.League).Include(m => m.FirstPlayer).Include(m => m.SecondPlayer).Single(m => m.Id == id);

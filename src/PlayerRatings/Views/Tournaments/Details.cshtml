@@ -729,7 +729,13 @@
                         <td>@m.Date.ToString("dd/MM/yyyy")</td>
                         @if (Model.IsAdmin)
                         {
-                            <td style="text-align: center;">@(m.Factor.HasValue ? m.Factor.Value.ToString("0.#") : "-")</td>
+                            <td style="text-align: center;">
+                                <input type="number" step="0.1" min="0" max="2" 
+                                       class="factor-input" 
+                                       data-match-id="@m.Id"
+                                       value="@(m.Factor ?? 1)" 
+                                       style="width: 50px; text-align: center; padding: 2px 4px; border: 1px solid #ddd; border-radius: 3px;" />
+                            </td>
                             <td style="text-align: center;">
                                 @(string.IsNullOrEmpty(m.ShiftRating) ? "-" : m.ShiftRating)
                             </td>
@@ -807,5 +813,65 @@
             </tbody>
         </table>
     </div>
+}
+
+@section Scripts {
+    <script>
+        // Inline factor editing
+        document.querySelectorAll('.factor-input').forEach(function(input) {
+            var originalValue = input.value;
+            
+            input.addEventListener('change', function() {
+                var matchId = this.getAttribute('data-match-id');
+                var newValue = this.value;
+                var inputEl = this;
+                
+                // Visual feedback - show loading
+                inputEl.style.borderColor = '#ffc107';
+                inputEl.disabled = true;
+                
+                fetch('@Url.Action("UpdateFactor", "Matches")', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: 'id=' + encodeURIComponent(matchId) + '&factor=' + encodeURIComponent(newValue)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        inputEl.style.borderColor = '#28a745';
+                        originalValue = newValue;
+                        setTimeout(function() {
+                            inputEl.style.borderColor = '#ddd';
+                        }, 1500);
+                    } else {
+                        inputEl.style.borderColor = '#dc3545';
+                        inputEl.value = originalValue;
+                        alert('Error: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    inputEl.style.borderColor = '#dc3545';
+                    inputEl.value = originalValue;
+                    alert('Error updating factor');
+                })
+                .finally(function() {
+                    inputEl.disabled = false;
+                });
+            });
+            
+            // Reset border on focus
+            input.addEventListener('focus', function() {
+                this.style.borderColor = '#667eea';
+            });
+            
+            input.addEventListener('blur', function() {
+                if (this.style.borderColor === 'rgb(102, 126, 234)') {
+                    this.style.borderColor = '#ddd';
+                }
+            });
+        });
+    </script>
 }
 
