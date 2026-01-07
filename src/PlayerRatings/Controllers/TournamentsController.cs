@@ -8,7 +8,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
 using PlayerRatings.Engine.Rating;
 using PlayerRatings.Models;
 using PlayerRatings.Services;
@@ -22,54 +21,11 @@ namespace PlayerRatings.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
-        private readonly IMemoryCache _cache;
-        
-        // Cache duration for league matches (5 minutes)
-        private static readonly TimeSpan MatchesCacheDuration = TimeSpan.FromMinutes(5);
 
-        public TournamentsController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, IMemoryCache cache)
+        public TournamentsController(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
         {
             _context = context;
             _userManager = userManager;
-            _cache = cache;
-        }
-        
-        /// <summary>
-        /// Gets league matches from cache, or loads from database if not cached.
-        /// Only loads matches up to the specified cutoff date for efficiency.
-        /// </summary>
-        private async Task<List<Match>> GetLeagueMatchesAsync(Guid leagueId, DateTimeOffset? cutoffDate = null)
-        {
-            string cacheKey = $"LeagueMatches_{leagueId}";
-            
-            if (!_cache.TryGetValue(cacheKey, out List<Match> matches))
-            {
-                matches = await _context.Match
-                    .Where(m => m.LeagueId == leagueId)
-                    .Include(m => m.FirstPlayer).ThenInclude(p => p.Rankings)
-                    .Include(m => m.SecondPlayer).ThenInclude(p => p.Rankings)
-                    .OrderBy(m => m.Date)
-                    .AsNoTracking()
-                    .ToListAsync();
-                
-                _cache.Set(cacheKey, matches, MatchesCacheDuration);
-            }
-            
-            // Filter by cutoff date if specified (for historical calculations)
-            if (cutoffDate.HasValue)
-            {
-                return matches.Where(m => m.Date <= cutoffDate.Value).ToList();
-            }
-            
-            return matches;
-        }
-        
-        /// <summary>
-        /// Invalidates the league matches cache (call when matches are added/modified).
-        /// </summary>
-        private void InvalidateLeagueMatchesCache(Guid leagueId)
-        {
-            _cache.Remove($"LeagueMatches_{leagueId}");
         }
         
         /// <summary>
@@ -948,8 +904,13 @@ namespace PlayerRatings.Controllers
             var tournamentStartDate = (tournament.StartDate ?? (hasMatches ? tournament.Matches.Min(m => m.Date) : DateTimeOffset.UtcNow));
             var tournamentEndDate = tournament.EndDate ?? (hasMatches ? tournament.Matches.Max(m => m.Date) : DateTimeOffset.UtcNow);
             
-            // Load league matches from cache for rating calculation (more efficient)
-            var leagueMatches = await GetLeagueMatchesAsync(tournament.LeagueId);
+            // Load all league matches for rating calculation
+            var leagueMatches = await _context.Match
+                .Where(m => m.LeagueId == tournament.LeagueId)
+                .Include(m => m.FirstPlayer).ThenInclude(p => p.Rankings)
+                .Include(m => m.SecondPlayer).ThenInclude(p => p.Rankings)
+                .OrderBy(m => m.Date)
+                .ToListAsync();
             
             // Get tournament player IDs for focused calculation
             var tournamentPlayerIds = tournament.TournamentPlayers.Select(tp => tp.PlayerId).ToHashSet();
@@ -1701,9 +1662,6 @@ namespace PlayerRatings.Controllers
             }
 
             await _context.SaveChangesAsync();
-            
-            // Invalidate cache since matches were modified
-            InvalidateLeagueMatchesCache(tournament.LeagueId);
 
             return RedirectToAction(nameof(SelectMatches), new { id = tournamentId, filterMonth, filterYear, filterMatchName });
         }
@@ -1760,9 +1718,6 @@ namespace PlayerRatings.Controllers
             }
 
             await _context.SaveChangesAsync();
-            
-            // Invalidate cache since match rounds were modified
-            InvalidateLeagueMatchesCache(tournament.LeagueId);
 
             return RedirectToAction(nameof(SelectMatches), new { id = tournamentId, filterMonth, filterYear, filterMatchName });
         }
@@ -1799,9 +1754,6 @@ namespace PlayerRatings.Controllers
             }
 
             await _context.SaveChangesAsync();
-            
-            // Invalidate cache since match dates were modified
-            InvalidateLeagueMatchesCache(tournament.LeagueId);
 
             return RedirectToAction(nameof(SelectMatches), new { id = tournamentId, filterMonth, filterYear, filterMatchName });
         }
@@ -1829,9 +1781,6 @@ namespace PlayerRatings.Controllers
                 match.Round = null;
                 // Note: We don't reset MatchName or Factor as those may have been manually set
                 await _context.SaveChangesAsync();
-                
-                // Invalidate cache since match was removed from tournament
-                InvalidateLeagueMatchesCache(tournament.LeagueId);
             }
 
             return RedirectToAction(nameof(SelectMatches), new { id = tournamentId, filterMonth, filterYear, filterMatchName });
@@ -2125,9 +2074,6 @@ namespace PlayerRatings.Controllers
             _context.Tournaments.Remove(tournament);
 
             await _context.SaveChangesAsync();
-            
-            // Invalidate cache since tournament was deleted
-            InvalidateLeagueMatchesCache(leagueId);
 
             return RedirectToAction(nameof(Index), new { leagueId });
         }
@@ -2956,10 +2902,6 @@ namespace PlayerRatings.Controllers
             }
 
             await _context.SaveChangesAsync();
-
-            // Invalidate cache
-            InvalidateLeagueMatchesCache(tournament.LeagueId);
-
             TempData["Message"] = $"Successfully imported {createdMatches.Count} matches.";
             return RedirectToAction(nameof(Details), new { id = tournament.Id });
         }
