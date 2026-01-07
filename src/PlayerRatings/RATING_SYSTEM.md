@@ -251,6 +251,7 @@ Games are processed in chronological order. For each game:
 | Local kyu (recognized) | Ranking-based | Normal | Hidden 12 games |
 | Local dan (new 2025+) | Ranking-based | Dynamic 6 games | Visible |
 | Foreign kyu (recognized) | Ranking-based | Normal | Hidden 12 games |
+| Foreign kyu (not recognized) | Ranking-based | Dynamic 12 games | Hidden 12 games |
 | Foreign dan | Ranking-based* | Dynamic 12 games | Hidden 12 games |
 | Unknown | Default (1700) | Dynamic 12 games | Hidden 12 games |
 | Returning (2+ years) | Previous rating | Dynamic 6 games | Visible |

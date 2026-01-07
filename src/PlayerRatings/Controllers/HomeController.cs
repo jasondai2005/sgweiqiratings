@@ -51,6 +51,11 @@ namespace PlayerRatings.Controllers
             return View();
         }
 
+        public IActionResult RatingSystem()
+        {
+            return View();
+        }
+
         public IActionResult Contact()
         {
             return View();

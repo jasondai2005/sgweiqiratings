@@ -1,0 +1,558 @@
+@using PlayerRatings.Localization
+@inject Microsoft.Extensions.Localization.IStringLocalizer<LocalizationKey> LocString
+@inject ILanguageData LanguageData
+
+@{
+    ViewData["Title"] = LanguageData.CurrentLanguage == "cn" ? "等级分系统" : "Rating System";
+    var isChinese = LanguageData.CurrentLanguage == "cn";
+}
+
+<style>
+    .rating-system h1 { font-size: 2em; margin-bottom: 20px; color: #333; }
+    .rating-system h2 { font-size: 1.5em; margin-top: 30px; margin-bottom: 15px; color: #444; border-bottom: 2px solid #667eea; padding-bottom: 8px; }
+    .rating-system h3 { font-size: 1.2em; margin-top: 20px; margin-bottom: 10px; color: #555; }
+    .rating-system p { margin-bottom: 12px; line-height: 1.6; }
+    .rating-system ul, .rating-system ol { margin-bottom: 15px; padding-left: 25px; }
+    .rating-system li { margin-bottom: 6px; line-height: 1.5; }
+    .rating-system code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: 'Consolas', 'Monaco', monospace; }
+    .rating-system pre { background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 6px; overflow-x: auto; margin: 15px 0; }
+    .rating-system pre code { background: none; padding: 0; color: inherit; }
+    .rating-system table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+    .rating-system th, .rating-system td { border: 1px solid #ddd; padding: 10px 12px; text-align: left; }
+    .rating-system th { background: #667eea; color: white; }
+    .rating-system tr:nth-child(even) { background: #f9f9f9; }
+    .rating-system hr { border: none; border-top: 1px solid #ddd; margin: 25px 0; }
+    .rating-system strong { color: #333; }
+    .rating-system .note { background: #fff3cd; border-left: 4px solid #ffc107; padding: 12px 15px; margin: 15px 0; border-radius: 0 4px 4px 0; }
+</style>
+
+<div class="rating-system">
+@if (isChinese)
+{
+    <h1>新加坡围棋等级分系统</h1>
+
+    <h2>概述</h2>
+    <p>我们使用基于Elo的等级分系统来追踪新加坡围棋比赛中棋手的实力。该系统旨在提供准确的等级分，同时兼容来自不同背景和段级位系统的棋手。</p>
+
+    <hr />
+
+    <h2>Elo等级分系统</h2>
+
+    <h3>工作原理</h3>
+    <p>Elo系统根据以下因素计算每局比赛后棋手的新等级分：</p>
+    <ol>
+        <li><strong>双方当前等级分</strong></li>
+        <li><strong>预期得分</strong>（基于等级分差的获胜概率）</li>
+        <li><strong>实际结果</strong>（赢 = 1.0，和 = 0.5，输 = 0.0）</li>
+        <li><strong>K系数</strong>（决定等级分变化幅度的波动系数）</li>
+    </ol>
+
+    <h3>等级分更新公式</h3>
+    <pre><code>新等级分 = 原等级分 + K × (实际得分 - 预期得分)</code></pre>
+
+    <p>其中<strong>预期得分</strong>使用以下公式计算：</p>
+    <pre><code>预期得分 = 1 / (1 + 10^((对手等级分 - 己方等级分) / 400))</code></pre>
+
+    <p>例如：</p>
+    <ul>
+        <li>等级分相同 → 预期得分 = 0.5（50%胜率）</li>
+        <li>高200分 → 预期得分 ≈ 0.76（76%胜率）</li>
+        <li>高400分 → 预期得分 ≈ 0.91（91%胜率）</li>
+    </ul>
+
+    <h3>最低等级分</h3>
+    <p>等级分不能低于<strong>900分</strong>。</p>
+
+    <hr />
+
+    <h2>等级分对照表</h2>
+
+    <h3>职业棋手</h3>
+    <table>
+        <thead>
+            <tr><th>段位</th><th>等级分</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>1P</td><td>2740</td></tr>
+            <tr><td>2P</td><td>2780</td></tr>
+            <tr><td>3P</td><td>2820</td></tr>
+            <tr><td>...</td><td>每升一段+40</td></tr>
+            <tr><td>9P</td><td>3060</td></tr>
+        </tbody>
+    </table>
+
+    <h3>段位</h3>
+    <table>
+        <thead>
+            <tr><th>段位</th><th>等级分</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>7D</td><td>2700</td></tr>
+            <tr><td>6D</td><td>2600</td></tr>
+            <tr><td>5D</td><td>2500</td></tr>
+            <tr><td>4D</td><td>2400</td></tr>
+            <tr><td>3D</td><td>2300</td></tr>
+            <tr><td>2D</td><td>2200</td></tr>
+            <tr><td>1D</td><td>2100</td></tr>
+        </tbody>
+    </table>
+    <p class="note"><strong>注意：</strong>外国段位比新加坡棋院(SWA)段位低100分（低一段），但外国1D设定为2075（介于SWA 1K和1D之间）。</p>
+
+    <h3>级位</h3>
+    <table>
+        <thead>
+            <tr><th>级位范围</th><th>每级分差</th><th>等级分示例</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>1K</td><td>比1D低50</td><td>2050</td></tr>
+            <tr><td>2K-5K</td><td>每级25分</td><td>2K=2025, 5K=1950</td></tr>
+            <tr><td>6K-10K</td><td>每级30分</td><td>6K=1920, 10K=1800</td></tr>
+            <tr><td>11K-20K</td><td>每级40分</td><td>11K=1760, 20K=1400</td></tr>
+            <tr><td>21K-30K</td><td>每级50分</td><td>21K=1350, 30K=900</td></tr>
+        </tbody>
+    </table>
+
+    <hr />
+
+    <h2>K系数（波动系数）</h2>
+    <p>K系数决定单局比赛对等级分的影响程度。K系数越高，等级分变化越快。</p>
+
+    <h3>K系数分级</h3>
+    <table>
+        <thead>
+            <tr><th>等级分范围</th><th>段级位范围</th><th>K系数</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>≥ 2720</td><td>职业</td><td>6</td></tr>
+            <tr><td>2300-2719</td><td>3D以上</td><td>12</td></tr>
+            <tr><td>1950-2299</td><td>5K-2D</td><td>20</td></tr>
+            <tr><td>1600-1949</td><td>15K-6K</td><td>28</td></tr>
+            <tr><td>&lt; 1600</td><td>16K以下</td><td>36</td></tr>
+        </tbody>
+    </table>
+
+    <h3>参考：EGF公式</h3>
+    <p>作为对比，欧洲围棋联盟(EGF)使用连续公式：</p>
+    <pre><code>K = ((3300 - 等级分) / 200)^1.6</code></pre>
+
+    <table>
+        <thead>
+            <tr><th>段级位</th><th>等级分</th><th>EGF K值</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>5K</td><td>1950</td><td>21.2</td></tr>
+            <tr><td>1K</td><td>2050</td><td>18.8</td></tr>
+            <tr><td>1D</td><td>2100</td><td>17.6</td></tr>
+            <tr><td>2D</td><td>2200</td><td>15.3</td></tr>
+            <tr><td>3D</td><td>2300</td><td>13.1</td></tr>
+            <tr><td>5D</td><td>2500</td><td>9.2</td></tr>
+            <tr><td>7D</td><td>2700</td><td>5.8</td></tr>
+            <tr><td>1P</td><td>2740</td><td>5.2</td></tr>
+        </tbody>
+    </table>
+
+    <hr />
+
+    <h2>初始等级分分配</h2>
+
+    <h3>有认可段级位的棋手</h3>
+    <p>棋手的初始等级分由其在具有可比段级位标准的组织中的段级位决定：</p>
+    <p><strong>认可组织：</strong></p>
+    <ul>
+        <li><strong>本地：</strong>SWA（新加坡棋院）、TGA（围棋学院）</li>
+        <li><strong>区域：</strong>MWA（马来西亚棋院）、KBA（韩国棋院）、泰国、越南等</li>
+        <li><strong>国际：</strong>EGF（欧洲围棋联盟）</li>
+    </ul>
+    <p>来自这些组织的级位棋手直接以其对应等级分入系统。但外国段位棋手无论其段级位组织如何，都需要经过实力评估。</p>
+
+    <h3>其他段级位的棋手</h3>
+    <p>持有非认可组织级位的棋手，以及所有外国段位棋手，都需要经过<strong>12局实力评估期</strong>后才能确定其等级分。</p>
+
+    <hr />
+
+    <h2>新棋手实力评估</h2>
+
+    <h3>适用情况</h3>
+    <p>实力评估适用于：</p>
+    <ol>
+        <li><strong>所有外国段位棋手</strong>（无论段级位组织）</li>
+        <li><strong>外国级位棋手</strong>（来自无可比段级位标准的组织）</li>
+        <li><strong>未知棋手</strong>（无可验证段级位）</li>
+        <li><strong>新本地段位棋手</strong>（2025年起首次加入，仅前6局）</li>
+        <li><strong>回归不活跃棋手</strong>（中断2年以上后，仅前6局）</li>
+    </ol>
+    <p class="note"><strong>注意：</strong>第4和第5项（本地段位棋手和回归棋手）仅在6局内使用动态K系数调整，<strong>不</strong>经过12局等级分修正，因为其本地段级位历史已提供足够准确的基准。</p>
+
+    <h3>工作原理</h3>
+    <p>在评估期间：</p>
+
+    <p><strong>1. 动态K系数：</strong>新棋手使用较高的K系数，在12局内逐渐降低：</p>
+    <pre><code>K系数倍数 = 1 + max(0, (12 - 已对局数) / 6)</code></pre>
+    <ul>
+        <li>0局：K系数倍数 = 3.0×</li>
+        <li>6局：K系数倍数 = 2.0×</li>
+        <li>12局：K系数倍数 = 1.0×（正常）</li>
+    </ul>
+
+    <p><strong>2. 对手保护：</strong>当实力不确定的棋手对阵已确立等级分的棋手时，已确立等级分的棋手使用较低的K系数（0.5×），以限制可能被误判等级分的对手的影响。职业棋手不受此调整影响。</p>
+
+    <p><strong>3. 等级分修正：</strong>在12局后，系统根据表现计算<strong>估计真实等级分</strong>：</p>
+    <pre><code>权重 = sqrt(max(1000, 对手等级分) / 1000)
+加权平均对手 = sum(对手等级分 × 权重) / sum(权重)
+胜率 = sum(得分 × 权重) / sum(权重)
+等级分差 = 100 × ln(胜率 / (1 - 胜率))    [限制在±200内]
+估计等级分 = 加权平均对手 + 等级分差</code></pre>
+    <ul>
+        <li>强对手在计算中权重更高</li>
+        <li>上限：不能超过击败的最强对手 + 150分</li>
+        <li>下限：不能低于输给的最弱对手 - 150分</li>
+    </ul>
+
+    <p><strong>4. 部分修正：</strong>估计等级分与初始等级分之间的差异以50%应用，以避免过度调整，因为动态K系数已经使棋手的等级分向真实等级分移动了一部分。</p>
+    <pre><code>修正值 = 估计等级分 - 原始初始等级分
+修正后等级分 = 当前等级分 + (修正值 × 0.5)</code></pre>
+
+    <h3>观察期</h3>
+    <p>新级位棋手和等级分不确定的棋手在前12局内在主排名中"隐藏"，仅在详细搜索中可见。</p>
+
+    <hr />
+
+    <h2>升段/级奖励</h2>
+
+    <h3>目的</h3>
+    <p>当棋手从SWA或具有可比段级位标准的组织获得晋升时，他们将获得等级分下限保证，以确保其等级分反映新段级位。</p>
+
+    <h3>为何需要</h3>
+    <p>如果没有升段/级奖励修正，某些棋手会处于不公平的劣势，而他们的对手也会面临不匹配的比赛：</p>
+    <ol>
+        <li><strong>快速进步的级位棋手：</strong>级位棋手通常进步迅速，但他们的许多训练对局（如围棋学校的课堂对局）未纳入等级分系统。</li>
+        <li><strong>让子比赛：</strong>一些升段比赛使用让子棋，无法在分先等级分系统中评级。</li>
+        <li><strong>偶尔参赛者：</strong>一些棋手，尤其是海外棋手，可能只是偶尔参加本地比赛，导致其等级分落后于实际实力。</li>
+    </ol>
+
+    <h3>资格条件</h3>
+    <ul>
+        <li>晋升必须来自认可组织（SWA、TGA、MWA、KBA、泰国、越南、EGF）</li>
+        <li>仅适用于晋升至<strong>4D及以下</strong>（等级分 &lt; 2500）</li>
+        <li>强棋手（5D及以上）被视为已确立，不需要奖励</li>
+    </ul>
+
+    <h3>计算方法</h3>
+    <p>等级分下限设定为新段级位<strong>低半个段级位</strong>：</p>
+    <pre><code>等级分下限 = 新段级位等级分 - (单个段级位差 × 0.5)</code></pre>
+    <p><strong>示例：</strong>从3K晋升到2K</p>
+    <ul>
+        <li>2K等级分 = 2025</li>
+        <li>该级别单个段级位差 = 25分</li>
+        <li>等级分下限 = 2025 - (25 × 0.5) = 2012.5</li>
+    </ul>
+    <p>如果棋手当前等级分低于此下限，将获得奖励以提升至下限。</p>
+
+    <h3>特殊情况</h3>
+    <ul>
+        <li><strong>职业棋手和外国棋手：</strong>获得完整的新段级位等级分（无半个段级位减少）</li>
+        <li><strong>获得晋升的本地级位棋手：</strong>对于无初始段级位入系统的本地棋手，晋升后停止实力评估，因为晋升已验证其实力</li>
+    </ul>
+
+    <hr />
+
+    <h2>对局处理顺序</h2>
+    <p>对局按时间顺序处理。对于每局比赛：</p>
+    <ol>
+        <li>检查在此局之前生效的任何晋升</li>
+        <li>如适用，应用升段/级奖励</li>
+        <li>计算双方的预期得分</li>
+        <li>应用适当的K系数（对新棋手进行动态调整）</li>
+        <li>更新双方等级分</li>
+        <li>记录对局结果用于实力评估（如适用）</li>
+    </ol>
+
+    <hr />
+
+    <h2>总结</h2>
+    <table>
+        <thead>
+            <tr><th>棋手类型</th><th>初始等级分</th><th>K系数</th><th>评估期</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>本地级位（认可）</td><td>基于段级位</td><td>正常</td><td>隐藏12局</td></tr>
+            <tr><td>本地段位（2025年起新加入）</td><td>基于段级位</td><td>动态6局</td><td>可见</td></tr>
+            <tr><td>外国级位（认可）</td><td>基于段级位</td><td>正常</td><td>隐藏12局</td></tr>
+            <tr><td>外国级位（非认可）</td><td>基于段级位</td><td>动态12局</td><td>隐藏12局</td></tr>
+            <tr><td>外国段位</td><td>基于段级位*</td><td>动态12局</td><td>隐藏12局</td></tr>
+            <tr><td>未知</td><td>默认（1700）</td><td>动态12局</td><td>隐藏12局</td></tr>
+            <tr><td>回归（2年以上）</td><td>原等级分</td><td>动态6局</td><td>可见</td></tr>
+            <tr><td>已确立</td><td>当前等级分</td><td>正常</td><td>不适用</td></tr>
+        </tbody>
+    </table>
+    <p>* 外国段位比同等SWA段位低100分</p>
+
+    <hr />
+
+    <p><em>本文档描述了棋手等级分应用中实现的新加坡围棋等级分系统。</em></p>
+}
+else
+{
+    <h1>Singapore Weiqi (Go) Rating System</h1>
+
+    <h2>Overview</h2>
+    <p>We use an Elo-based rating system for Singapore Weiqi (Go) Competitions to track player strength. The system is designed to provide accurate ratings while accommodating players from various backgrounds and ranking systems.</p>
+
+    <hr />
+
+    <h2>The Elo Rating System</h2>
+
+    <h3>How It Works</h3>
+    <p>The Elo system calculates a player's new rating after each game based on:</p>
+    <ol>
+        <li><strong>Current ratings</strong> of both players</li>
+        <li><strong>Expected score</strong> (probability of winning based on rating difference)</li>
+        <li><strong>Actual result</strong> (win = 1.0, draw = 0.5, loss = 0.0)</li>
+        <li><strong>K-factor</strong> (volatility factor that determines how much ratings change)</li>
+    </ol>
+
+    <h3>Rating Update Formula</h3>
+    <pre><code>New Rating = Old Rating + K × (Actual Score - Expected Score)</code></pre>
+
+    <p>Where the <strong>Expected Score</strong> is calculated using the following formula:</p>
+    <pre><code>Expected Score = 1 / (1 + 10^((Opponent Rating - Player Rating) / 400))</code></pre>
+
+    <p>For example:</p>
+    <ul>
+        <li>Equal ratings → Expected score = 0.5 (50% win probability)</li>
+        <li>200 points higher → Expected score ≈ 0.76 (76% win probability)</li>
+        <li>400 points higher → Expected score ≈ 0.91 (91% win probability)</li>
+    </ul>
+
+    <h3>Minimum Rating</h3>
+    <p>Ratings cannot fall below <strong>900 points</strong>.</p>
+
+    <hr />
+
+    <h2>Rating Scale</h2>
+
+    <h3>Professionals</h3>
+    <table>
+        <thead>
+            <tr><th>Rank</th><th>Rating</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>1P</td><td>2740</td></tr>
+            <tr><td>2P</td><td>2780</td></tr>
+            <tr><td>3P</td><td>2820</td></tr>
+            <tr><td>...</td><td>+40 per level</td></tr>
+            <tr><td>9P</td><td>3060</td></tr>
+        </tbody>
+    </table>
+
+    <h3>Dan Grades</h3>
+    <table>
+        <thead>
+            <tr><th>Rank</th><th>Rating</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>7D</td><td>2700</td></tr>
+            <tr><td>6D</td><td>2600</td></tr>
+            <tr><td>5D</td><td>2500</td></tr>
+            <tr><td>4D</td><td>2400</td></tr>
+            <tr><td>3D</td><td>2300</td></tr>
+            <tr><td>2D</td><td>2200</td></tr>
+            <tr><td>1D</td><td>2100</td></tr>
+        </tbody>
+    </table>
+    <p class="note"><strong>Note:</strong> Foreign dan rankings are valued 100 points lower than SWA rankings (one level down), except foreign 1D which is set at 2075 (between SWA 1K and 1D).</p>
+
+    <h3>Kyu Grades</h3>
+    <table>
+        <thead>
+            <tr><th>Rank Range</th><th>Points Per Level</th><th>Example Ratings</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>1K</td><td>50 below 1D</td><td>2050</td></tr>
+            <tr><td>2K-5K</td><td>25 per level</td><td>2K=2025, 5K=1950</td></tr>
+            <tr><td>6K-10K</td><td>30 per level</td><td>6K=1920, 10K=1800</td></tr>
+            <tr><td>11K-20K</td><td>40 per level</td><td>11K=1760, 20K=1400</td></tr>
+            <tr><td>21K-30K</td><td>50 per level</td><td>21K=1350, 30K=900</td></tr>
+        </tbody>
+    </table>
+
+    <hr />
+
+    <h2>K-Factor (Volatility)</h2>
+    <p>The K-factor determines how much a single game affects a player's rating. Higher K-factors mean faster rating changes.</p>
+
+    <h3>K-Factor Tiers</h3>
+    <table>
+        <thead>
+            <tr><th>Rating Range</th><th>Rank Range</th><th>K-Factor</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>≥ 2720</td><td>Pro</td><td>6</td></tr>
+            <tr><td>2300-2719</td><td>3D+</td><td>12</td></tr>
+            <tr><td>1950-2299</td><td>5K-2D</td><td>20</td></tr>
+            <tr><td>1600-1949</td><td>15K-6K</td><td>28</td></tr>
+            <tr><td>&lt; 1600</td><td>16K+</td><td>36</td></tr>
+        </tbody>
+    </table>
+
+    <h3>Reference: EGF Formula</h3>
+    <p>For comparison, the European Go Federation (EGF) uses a continuous formula:</p>
+    <pre><code>K = ((3300 - Rating) / 200)^1.6</code></pre>
+
+    <table>
+        <thead>
+            <tr><th>Rank</th><th>Rating</th><th>EGF K</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>5K</td><td>1950</td><td>21.2</td></tr>
+            <tr><td>1K</td><td>2050</td><td>18.8</td></tr>
+            <tr><td>1D</td><td>2100</td><td>17.6</td></tr>
+            <tr><td>2D</td><td>2200</td><td>15.3</td></tr>
+            <tr><td>3D</td><td>2300</td><td>13.1</td></tr>
+            <tr><td>5D</td><td>2500</td><td>9.2</td></tr>
+            <tr><td>7D</td><td>2700</td><td>5.8</td></tr>
+            <tr><td>1P</td><td>2740</td><td>5.2</td></tr>
+        </tbody>
+    </table>
+
+    <hr />
+
+    <h2>Initial Rating Assignment</h2>
+
+    <h3>Players with Recognized Rankings</h3>
+    <p>A player's initial rating is determined by their ranking from an organization with comparable ranking standards:</p>
+    <p><strong>Recognized Organizations:</strong></p>
+    <ul>
+        <li><strong>Local:</strong> SWA (Singapore Weiqi Association), TGA (The Go Academy)</li>
+        <li><strong>Regional:</strong> MWA (Malaysia Weiqi Association), KBA (Korea Baduk Association), Thailand, Vietnam, etc.</li>
+        <li><strong>International:</strong> EGF (European Go Federation)</li>
+    </ul>
+    <p>Kyu players from these organizations enter directly with their corresponding rating. Foreign ranked dan players, however, undergo performance estimation regardless of their ranking organization.</p>
+
+    <h3>Players with Other Rankings</h3>
+    <p>Players holding kyu rankings from unrecognized organizations, as well as all foreign dan players, undergo a <strong>12-game performance estimation</strong> period before their rating is finalized.</p>
+
+    <hr />
+
+    <h2>Performance Estimation for New Players</h2>
+
+    <h3>When It Applies</h3>
+    <p>Performance estimation is used for:</p>
+    <ol>
+        <li><strong>All foreign dan players</strong> (regardless of ranking organization)</li>
+        <li><strong>Foreign kyu players</strong> from organizations without comparable ranking standards</li>
+        <li><strong>Unknown players</strong> with no verifiable ranking</li>
+        <li><strong>New local dan players</strong> (first joined from 2025, first 6 games only)</li>
+        <li><strong>Returning inactive players</strong> (after 2+ year break, first 6 games)</li>
+    </ol>
+    <p class="note"><strong>Note:</strong> Items 4 and 5 (local dan players and returning players) only receive dynamic K-factor adjustment for 6 games. They do <strong>not</strong> undergo the 12-game rating correction, as their local ranking history provides sufficient baseline accuracy.</p>
+
+    <h3>How It Works</h3>
+    <p>During the estimation period:</p>
+
+    <p><strong>1. Dynamic K-Factor:</strong> New players use an elevated K-factor that decreases over 12 games:</p>
+    <pre><code>K multiplier = 1 + max(0, (12 - gamesPlayed) / 6)</code></pre>
+    <ul>
+        <li>0 games: K multiplier = 3.0×</li>
+        <li>6 games: K multiplier = 2.0×</li>
+        <li>12 games: K multiplier = 1.0× (normal)</li>
+    </ul>
+
+    <p><strong>2. Opponent Protection:</strong> When an uncertain player faces an established player, the established player uses a reduced K-factor (0.5×) to limit rating impact from potentially misrated opponents. Pro players are exempt from this reduction.</p>
+
+    <p><strong>3. Rating Correction:</strong> After 12 games, the system calculates an <strong>estimated true rating</strong> based on performance:</p>
+    <pre><code>Weight = sqrt(max(1000, OpponentRating) / 1000)
+Weighted Avg Opponent = sum(OpponentRating × Weight) / sum(Weight)
+Win Rate = sum(Score × Weight) / sum(Weight)
+Rating Diff = 100 × ln(WinRate / (1 - WinRate))    [capped at ±200]
+Estimated Rating = Weighted Avg Opponent + Rating Diff</code></pre>
+    <ul>
+        <li>Stronger opponents are weighted more heavily in the calculation</li>
+        <li>Ceiling: Cannot exceed strongest opponent beaten + 150 points</li>
+        <li>Floor: Cannot fall below weakest opponent lost to - 150 points</li>
+    </ul>
+
+    <p><strong>4. Partial Correction:</strong> The difference between estimated and initial rating is applied at 50% to avoid over-adjustment, as the dynamic K-factor has already moved the player partway to their true rating.</p>
+    <pre><code>Correction = Estimated Rating - Original Initial Rating
+Corrected Rating = Current Rating + (Correction × 0.5)</code></pre>
+
+    <h3>Monitoring Period</h3>
+    <p>New kyu players and uncertain-rated players are "hidden" from main rankings during their first 12 games, visible only on detailed search.</p>
+
+    <hr />
+
+    <h2>Promotion Bonus</h2>
+
+    <h3>Purpose</h3>
+    <p>When a player earns a promotion from SWA or an organization with comparable ranking standards, they receive a rating floor to ensure their rating reflects their new rank.</p>
+
+    <h3>Why This Is Needed</h3>
+    <p>Without promotion bonus correction, certain players would be unfairly disadvantaged, and their opponents would face mismatched games:</p>
+    <ol>
+        <li><strong>Fast-improving kyu players:</strong> Kyu players often improve rapidly, but many of their training games (e.g., in-class games at go schools) are not included in the rating system.</li>
+        <li><strong>Handicap competitions:</strong> Some dan upgrading competitions use handicap games, which cannot be rated in an even-game rating system.</li>
+        <li><strong>Occasional participants:</strong> Some players, especially overseas players, may only participate in local competitions occasionally, causing their rating to lag behind their actual strength.</li>
+    </ol>
+
+    <h3>Eligibility</h3>
+    <ul>
+        <li>Promotion must be from a recognized organization (SWA, TGA, MWA, KBA, Thailand, Vietnam, EGF)</li>
+        <li>Only applies for promotions to <strong>4D and below</strong> (rating &lt; 2500)</li>
+        <li>Strong players (5D and above) are considered established and don't need the bonus</li>
+    </ul>
+
+    <h3>Calculation</h3>
+    <p>The rating floor is set at <strong>half a rank below</strong> the new rank:</p>
+    <pre><code>Rating Floor = New Rank Rating - (Single Rank Difference × 0.5)</code></pre>
+    <p><strong>Example:</strong> Promotion from 3K to 2K</p>
+    <ul>
+        <li>2K rating = 2025</li>
+        <li>Single rank difference at this level = 25 points</li>
+        <li>Rating floor = 2025 - (25 × 0.5) = 2012.5</li>
+    </ul>
+    <p>If the player's current rating is below this floor, they receive a bonus to bring them up to the floor.</p>
+
+    <h3>Special Cases</h3>
+    <ul>
+        <li><strong>Pro players and foreign players:</strong> Receive the full new ranking rating (no half-rank reduction)</li>
+        <li><strong>Local kyu players receiving promotion:</strong> For local players who entered without an initial ranking, performance estimation is stopped upon promotion, as the promotion validates their strength</li>
+    </ul>
+
+    <hr />
+
+    <h2>Game Processing Order</h2>
+    <p>Games are processed in chronological order. For each game:</p>
+    <ol>
+        <li>Check for any promotions that became effective before this game</li>
+        <li>Apply promotion bonus if applicable</li>
+        <li>Calculate expected scores for both players</li>
+        <li>Apply appropriate K-factors (with dynamic adjustments for new players)</li>
+        <li>Update both players' ratings</li>
+        <li>Track game results for performance estimation (if applicable)</li>
+    </ol>
+
+    <hr />
+
+    <h2>Summary</h2>
+    <table>
+        <thead>
+            <tr><th>Player Type</th><th>Initial Rating</th><th>K-Factor</th><th>Estimation Period</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>Local kyu (recognized)</td><td>Ranking-based</td><td>Normal</td><td>Hidden 12 games</td></tr>
+            <tr><td>Local dan (new 2025+)</td><td>Ranking-based</td><td>Dynamic 6 games</td><td>Visible</td></tr>
+            <tr><td>Foreign kyu (recognized)</td><td>Ranking-based</td><td>Normal</td><td>Hidden 12 games</td></tr>
+            <tr><td>Foreign kyu (not recognized)</td><td>Ranking-based</td><td>Dynamic 12 games</td><td>Hidden 12 games</td></tr>
+            <tr><td>Foreign dan</td><td>Ranking-based*</td><td>Dynamic 12 games</td><td>Hidden 12 games</td></tr>
+            <tr><td>Unknown</td><td>Default (1700)</td><td>Dynamic 12 games</td><td>Hidden 12 games</td></tr>
+            <tr><td>Returning (2+ years)</td><td>Previous rating</td><td>Dynamic 6 games</td><td>Visible</td></tr>
+            <tr><td>Established</td><td>Current rating</td><td>Normal</td><td>N/A</td></tr>
+        </tbody>
+    </table>
+    <p>* Foreign dan receives a 100-point penalty compared to equivalent SWA dan</p>
+
+    <hr />
+
+    <p><em>This document describes the Singapore Weiqi (Go) rating system as implemented in the player ratings application.</em></p>
+}
+</div>
