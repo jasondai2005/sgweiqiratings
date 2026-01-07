@@ -1,0 +1,450 @@
+@using PlayerRatings.Localization
+@model PlayerRatings.ViewModels.Tournament.ImportPreviewViewModel
+@inject Microsoft.Extensions.Localization.IStringLocalizer<LocalizationKey> LocString
+
+@{
+    ViewData["Title"] = "Review Import";
+    var rounds = Model.Matches.Select(m => m.RoundNumber).Distinct().OrderBy(r => r).ToList();
+}
+
+<style>
+    .file-info-panel {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 8px;
+        padding: 15px 20px;
+        margin-bottom: 20px;
+    }
+    .file-info-panel h4 { margin: 0 0 10px 0; }
+    .file-info-panel .stat { 
+        display: inline-block; 
+        margin-right: 20px;
+        font-size: 0.9em;
+    }
+    .file-info-panel .stat-value { font-weight: bold; }
+    
+    .player-mapping-section {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    .player-mapping-table {
+        font-size: 0.9em;
+    }
+    .player-mapping-table th {
+        background: #e9ecef;
+    }
+    .player-mapping-table td {
+        vertical-align: middle !important;
+    }
+    .player-select {
+        width: 100%;
+        font-size: 0.9em;
+    }
+    .confidence-high { color: #28a745; }
+    .confidence-medium { color: #ffc107; }
+    .confidence-low { color: #dc3545; }
+    .mapping-info {
+        font-size: 0.75em;
+        color: #666;
+    }
+    
+    .matches-section {
+        margin-top: 20px;
+    }
+    .matches-table {
+        font-size: 0.85em;
+    }
+    .matches-table th {
+        background: #f5f5f5;
+        position: sticky;
+        top: 0;
+    }
+    .round-header {
+        background: #667eea !important;
+        color: white;
+    }
+    .round-header td {
+        font-weight: bold;
+        padding: 8px 12px;
+    }
+    .result-win { color: #28a745; font-weight: bold; }
+    .result-loss { color: #dc3545; }
+    .match-row.excluded {
+        opacity: 0.4;
+        background: #f9f9f9;
+    }
+    .unmapped-player {
+        color: #dc3545;
+        font-style: italic;
+    }
+    .bye-match {
+        background: #fff9e6 !important;
+    }
+    .bye-match td {
+        color: #856404;
+    }
+    .bye-indicator {
+        font-style: italic;
+        color: #6c757d;
+    }
+</style>
+
+<h2>Review Import</h2>
+<h4 class="text-muted">@Model.TournamentName</h4>
+<hr />
+
+@if (!string.IsNullOrEmpty(Model.H9TournamentName) || Model.H9StartDate.HasValue)
+{
+    <div class="file-info-panel">
+        <h4>📁 @(Model.H9TournamentName ?? "Tournament File")</h4>
+        <div>
+            @if (Model.H9StartDate.HasValue)
+            {
+                <span class="stat">📅 <span class="stat-value">@Model.H9StartDate.Value.ToString("dd MMM yyyy")</span></span>
+            }
+            @if (!string.IsNullOrEmpty(Model.H9Location))
+            {
+                <span class="stat">📍 <span class="stat-value">@Model.H9Location</span></span>
+            }
+            <span class="stat">👥 <span class="stat-value">@Model.PlayerMappings.Count</span> players</span>
+            <span class="stat">🎮 <span class="stat-value">@Model.Matches.Count</span> games</span>
+            <span class="stat">🔄 <span class="stat-value">@rounds.Count</span> rounds</span>
+        </div>
+    </div>
+}
+
+@if (Model.HasErrors)
+{
+    <div class="alert alert-danger">
+        <strong>⚠️ Error:</strong> @Model.ErrorMessage
+    </div>
+}
+
+@if (Model.PlayerMappings.Any())
+{
+    <form asp-action="ImportConfirm" method="post" id="confirmForm">
+        <input type="hidden" name="TournamentId" value="@Model.TournamentId" />
+        <input type="hidden" name="LeagueId" value="@Model.LeagueId" />
+        
+        <!-- Settings Row -->
+        <div class="row" style="margin-bottom: 15px;">
+            <div class="col-md-3">
+                <label class="control-label">Match Date</label>
+                <input type="datetime-local" name="MatchDate" class="form-control" 
+                       value="@(Model.H9StartDate?.ToString("yyyy-MM-ddTHH:mm") ?? DateTime.Now.ToString("yyyy-MM-ddTHH:mm"))" required />
+            </div>
+            <div class="col-md-2">
+                <label class="control-label">@LocString[nameof(LocalizationKey.Factor)]</label>
+                <input type="number" name="Factor" class="form-control" step="0.1" placeholder="Default" />
+            </div>
+        </div>
+
+        <!-- Player Mappings Section -->
+        <div class="player-mapping-section">
+            <h4>👥 Player Mappings</h4>
+            <p class="text-muted" style="margin-bottom: 10px;">Map each player from the file to an existing player, or create new players.</p>
+            
+            <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                <table class="table table-bordered table-condensed player-mapping-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;">#</th>
+                            <th style="width: 200px;">Name in File</th>
+                            <th style="width: 60px;">Rank</th>
+                            <th style="width: 60px;">Games</th>
+                            <th>Map to Player</th>
+                            <th style="width: 100px;">Create New</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (int i = 0; i < Model.PlayerMappings.Count; i++)
+                        {
+                            var mapping = Model.PlayerMappings[i];
+                            var confClass = mapping.MatchConfidence >= 0.8 ? "confidence-high" : (mapping.MatchConfidence >= 0.5 ? "confidence-medium" : "confidence-low");
+                            
+                            <tr>
+                                <td>
+                                    <input type="hidden" name="PlayerMappings[@i].PlayerIndex" value="@mapping.PlayerIndex" />
+                                    <input type="hidden" name="PlayerMappings[@i].NewPlayerName" value="@mapping.NewPlayerName" />
+                                    <input type="hidden" name="PlayerMappings[@i].NewPlayerRanking" value="@mapping.NewPlayerRanking" />
+                                    @(mapping.PlayerIndex + 1)
+                                </td>
+                                <td><strong>@mapping.ExtractedName</strong></td>
+                                <td>@mapping.ExtractedRanking</td>
+                                <td style="text-align: center;">@mapping.GamesCount</td>
+                                <td>
+                                    <select name="PlayerMappings[@i].SelectedPlayerId" class="form-control player-select" data-index="@i">
+                                        <option value="">-- Select Player --</option>
+                                        @foreach (var player in Model.AvailablePlayers)
+                                        {
+                                            var isSelected = mapping.SelectedPlayerId == player.Id;
+                                            if (isSelected)
+                                            {
+                                                <option value="@player.Id" selected>@player.DisplayName @(!string.IsNullOrEmpty(player.Ranking) ? $"({player.Ranking})" : "")</option>
+                                            }
+                                            else
+                                            {
+                                                <option value="@player.Id">@player.DisplayName @(!string.IsNullOrEmpty(player.Ranking) ? $"({player.Ranking})" : "")</option>
+                                            }
+                                        }
+                                    </select>
+                                    @if (mapping.MatchConfidence > 0)
+                                    {
+                                        <div class="mapping-info">
+                                            Suggested: @mapping.SuggestedPlayerName 
+                                            <span class="@confClass">(@((mapping.MatchConfidence * 100).ToString("F0"))%)</span>
+                                        </div>
+                                    }
+                                </td>
+                                <td style="text-align: center;">
+                                    @{
+                                        var shouldCreateNew = string.IsNullOrEmpty(mapping.SelectedPlayerId) && mapping.GamesCount > 0;
+                                    }
+                                    <input type="checkbox" name="PlayerMappings[@i].CreateNewPlayer" value="true" 
+                                           class="create-checkbox" data-index="@i" style="transform: scale(1.3);"
+                                           @(shouldCreateNew ? "checked" : "") />
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Matches Section -->
+        <div class="matches-section">
+            <h4>🎮 Matches to Import</h4>
+            <div style="margin-bottom: 10px;">
+                <button type="button" class="btn btn-default btn-sm" onclick="selectAllMatches(true)">✓ Select All</button>
+                <button type="button" class="btn btn-default btn-sm" onclick="selectAllMatches(false)">✗ Deselect All</button>
+                <span style="margin-left: 20px;">
+                    <span class="badge badge-success" id="selectedCount">@Model.Matches.Count</span> / @Model.Matches.Count matches selected
+                </span>
+            </div>
+            
+            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                <table class="table table-bordered table-hover matches-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;">✓</th>
+                            <th style="width: 50px;">Tbl</th>
+                            <th>White</th>
+                            <th style="width: 80px; text-align: center;">Result</th>
+                            <th>Black</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{
+                            int matchIndex = 0;
+                            foreach (var roundNum in rounds)
+                            {
+                                var roundMatches = Model.Matches.Where(m => m.RoundNumber == roundNum).ToList();
+                                <tr class="round-header">
+                                    <td colspan="5">
+                                        Round @roundNum
+                                        <span style="font-weight: normal; margin-left: 10px;">(@roundMatches.Count games)</span>
+                                    </td>
+                                </tr>
+                                
+                                foreach (var match in roundMatches)
+                                {
+                                    <tr class="match-row @(match.IsBye ? "bye-match" : "")" data-index="@matchIndex">
+                                        <td style="text-align: center;">
+                                            <input type="hidden" name="Matches[@matchIndex].Index" value="@match.Index" />
+                                            <input type="hidden" name="Matches[@matchIndex].RoundNumber" value="@match.RoundNumber" />
+                                            <input type="hidden" name="Matches[@matchIndex].WhitePlayerIndex" value="@match.WhitePlayerIndex" />
+                                            <input type="hidden" name="Matches[@matchIndex].BlackPlayerIndex" value="@match.BlackPlayerIndex" />
+                                            <input type="hidden" name="Matches[@matchIndex].WhiteScore" value="@match.WhiteScore" />
+                                            <input type="hidden" name="Matches[@matchIndex].BlackScore" value="@match.BlackScore" />
+                                            <input type="hidden" name="Matches[@matchIndex].IsBye" value="@match.IsBye.ToString().ToLower()" />
+                                            <input type="checkbox" name="Matches[@matchIndex].Include" value="true" 
+                                                   class="match-include" checked style="transform: scale(1.3);" />
+                                        </td>
+                                        <td style="text-align: center;">@match.TableNumber</td>
+                                        <td>
+                                            <span class="player-name" data-player-index="@match.WhitePlayerIndex">
+                                                @match.WhitePlayerName
+                                            </span>
+                                        </td>
+                                        <td style="text-align: center; font-size: 1.1em;">
+                                            @if (match.IsBye)
+                                            {
+                                                <span class="bye-indicator">BYE</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="@(match.WhiteScore > match.BlackScore ? "result-win" : "result-loss")">@match.WhiteScore</span>
+                                                <text>-</text>
+                                                <span class="@(match.BlackScore > match.WhiteScore ? "result-win" : "result-loss")">@match.BlackScore</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (match.IsBye)
+                                            {
+                                                <span class="bye-indicator">No opponent</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="player-name" data-player-index="@match.BlackPlayerIndex">
+                                                    @match.BlackPlayerName
+                                                </span>
+                                            }
+                                        </td>
+                                    </tr>
+                                    matchIndex++;
+                                }
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="form-group" style="margin-top: 20px; padding-top: 15px; border-top: 2px solid #eee;">
+            <button type="submit" class="btn btn-success btn-lg">
+                <span class="glyphicon glyphicon-ok"></span> Import Selected Matches
+            </button>
+            <a asp-action="ImportH9" asp-route-id="@Model.TournamentId" class="btn btn-default btn-lg">
+                <span class="glyphicon glyphicon-repeat"></span> Upload Different File
+            </a>
+            <a asp-action="Details" asp-route-id="@Model.TournamentId" class="btn btn-link">
+                @LocString[nameof(LocalizationKey.Cancel)]
+            </a>
+        </div>
+    </form>
+}
+else
+{
+    <div class="alert alert-warning">
+        <strong>No players found.</strong> Please check the tournament file format.
+    </div>
+    <a asp-action="ImportH9" asp-route-id="@Model.TournamentId" class="btn btn-primary">
+        Try Again
+    </a>
+}
+
+@section Scripts {
+    <script>
+        // Player mapping data for updating match display
+        var playerMappings = {};
+        @foreach (var mapping in Model.PlayerMappings)
+        {
+            @:playerMappings[@mapping.PlayerIndex] = { name: "@Html.Raw(mapping.ExtractedName.Replace("\"", "\\\""))", selected: "@mapping.SelectedPlayerId" };
+        }
+
+        // Update selected count
+        function updateSelectedCount() {
+            var count = document.querySelectorAll('.match-include:checked').length;
+            document.getElementById('selectedCount').textContent = count;
+        }
+
+        // Toggle match inclusion
+        document.querySelectorAll('.match-include').forEach(function(checkbox) {
+            checkbox.addEventListener('change', function() {
+                var row = this.closest('.match-row');
+                if (this.checked) {
+                    row.classList.remove('excluded');
+                } else {
+                    row.classList.add('excluded');
+                }
+                updateSelectedCount();
+            });
+        });
+
+        // Create checkbox disables player select
+        document.querySelectorAll('.create-checkbox').forEach(function(checkbox) {
+            checkbox.addEventListener('change', function() {
+                var index = this.getAttribute('data-index');
+                var select = document.querySelector('.player-select[data-index="' + index + '"]');
+                
+                if (this.checked) {
+                    select.disabled = true;
+                    select.value = '';
+                } else {
+                    select.disabled = false;
+                }
+                updatePlayerDisplay(index);
+            });
+            
+            // Initialize state
+            if (checkbox.checked) {
+                var index = checkbox.getAttribute('data-index');
+                var select = document.querySelector('.player-select[data-index="' + index + '"]');
+                if (select) select.disabled = true;
+            }
+        });
+
+        // Player select updates match display
+        document.querySelectorAll('.player-select').forEach(function(select) {
+            select.addEventListener('change', function() {
+                var index = this.getAttribute('data-index');
+                updatePlayerDisplay(index);
+            });
+        });
+
+        function updatePlayerDisplay(mappingIndex) {
+            var select = document.querySelector('.player-select[data-index="' + mappingIndex + '"]');
+            var createCheckbox = document.querySelector('.create-checkbox[data-index="' + mappingIndex + '"]');
+            var playerIndex = parseInt(document.querySelector('input[name="PlayerMappings[' + mappingIndex + '].PlayerIndex"]').value);
+            
+            var displayName;
+            if (createCheckbox && createCheckbox.checked) {
+                displayName = playerMappings[playerIndex].name + ' (new)';
+            } else if (select && select.value) {
+                displayName = select.options[select.selectedIndex].text;
+            } else {
+                displayName = '<span class="unmapped-player">' + playerMappings[playerIndex].name + ' (unmapped)</span>';
+            }
+            
+            document.querySelectorAll('.player-name[data-player-index="' + playerIndex + '"]').forEach(function(el) {
+                el.innerHTML = displayName;
+            });
+        }
+
+        function selectAllMatches(checked) {
+            document.querySelectorAll('.match-include').forEach(function(checkbox) {
+                checkbox.checked = checked;
+                var row = checkbox.closest('.match-row');
+                if (checked) {
+                    row.classList.remove('excluded');
+                } else {
+                    row.classList.add('excluded');
+                }
+            });
+            updateSelectedCount();
+        }
+
+        // Form validation
+        document.getElementById('confirmForm').addEventListener('submit', function(e) {
+            var includedCount = document.querySelectorAll('.match-include:checked').length;
+            if (includedCount === 0) {
+                e.preventDefault();
+                alert('Please select at least one match to import.');
+                return false;
+            }
+            
+            // Check that all players in included matches have mappings
+            var unmappedPlayers = [];
+            document.querySelectorAll('.match-include:checked').forEach(function(checkbox) {
+                var row = checkbox.closest('.match-row');
+                row.querySelectorAll('.player-name').forEach(function(nameEl) {
+                    if (nameEl.innerHTML.includes('unmapped')) {
+                        var playerIndex = nameEl.getAttribute('data-player-index');
+                        if (unmappedPlayers.indexOf(playerIndex) === -1) {
+                            unmappedPlayers.push(playerIndex);
+                        }
+                    }
+                });
+            });
+            
+            if (unmappedPlayers.length > 0) {
+                e.preventDefault();
+                alert('Some players in selected matches are not mapped. Please map all players or exclude those matches.');
+                return false;
+            }
+        });
+    </script>
+}

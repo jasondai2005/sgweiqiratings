@@ -1,0 +1,196 @@
+@using PlayerRatings.Localization
+@model PlayerRatings.ViewModels.Tournament.ImportH9UploadViewModel
+@inject Microsoft.Extensions.Localization.IStringLocalizer<LocalizationKey> LocString
+
+@{
+    ViewData["Title"] = "Import from H9 File";
+}
+
+<style>
+    .upload-area {
+        border: 3px dashed #ccc;
+        border-radius: 10px;
+        padding: 40px;
+        text-align: center;
+        background: #f9f9f9;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        margin-bottom: 20px;
+    }
+    .upload-area:hover, .upload-area.dragover {
+        border-color: #667eea;
+        background: #f0f4ff;
+    }
+    .upload-area .icon {
+        font-size: 48px;
+        color: #999;
+        margin-bottom: 10px;
+    }
+    .upload-area.dragover .icon {
+        color: #667eea;
+    }
+    .upload-area p {
+        margin: 0;
+        color: #666;
+    }
+    .file-info {
+        margin-top: 10px;
+        padding: 10px;
+        background: #e8f4e8;
+        border-radius: 5px;
+        display: none;
+    }
+</style>
+
+<h2>Import Tournament File</h2>
+<h4 class="text-muted">@Model.TournamentName</h4>
+<hr />
+
+<div class="row">
+    <div class="col-md-7">
+        <form asp-action="ImportH9" method="post" enctype="multipart/form-data" id="uploadForm">
+            <input type="hidden" asp-for="TournamentId" />
+            <input type="hidden" asp-for="LeagueId" />
+            
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+            <div class="form-group">
+                <label class="control-label">Tournament File</label>
+                <div class="upload-area" id="uploadArea">
+                    <div class="icon">📁</div>
+                    <p><strong>Click to select</strong> or drag and drop a tournament file here</p>
+                    <p class="text-muted" style="font-size: 0.85em; margin-top: 10px;">
+                        Supported formats: .h9, .xml (OpenGotha), .txt, .tou, .egf (EGF format)
+                    </p>
+                    <input type="file" asp-for="H9File" id="fileInput" accept=".h9,.xml,.txt,.tou,.egf" style="display: none;" />
+                </div>
+                <div class="file-info" id="fileInfo">
+                    <span id="fileName"></span>
+                    <button type="button" class="btn btn-xs btn-link" onclick="clearFile()">Remove</button>
+                </div>
+                <span asp-validation-for="H9File" class="text-danger"></span>
+            </div>
+
+            <div class="form-group" style="margin-top: 20px;">
+                <button type="submit" class="btn btn-primary btn-lg" id="submitBtn" disabled>
+                    <span class="glyphicon glyphicon-upload"></span> Upload &amp; Review All Rounds
+                </button>
+                <a asp-action="Details" asp-route-id="@Model.TournamentId" class="btn btn-default btn-lg">
+                    @LocString[nameof(LocalizationKey.Cancel)]
+                </a>
+            </div>
+        </form>
+    </div>
+    
+    <div class="col-md-5">
+        <div class="panel panel-info">
+            <div class="panel-heading">
+                <h3 class="panel-title">💡 Supported Formats</h3>
+            </div>
+            <div class="panel-body">
+                <p><strong>OpenGotha H9 (XML)</strong></p>
+                <ul style="padding-left: 20px; margin-bottom: 10px;">
+                    <li>File → Save as .h9</li>
+                </ul>
+                
+                <p><strong>EGF Text Format</strong></p>
+                <ul style="padding-left: 20px; margin-bottom: 0;">
+                    <li>Standard EGF tournament result format</li>
+                    <li>Used by European Go Database</li>
+                    <li>Usually .txt or .tou extension</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <h3 class="panel-title">📋 What's Imported</h3>
+            </div>
+            <div class="panel-body">
+                <ul style="padding-left: 20px; margin-bottom: 0;">
+                    <li>Player names and rankings</li>
+                    <li><strong>All rounds</strong> at once in a table view</li>
+                    <li>Tournament info (dates, location)</li>
+                    <li>Automatic player matching</li>
+                    <li>Create new players on the fly</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        var uploadArea = document.getElementById('uploadArea');
+        var fileInput = document.getElementById('fileInput');
+        var fileInfo = document.getElementById('fileInfo');
+        var fileName = document.getElementById('fileName');
+        var submitBtn = document.getElementById('submitBtn');
+
+        // Click to upload
+        uploadArea.addEventListener('click', function() {
+            fileInput.click();
+        });
+
+        // Drag and drop
+        uploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', function() {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            if (e.dataTransfer.files.length > 0) {
+                fileInput.files = e.dataTransfer.files;
+                handleFileSelect(e.dataTransfer.files[0]);
+            }
+        });
+
+        // File selection
+        fileInput.addEventListener('change', function() {
+            if (this.files.length > 0) {
+                handleFileSelect(this.files[0]);
+            }
+        });
+
+        function handleFileSelect(file) {
+            fileName.textContent = file.name + ' (' + formatFileSize(file.size) + ')';
+            fileInfo.style.display = 'block';
+            submitBtn.disabled = false;
+        }
+
+        function clearFile() {
+            fileInput.value = '';
+            fileInfo.style.display = 'none';
+            submitBtn.disabled = true;
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        // Form submit - show loading state
+        document.getElementById('uploadForm').addEventListener('submit', function() {
+            submitBtn.innerHTML = '<span class="glyphicon glyphicon-refresh spinning"></span> Processing...';
+            submitBtn.disabled = true;
+        });
+    </script>
+    <style>
+        .spinning {
+            animation: spin 1s linear infinite;
+        }
+        @@keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
+}
+

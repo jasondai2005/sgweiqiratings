@@ -20,6 +20,9 @@
            asp-route-tournamentId="@Model.Id"
            asp-route-lastMatchDateTime="@((Model.StartDate ?? DateTimeOffset.UtcNow).ToString("o"))"
            class="btn btn-success">+ @LocString[nameof(LocalizationKey.AddNewResult)]</a>
+        <a asp-action="ImportH9" asp-route-id="@Model.Id" class="btn btn-info" title="Import from H9 file">
+            📥 @LocString[nameof(LocalizationKey.Import)]
+        </a>
         <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">@LocString[nameof(LocalizationKey.Edit)]</a>
         <a asp-action="Delete" asp-route-id="@Model.Id" class="btn btn-danger">@LocString[nameof(LocalizationKey.Delete)]</a>
     }

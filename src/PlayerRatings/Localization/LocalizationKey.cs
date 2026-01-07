@@ -128,6 +128,8 @@ namespace PlayerRatings.Localization
         public static readonly LocalizationKey Hello = new LocalizationKey("Hello", "您好");
 
         public static readonly LocalizationKey Import = new LocalizationKey("Import", "导入");
+        
+        public static readonly LocalizationKey ImportFromH9 = new LocalizationKey("Import from H9 File", "从H9文件导入");
 
         public static readonly LocalizationKey ImportData =
             new LocalizationKey(

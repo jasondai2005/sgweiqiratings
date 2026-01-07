@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using PlayerRatings.Engine.Rating;
 using PlayerRatings.Models;
+using PlayerRatings.Services;
 using PlayerRatings.Util;
 using PlayerRatings.ViewModels.Tournament;
 
@@ -37,7 +38,7 @@ namespace PlayerRatings.Controllers
         /// Gets league matches from cache, or loads from database if not cached.
         /// Only loads matches up to the specified cutoff date for efficiency.
         /// </summary>
-        private async Task<List<Match>> GetLeagueMatchesCachedAsync(Guid leagueId, DateTimeOffset? cutoffDate = null)
+        private async Task<List<Match>> GetLeagueMatchesAsync(Guid leagueId, DateTimeOffset? cutoffDate = null)
         {
             string cacheKey = $"LeagueMatches_{leagueId}";
             
@@ -948,7 +949,7 @@ namespace PlayerRatings.Controllers
             var tournamentEndDate = tournament.EndDate ?? (hasMatches ? tournament.Matches.Max(m => m.Date) : DateTimeOffset.UtcNow);
             
             // Load league matches from cache for rating calculation (more efficient)
-            var leagueMatches = await GetLeagueMatchesCachedAsync(tournament.LeagueId);
+            var leagueMatches = await GetLeagueMatchesAsync(tournament.LeagueId);
             
             // Get tournament player IDs for focused calculation
             var tournamentPlayerIds = tournament.TournamentPlayers.Select(tp => tp.PlayerId).ToHashSet();
@@ -2534,6 +2535,553 @@ namespace PlayerRatings.Controllers
 
             await _context.SaveChangesAsync();
             return Json(new { success = true, mediaUrl = url });
+        }
+
+        // GET: Tournaments/ImportH9 - Show H9 file upload form
+        public async Task<IActionResult> ImportH9(Guid id)
+        {
+            var currentUser = await User.GetApplicationUser(_userManager);
+
+            var tournament = await _context.Tournaments
+                .Include(t => t.League)
+                .FirstOrDefaultAsync(t => t.Id == id);
+
+            if (tournament == null || tournament.League.CreatedByUserId != currentUser.Id)
+            {
+                return NotFound();
+            }
+
+            return View(new ImportH9UploadViewModel
+            {
+                TournamentId = tournament.Id,
+                TournamentName = tournament.FullName,
+                LeagueId = tournament.LeagueId
+            });
+        }
+
+        // POST: Tournaments/ImportH9 - Process uploaded H9 file
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ImportH9(ImportH9UploadViewModel model)
+        {
+            var currentUser = await User.GetApplicationUser(_userManager);
+
+            var tournament = await _context.Tournaments
+                .Include(t => t.League)
+                .FirstOrDefaultAsync(t => t.Id == model.TournamentId);
+
+            if (tournament == null || tournament.League.CreatedByUserId != currentUser.Id)
+            {
+                return NotFound();
+            }
+
+            if (model.H9File == null || model.H9File.Length == 0)
+            {
+                ModelState.AddModelError("H9File", "Please select an H9 file");
+                model.TournamentName = tournament.FullName;
+                return View(model);
+            }
+
+            // Validate file type - accept H9 (XML), or text-based tournament files
+            var extension = Path.GetExtension(model.H9File.FileName).ToLowerInvariant();
+            var allowedExtensions = new[] { ".h9", ".xml", ".txt", ".tou", ".egf" };
+            if (!allowedExtensions.Contains(extension))
+            {
+                ModelState.AddModelError("H9File", "Please upload a valid tournament file (.h9, .xml, .txt, .tou, .egf)");
+                model.TournamentName = tournament.FullName;
+                return View(model);
+            }
+
+            // Parse H9 file
+            var parser = new H9FileParser();
+            H9ParseResult parseResult;
+            using (var stream = model.H9File.OpenReadStream())
+            {
+                parseResult = parser.Parse(stream);
+            }
+
+            if (!parseResult.Success)
+            {
+                ModelState.AddModelError("H9File", parseResult.ErrorMessage);
+                model.TournamentName = tournament.FullName;
+                return View(model);
+            }
+
+            // Show all rounds preview directly
+            return await ShowImportPreviewAllRounds(tournament, parseResult);
+        }
+
+        private async Task<IActionResult> ShowImportPreviewAllRounds(Tournament tournament, H9ParseResult parseResult)
+        {
+            // Get all games
+            var allGames = parseResult.Games.OrderBy(g => g.RoundNumber).ThenBy(g => g.TableNumber).ToList();
+
+            // Get available players for matching
+            var playerIds = await _context.LeaguePlayers
+                .Where(lp => lp.LeagueId == tournament.LeagueId)
+                .Select(lp => lp.UserId)
+                .ToListAsync();
+            
+            var existingPlayers = await _context.Users
+                .Where(u => playerIds.Contains(u.Id))
+                .Include(u => u.Rankings)
+                .OrderBy(u => u.DisplayName)
+                .AsNoTracking()
+                .ToListAsync();
+
+            var playerOptions = existingPlayers.Select(p => new PlayerOption
+            {
+                Id = p.Id,
+                DisplayName = p.DisplayName,
+                Ranking = p.LatestRanking,
+                SearchName = p.DisplayName?.ToLowerInvariant() ?? ""
+            }).ToList();
+
+            // Build preview model
+            var previewModel = new ImportPreviewViewModel
+            {
+                TournamentId = tournament.Id,
+                TournamentName = tournament.FullName,
+                LeagueId = tournament.LeagueId,
+                HasErrors = false,
+                AvailablePlayers = playerOptions,
+                TotalRounds = parseResult.NumberOfRounds > 0 ? parseResult.NumberOfRounds : (allGames.Any() ? allGames.Max(g => g.RoundNumber) : 0),
+                H9TournamentName = parseResult.TournamentName,
+                H9StartDate = parseResult.StartDate,
+                H9Location = parseResult.Location
+            };
+
+            var parser = new H9FileParser();
+
+            // Count games per player
+            var playerGameCounts = new Dictionary<int, int>();
+            foreach (var game in allGames)
+            {
+                if (!playerGameCounts.ContainsKey(game.WhitePlayerIndex))
+                    playerGameCounts[game.WhitePlayerIndex] = 0;
+                if (!playerGameCounts.ContainsKey(game.BlackPlayerIndex))
+                    playerGameCounts[game.BlackPlayerIndex] = 0;
+                playerGameCounts[game.WhitePlayerIndex]++;
+                playerGameCounts[game.BlackPlayerIndex]++;
+            }
+
+            // Build player mappings - one per H9 player
+            foreach (var h9Player in parseResult.Players)
+            {
+                var (bestMatch, confidence) = FindBestPlayerMatch(h9Player.FullName, existingPlayers);
+                
+                var mapping = new PlayerMappingViewModel
+                {
+                    PlayerIndex = h9Player.PlayerIndex,
+                    ExtractedName = h9Player.FullName,
+                    ExtractedRanking = h9Player.Rank,
+                    GamesCount = playerGameCounts.GetValueOrDefault(h9Player.PlayerIndex, 0),
+                    NewPlayerName = h9Player.FullName,
+                    NewPlayerRanking = h9Player.Rank
+                };
+
+                if (bestMatch != null)
+                {
+                    mapping.SuggestedPlayerId = bestMatch.Id;
+                    mapping.SuggestedPlayerName = bestMatch.DisplayName;
+                    mapping.MatchConfidence = confidence;
+                    if (confidence >= 0.8)
+                    {
+                        mapping.SelectedPlayerId = bestMatch.Id;
+                    }
+                }
+
+                previewModel.PlayerMappings.Add(mapping);
+            }
+
+            // Build match list (including BYE games)
+            for (int i = 0; i < allGames.Count; i++)
+            {
+                var game = allGames[i];
+                var whitePlayer = parser.GetPlayer(parseResult, game.WhitePlayerIndex);
+                
+                // For BYE games, black player index is -1
+                var isBye = game.IsBye || game.BlackPlayerIndex == H9FileParser.BYE_INDEX;
+                var blackPlayer = isBye ? null : parser.GetPlayer(parseResult, game.BlackPlayerIndex);
+
+                // Skip if white player is missing (shouldn't happen)
+                if (whitePlayer == null)
+                    continue;
+
+                var matchVm = new ExtractedMatchViewModel
+                {
+                    Index = i,
+                    RoundNumber = game.RoundNumber,
+                    TableNumber = game.TableNumber,
+                    WhitePlayerIndex = game.WhitePlayerIndex,
+                    BlackPlayerIndex = game.BlackPlayerIndex,
+                    WhitePlayerName = whitePlayer.FullName,
+                    BlackPlayerName = isBye ? "BYE" : blackPlayer?.FullName ?? "Unknown",
+                    WhiteScore = game.WhiteScore,
+                    BlackScore = game.BlackScore,
+                    Handicap = game.Handicap,
+                    Include = true,
+                    IsBye = isBye
+                };
+
+                previewModel.Matches.Add(matchVm);
+            }
+
+            return View("ImportPreview", previewModel);
+        }
+
+        private string SerializeH9Data(H9ParseResult parseResult)
+        {
+            var data = new
+            {
+                parseResult.TournamentName,
+                parseResult.StartDate,
+                parseResult.EndDate,
+                parseResult.Location,
+                parseResult.NumberOfRounds,
+                Players = parseResult.Players.Select(p => new { p.PlayerIndex, p.Name, p.FirstName, p.Rank, p.Country, p.Club }),
+                Games = parseResult.Games.Select(g => new { g.RoundNumber, g.TableNumber, g.WhitePlayerIndex, g.BlackPlayerIndex, g.Result, g.Handicap })
+            };
+            return System.Text.Json.JsonSerializer.Serialize(data);
+        }
+
+        private H9ParseResult DeserializeH9Data(string json)
+        {
+            if (string.IsNullOrEmpty(json))
+                return null;
+
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(json);
+                var root = doc.RootElement;
+
+                var result = new H9ParseResult
+                {
+                    Success = true,
+                    TournamentName = root.GetProperty("TournamentName").GetString(),
+                    Location = root.TryGetProperty("Location", out var loc) ? loc.GetString() : null,
+                    NumberOfRounds = root.TryGetProperty("NumberOfRounds", out var nr) ? nr.GetInt32() : 0
+                };
+
+                if (root.TryGetProperty("StartDate", out var sd) && sd.ValueKind != System.Text.Json.JsonValueKind.Null)
+                    result.StartDate = sd.GetDateTimeOffset();
+
+                if (root.TryGetProperty("EndDate", out var ed) && ed.ValueKind != System.Text.Json.JsonValueKind.Null)
+                    result.EndDate = ed.GetDateTimeOffset();
+
+                foreach (var p in root.GetProperty("Players").EnumerateArray())
+                {
+                    result.Players.Add(new H9Player
+                    {
+                        PlayerIndex = p.GetProperty("PlayerIndex").GetInt32(),
+                        Name = p.GetProperty("Name").GetString(),
+                        FirstName = p.GetProperty("FirstName").GetString(),
+                        Rank = p.TryGetProperty("Rank", out var rank) ? rank.GetString() : "",
+                        Country = p.TryGetProperty("Country", out var country) ? country.GetString() : "",
+                        Club = p.TryGetProperty("Club", out var club) ? club.GetString() : ""
+                    });
+                }
+
+                foreach (var g in root.GetProperty("Games").EnumerateArray())
+                {
+                    result.Games.Add(new H9Game
+                    {
+                        RoundNumber = g.GetProperty("RoundNumber").GetInt32(),
+                        TableNumber = g.GetProperty("TableNumber").GetInt32(),
+                        WhitePlayerIndex = g.GetProperty("WhitePlayerIndex").GetInt32(),
+                        BlackPlayerIndex = g.GetProperty("BlackPlayerIndex").GetInt32(),
+                        Result = g.GetProperty("Result").GetString(),
+                        Handicap = g.TryGetProperty("Handicap", out var hc) ? hc.GetInt32() : 0
+                    });
+                }
+
+                return result;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        // POST: Tournaments/ImportConfirm - Create matches from confirmed import
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ImportConfirm(ImportConfirmViewModel model)
+        {
+            var currentUser = await User.GetApplicationUser(_userManager);
+
+            var tournament = await _context.Tournaments
+                .Include(t => t.League)
+                .Include(t => t.TournamentPlayers)
+                .FirstOrDefaultAsync(t => t.Id == model.TournamentId);
+
+            if (tournament == null || tournament.League.CreatedByUserId != currentUser.Id)
+            {
+                return NotFound();
+            }
+
+            // First, resolve all player mappings to ApplicationUser instances
+            var resolvedPlayers = new Dictionary<int, ApplicationUser>(); // key: H9 player index
+            
+            foreach (var mapping in model.PlayerMappings)
+            {
+                ApplicationUser player = null;
+                
+                if (mapping.CreateNewPlayer && !string.IsNullOrEmpty(mapping.NewPlayerName))
+                {
+                    // Check if player with same name already exists
+                    player = await _context.Users
+                        .FirstOrDefaultAsync(u => u.DisplayName == mapping.NewPlayerName);
+
+                    if (player == null)
+                    {
+                        // Create new player
+                        player = new ApplicationUser
+                        {
+                            UserName = Guid.NewGuid().ToString(),
+                            Email = $"{Guid.NewGuid()}@placeholder.local",
+                            DisplayName = mapping.NewPlayerName
+                        };
+                        await _userManager.CreateAsync(player);
+
+                        // Add ranking if provided
+                        if (!string.IsNullOrEmpty(mapping.NewPlayerRanking))
+                        {
+                            // Determine organization from ranking format:
+                            // - "(2D)" format indicates TGA ranking
+                            // - "[2D]" format indicates foreign ranking  
+                            // - Plain "2D" format indicates SWA ranking (default for SG)
+                            string organization = "SWA"; // Default to SWA for Singapore players
+                            string rankingValue = mapping.NewPlayerRanking.Trim();
+                            
+                            if (rankingValue.StartsWith("(") && rankingValue.EndsWith(")"))
+                            {
+                                organization = "TGA";
+                                rankingValue = rankingValue.Trim('(', ')');
+                            }
+                            else if (rankingValue.StartsWith("[") && rankingValue.EndsWith("]"))
+                            {
+                                organization = "Foreign";
+                                rankingValue = rankingValue.Trim('[', ']');
+                            }
+                            
+                            var ranking = new PlayerRanking
+                            {
+                                RankingId = Guid.NewGuid(),
+                                PlayerId = player.Id,
+                                Ranking = rankingValue.ToUpperInvariant(),
+                                RankingDate = model.MatchDate,
+                                Organization = organization
+                            };
+                            _context.PlayerRankings.Add(ranking);
+                        }
+                    }
+
+                    // Add to league if not already there
+                    if (!_context.LeaguePlayers.Any(lp => lp.LeagueId == tournament.LeagueId && lp.UserId == player.Id))
+                    {
+                        _context.LeaguePlayers.Add(new LeaguePlayer
+                        {
+                            Id = Guid.NewGuid(),
+                            LeagueId = tournament.LeagueId,
+                            UserId = player.Id
+                        });
+                    }
+                }
+                else if (!string.IsNullOrEmpty(mapping.SelectedPlayerId))
+                {
+                    player = await _context.Users.FindAsync(mapping.SelectedPlayerId);
+                }
+
+                if (player != null)
+                {
+                    resolvedPlayers[mapping.PlayerIndex] = player;
+                }
+            }
+
+            var createdMatches = new List<Match>();
+
+            foreach (var matchToImport in model.Matches.Where(m => m.Include))
+            {
+                // Look up white player from the resolved mappings
+                if (!resolvedPlayers.TryGetValue(matchToImport.WhitePlayerIndex, out var whitePlayer))
+                {
+                    // Skip if white player mapping is missing
+                    continue;
+                }
+
+                // For BYE matches, black player is null
+                ApplicationUser blackPlayer = null;
+                if (!matchToImport.IsBye)
+                {
+                    if (!resolvedPlayers.TryGetValue(matchToImport.BlackPlayerIndex, out blackPlayer))
+                    {
+                        // Skip if black player mapping is missing (for non-BYE matches)
+                        continue;
+                    }
+                }
+
+                // Calculate time offset: each match gets a unique timestamp
+                // Round number * 100 seconds + match count within import
+                // This ensures matches are processed in correct order by the rating system
+                var roundNum = matchToImport.RoundNumber > 0 ? matchToImport.RoundNumber : 1;
+                var timeOffsetSeconds = (roundNum - 1) * 100 + createdMatches.Count;
+                var matchDate = model.MatchDate.AddSeconds(timeOffsetSeconds);
+
+                // Create match - BYE matches have Factor = 0 (don't affect ratings)
+                var match = new Match
+                {
+                    Id = Guid.NewGuid(),
+                    LeagueId = tournament.LeagueId,
+                    TournamentId = tournament.Id,
+                    Round = roundNum,
+                    Date = matchDate,
+                    FirstPlayerId = whitePlayer.Id,
+                    SecondPlayerId = blackPlayer?.Id,  // null for BYE
+                    FirstPlayerScore = matchToImport.WhiteScore,
+                    SecondPlayerScore = matchToImport.BlackScore,
+                    Factor = matchToImport.IsBye ? 0 : model.Factor,  // BYE = factor 0
+                    CreatedByUser = currentUser
+                };
+
+                _context.Match.Add(match);
+                createdMatches.Add(match);
+
+                // Add players to tournament if not already there
+                await EnsurePlayerInTournament(tournament, whitePlayer.Id);
+                if (blackPlayer != null)
+                {
+                    await EnsurePlayerInTournament(tournament, blackPlayer.Id);
+                }
+            }
+
+            await _context.SaveChangesAsync();
+
+            // Invalidate cache
+            InvalidateLeagueMatchesCache(tournament.LeagueId);
+
+            TempData["Message"] = $"Successfully imported {createdMatches.Count} matches.";
+            return RedirectToAction(nameof(Details), new { id = tournament.Id });
+        }
+
+        private async Task EnsurePlayerInTournament(Tournament tournament, string playerId)
+        {
+            if (!tournament.TournamentPlayers.Any(tp => tp.PlayerId == playerId))
+            {
+                var tournamentPlayer = new TournamentPlayer
+                {
+                    TournamentId = tournament.Id,
+                    PlayerId = playerId
+                };
+                _context.TournamentPlayers.Add(tournamentPlayer);
+                tournament.TournamentPlayers.Add(tournamentPlayer);
+            }
+        }
+
+        /// <summary>
+        /// Find the best matching player based on name similarity
+        /// </summary>
+        private (ApplicationUser player, double confidence) FindBestPlayerMatch(string extractedName, List<ApplicationUser> players)
+        {
+            if (string.IsNullOrEmpty(extractedName) || !players.Any())
+                return (null, 0);
+
+            var extractedLower = NormalizeName(extractedName);
+            ApplicationUser bestMatch = null;
+            double bestScore = 0;
+
+            foreach (var player in players)
+            {
+                var playerName = NormalizeName(player.DisplayName ?? "");
+                var score = CalculateNameSimilarity(extractedLower, playerName);
+
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestMatch = player;
+                }
+            }
+
+            return (bestMatch, bestScore);
+        }
+
+        private string NormalizeName(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return "";
+            
+            // Convert to lowercase, remove extra spaces
+            var normalized = name.ToLowerInvariant().Trim();
+            
+            // Remove common variations (commas, periods)
+            normalized = normalized.Replace(",", " ").Replace(".", " ");
+            
+            // Normalize whitespace
+            while (normalized.Contains("  "))
+                normalized = normalized.Replace("  ", " ");
+
+            return normalized;
+        }
+
+        private double CalculateNameSimilarity(string name1, string name2)
+        {
+            if (string.IsNullOrEmpty(name1) || string.IsNullOrEmpty(name2))
+                return 0;
+
+            // Exact match
+            if (name1 == name2)
+                return 1.0;
+
+            // Check if one contains the other
+            if (name1.Contains(name2) || name2.Contains(name1))
+                return 0.9;
+
+            // Split into parts and check overlap
+            var parts1 = name1.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var parts2 = name2.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+            if (parts1.Length == 0 || parts2.Length == 0)
+                return 0;
+
+            // Count matching parts
+            int matches = 0;
+            foreach (var p1 in parts1)
+            {
+                if (parts2.Any(p2 => p1 == p2 || LevenshteinDistance(p1, p2) <= 1))
+                    matches++;
+            }
+
+            double overlap = (double)matches / Math.Max(parts1.Length, parts2.Length);
+
+            // Also calculate Levenshtein similarity
+            int maxLen = Math.Max(name1.Length, name2.Length);
+            int distance = LevenshteinDistance(name1, name2);
+            double levenshteinSim = 1.0 - (double)distance / maxLen;
+
+            // Combine scores
+            return Math.Max(overlap * 0.9, levenshteinSim);
+        }
+
+        private int LevenshteinDistance(string s1, string s2)
+        {
+            int[,] d = new int[s1.Length + 1, s2.Length + 1];
+
+            for (int i = 0; i <= s1.Length; i++)
+                d[i, 0] = i;
+            for (int j = 0; j <= s2.Length; j++)
+                d[0, j] = j;
+
+            for (int i = 1; i <= s1.Length; i++)
+            {
+                for (int j = 1; j <= s2.Length; j++)
+                {
+                    int cost = s1[i - 1] == s2[j - 1] ? 0 : 1;
+                    d[i, j] = Math.Min(
+                        Math.Min(d[i - 1, j] + 1, d[i, j - 1] + 1),
+                        d[i - 1, j - 1] + cost);
+                }
+            }
+
+            return d[s1.Length, s2.Length];
         }
     }
 }
