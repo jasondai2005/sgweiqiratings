@@ -2752,6 +2752,8 @@ namespace PlayerRatings.Controllers
         // POST: Tournaments/ImportConfirm - Create matches from confirmed import
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequestFormLimits(ValueCountLimit = 5000)]
+        [RequestSizeLimit(10_000_000)]
         public async Task<IActionResult> ImportConfirm(ImportConfirmViewModel model)
         {
             var currentUser = await User.GetApplicationUser(_userManager);

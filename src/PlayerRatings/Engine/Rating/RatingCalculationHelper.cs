@@ -150,22 +150,26 @@ namespace PlayerRatings.Engine.Rating
             var matches = FilterMatches(allMatches, cutoffDate, swaOnly, isSgLeague);
             foreach (var match in matches)
             {
-                if (match.Factor == 0)
-                    continue;
-
-                // Add users (with optional filter) - skip NULL players for bye matches
-                if (match.FirstPlayer != null && (allowedUserIds == null || allowedUserIds.Contains(match.FirstPlayerId)))
+                // Skip rating calculation for Factor=0 matches (byes, unrated games)
+                if (match.Factor != 0)
                 {
-                    AddUser(activeUsers, match, match.FirstPlayer);
+                    // Add users (with optional filter) - skip NULL players for bye matches
+                    if (match.FirstPlayer != null && (allowedUserIds == null || allowedUserIds.Contains(match.FirstPlayerId)))
+                    {
+                        AddUser(activeUsers, match, match.FirstPlayer);
+                    }
+                    if (match.SecondPlayer != null && (allowedUserIds == null || allowedUserIds.Contains(match.SecondPlayerId)))
+                    {
+                        AddUser(activeUsers, match, match.SecondPlayer);
+                    }
+
+                    eloStat.AddMatch(match);
                 }
-                if (match.SecondPlayer != null && (allowedUserIds == null || allowedUserIds.Contains(match.SecondPlayerId)))
+                else if (match.SecondPlayer == null || match.FirstPlayerScore == 0)
                 {
-                    AddUser(activeUsers, match, match.SecondPlayer);
+                    continue; // Bye match for FirstPlayer, skip
                 }
 
-                eloStat.AddMatch(match);
-                
-                // Callback for additional processing (e.g., monthly snapshots)
                 onMatchProcessed?.Invoke(match, eloStat);
             }
 
