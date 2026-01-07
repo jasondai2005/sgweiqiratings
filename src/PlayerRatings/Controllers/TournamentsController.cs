@@ -708,8 +708,8 @@ namespace PlayerRatings.Controllers
             }
         }
 
-        // GET: Tournaments?leagueId=xxx
-        public async Task<IActionResult> Index(Guid leagueId)
+        // GET: Tournaments?leagueId=xxx&year=2024
+        public async Task<IActionResult> Index(Guid leagueId, int? year)
         {
             var currentUser = await User.GetApplicationUser(_userManager);
             
@@ -736,18 +736,39 @@ namespace PlayerRatings.Controllers
             // Get SWA Only preference (only applies to SG league)
             bool swaOnly = isSgLeague && GetSwaOnlyPreference();
 
-            var tournamentsQuery = _context.Tournaments
+            var baseQuery = _context.Tournaments
                 .Where(t => t.LeagueId == leagueId);
             
             // When SWA Only is on, only show SWA tournaments or international tournaments
             if (swaOnly)
             {
                 var swaOrganizer = RatingCalculationHelper.MATCH_SWA.Trim();
-                tournamentsQuery = tournamentsQuery.Where(t => 
+                baseQuery = baseQuery.Where(t => 
                     (t.Organizer != null && t.Organizer.Contains(swaOrganizer)) ||
                     t.TournamentType == Tournament.TypeIntlOpen ||
                     t.TournamentType == Tournament.TypeIntlSelection);
             }
+            
+            // Get all available years for navigation (fetch dates first, then extract years client-side)
+            var allStartDates = await baseQuery
+                .Where(t => t.StartDate.HasValue)
+                .Select(t => t.StartDate.Value)
+                .ToListAsync();
+            
+            var availableYears = allStartDates
+                .Select(d => d.Year)
+                .Distinct()
+                .OrderByDescending(y => y)
+                .ToList();
+            
+            // Default to current year if not specified, or latest year with tournaments
+            var currentYear = year ?? (availableYears.Any() ? availableYears.First() : DateTime.Now.Year);
+            
+            // Filter by year using date range (EF Core can translate this to SQL)
+            var yearStart = new DateTimeOffset(currentYear, 1, 1, 0, 0, 0, TimeSpan.Zero);
+            var yearEnd = new DateTimeOffset(currentYear + 1, 1, 1, 0, 0, 0, TimeSpan.Zero);
+            var tournamentsQuery = baseQuery
+                .Where(t => t.StartDate.HasValue && t.StartDate >= yearStart && t.StartDate < yearEnd);
             
             var tournaments = await tournamentsQuery
                 .OrderByDescending(t => t.StartDate ?? DateTimeOffset.MinValue)
@@ -770,12 +791,23 @@ namespace PlayerRatings.Controllers
                 })
                 .ToListAsync();
             
+            // Calculate prev/next years
+            int? previousYear = availableYears.Where(y => y < currentYear).OrderByDescending(y => y).FirstOrDefault();
+            int? nextYear = availableYears.Where(y => y > currentYear).OrderBy(y => y).FirstOrDefault();
+            if (previousYear == 0) previousYear = null;
+            if (nextYear == 0) nextYear = null;
+            
             var viewModel = new TournamentListViewModel
             {
                 LeagueId = leagueId,
                 LeagueName = league.Name,
                 IsAdmin = isAdmin,
-                Tournaments = tournaments
+                Tournaments = tournaments,
+                CurrentYear = currentYear,
+                PreviousYear = previousYear,
+                NextYear = nextYear,
+                AvailableYears = availableYears,
+                TotalTournamentCount = tournaments.Count
             };
 
             return View(viewModel);

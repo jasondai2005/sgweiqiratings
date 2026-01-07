@@ -15,6 +15,17 @@ namespace PlayerRatings.ViewModels.Tournament
         public bool IsAdmin { get; set; }
         
         public List<TournamentSummary> Tournaments { get; set; } = new List<TournamentSummary>();
+        
+        // Year navigation properties
+        public int? CurrentYear { get; set; }
+        
+        public int? PreviousYear { get; set; }
+        
+        public int? NextYear { get; set; }
+        
+        public List<int> AvailableYears { get; set; } = new List<int>();
+        
+        public int TotalTournamentCount { get; set; }
     }
     
     /// <summary>

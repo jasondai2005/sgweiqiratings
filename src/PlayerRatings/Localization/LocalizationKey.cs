@@ -473,6 +473,7 @@ namespace PlayerRatings.Localization
         public static readonly LocalizationKey TournamentsAffected = new LocalizationKey("Tournaments affected", "Затронутые турниры", "受影响的赛事");
         public static readonly LocalizationKey Title = new LocalizationKey("Title", "Титул", "头衔");
         public static readonly LocalizationKey FormerTitle = new LocalizationKey("Former Title", "Бывший титул", "曾获头衔");
+        public static readonly LocalizationKey Promotions = new LocalizationKey("Promotions", "Продвижения", "升段");
 
         private const string En = "en";
         private const string Cn = "cn";
