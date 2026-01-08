@@ -5,6 +5,9 @@ using PlayerRatings.Localization;
 using PlayerRatings.Models;
 using PlayerRatings.Repositories;
 using PlayerRatings.Services;
+using PlayerRatings.Services.Rating;
+using PlayerRatings.Services.Swiss;
+using PlayerRatings.Services.Tournament;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -52,6 +55,11 @@ builder.Services.AddTransient<ILanguageData, CustomStringLocalizerFactory>();
 builder.Services.AddTransient<IInvitesService, InvitesService>();
 
 builder.Services.AddTransient<ILeaguesRepository, LeaguesRepository>();
+
+// Add domain services
+builder.Services.AddScoped<IRatingService, RatingService>();
+builder.Services.AddScoped<ISwissSystemService, SwissSystemService>();
+builder.Services.AddScoped<ITournamentService, TournamentService>();
 
 var app = builder.Build();
 

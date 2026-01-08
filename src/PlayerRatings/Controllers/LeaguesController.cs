@@ -9,7 +9,9 @@ using Microsoft.Extensions.Caching.Memory;
 using PlayerRatings.Engine.Rating;
 using PlayerRatings.Engine.Stats;
 using PlayerRatings.Models;
+using PlayerRatings.Infrastructure.Caching;
 using PlayerRatings.Repositories;
+using PlayerRatings.Services.Rating;
 using PlayerRatings.Util;
 using PlayerRatings.ViewModels.League;
 using PlayerRatings.ViewModels.Player;
@@ -24,6 +26,7 @@ namespace PlayerRatings.Controllers
         private readonly ILeaguesRepository _leaguesRepository;
         private readonly IWebHostEnvironment _env;
         private readonly IMemoryCache _cache;
+        private readonly IRatingService _ratingService;
 
 
         /// <summary>
@@ -39,20 +42,16 @@ namespace PlayerRatings.Controllers
         private static DateTimeOffset GetEndOfMonth(DateTimeOffset date)
             => new DateTimeOffset(date.Year, date.Month, 1, 0, 0, 0, date.Offset).AddMonths(1).AddSeconds(-1);
 
-        // Cache duration for league data (5 minutes)
-        private static readonly TimeSpan LeagueCacheDuration = TimeSpan.FromMinutes(5);
-        
-        // Cache duration for rating calculations (2 minutes - shorter since ratings change)
-        private static readonly TimeSpan RatingsCacheDuration = TimeSpan.FromMinutes(2);
-
         public LeaguesController(ApplicationDbContext context, UserManager<ApplicationUser> userManager,
-            ILeaguesRepository leaguesRepository, IWebHostEnvironment env, IMemoryCache cache)
+            ILeaguesRepository leaguesRepository, IWebHostEnvironment env, IMemoryCache cache,
+            IRatingService ratingService)
         {
             _context = context;
             _userManager = userManager;
             _leaguesRepository = leaguesRepository;
             _env = env;
             _cache = cache;
+            _ratingService = ratingService;
         }
 
         /// <summary>
@@ -83,7 +82,7 @@ namespace PlayerRatings.Controllers
                     // Detach entities before caching so they're not tied to this DbContext
                     _context.ChangeTracker.Clear();
                     
-                    _cache.Set(cacheKey, league, LeagueCacheDuration);
+                    _cache.Set(cacheKey, league, CacheDurations.League);
                 }
             }
 
@@ -344,7 +343,7 @@ namespace PlayerRatings.Controllers
             _context.SaveChanges();
 
             // Invalidate cache since player status changed
-            _cache.Remove($"League_{league.Id}");
+            _ratingService.InvalidateLeagueCache(league.Id);
 
             var id = league.Id;
             return RedirectToAction(nameof(Details), new { id });
@@ -380,7 +379,7 @@ namespace PlayerRatings.Controllers
             }
 
             // Load league with all required data (cached for performance)
-            var league = GetLeagueWithMatches(id.Value, refresh);
+            var league = _ratingService.GetLeagueWithMatches(id.Value, refresh);
 
             if (league == null)
             {
@@ -583,7 +582,7 @@ namespace PlayerRatings.Controllers
             }
             
             var result = CalculateRatings(league, cutoffDate, swaOnly, allowedUserIds);
-            _cache.Set(cacheKey, result, RatingsCacheDuration);
+            _cache.Set(cacheKey, result, CacheDurations.Ratings);
             return result;
         }
 
@@ -705,7 +704,7 @@ namespace PlayerRatings.Controllers
             }
 
             // Load league with all required data (cached for performance)
-            var league = GetLeagueWithMatches(id, refresh);
+            var league = _ratingService.GetLeagueWithMatches(id, refresh);
 
             if (league == null)
             {
@@ -1736,7 +1735,7 @@ namespace PlayerRatings.Controllers
             }
 
             // Invalidate cache for this league
-            _cache.Remove($"League_{leagueId}");
+            _ratingService.InvalidateLeagueCache(leagueId);
 
             TempData["SuccessMessage"] = "Player and all related data deleted successfully.";
             return RedirectToAction(nameof(Details), new { id = leagueId });

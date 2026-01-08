@@ -9,8 +9,12 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PlayerRatings.Engine.Rating;
+using PlayerRatings.Infrastructure.Caching;
+using PlayerRatings.Infrastructure.Constants;
 using PlayerRatings.Models;
 using PlayerRatings.Services;
+using PlayerRatings.Services.Swiss;
+using PlayerRatings.Services.Tournament;
 using PlayerRatings.Util;
 using PlayerRatings.ViewModels.Tournament;
 
@@ -21,11 +25,19 @@ namespace PlayerRatings.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly ITournamentService _tournamentService;
+        private readonly ISwissSystemService _swissService;
 
-        public TournamentsController(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
+        public TournamentsController(
+            ApplicationDbContext context, 
+            UserManager<ApplicationUser> userManager,
+            ITournamentService tournamentService,
+            ISwissSystemService swissService)
         {
             _context = context;
             _userManager = userManager;
+            _tournamentService = tournamentService;
+            _swissService = swissService;
         }
         
         /// <summary>
