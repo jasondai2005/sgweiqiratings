@@ -97,9 +97,9 @@ namespace PlayerRatings.Engine.Rating
             if (!isSgLeague || !swaOnly)
                 return matches.OrderBy(m => m.Date);
             
-            // Match filter includes SWA matches by MatchName OR by Tournament Organizer
+            // Match filter includes SWA matches by Tournament Organizer OR by MatchName
             return matches
-                .Where(m => m.MatchName.Contains(MATCH_SWA) || (m.Tournament?.Organizer?.Contains(MATCH_SWA.Trim()) ?? false))
+                .Where(m => (m.Tournament?.Organizer?.Contains(MATCH_SWA.Trim()) ?? false) || (m.MatchName?.Contains(MATCH_SWA) ?? false))
                 .OrderBy(m => m.Date);
         }
 

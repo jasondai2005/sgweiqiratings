@@ -1591,9 +1591,12 @@ namespace PlayerRatings.Controllers
             DateTimeOffset? minDate = tournament.StartDate;
             DateTimeOffset? maxDate = tournament.EndDate;
 
-            for (int i = 0; i < matches.Count; i++)
+            for (int i = 0; i < matchIds.Count; i++)
             {
-                var match = matches[i];
+                var matchId = matchIds[i];
+                var match = matches.FirstOrDefault(m => m.Id == matchId);
+                if (match == null) continue;
+                
                 var round = i < rounds?.Count ? rounds[i] : null;
 
                 // 1. Update MatchName to Organizer + Ordinal + TournamentName + Group + R{Round}
@@ -2184,11 +2187,18 @@ namespace PlayerRatings.Controllers
                 }
                 else if (isStandingsPhoto)
                 {
-                    // Allow images and PDF for standings photo
-                    var allowedTypes = new[] { "image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf" };
-                    if (!allowedTypes.Contains(photoFile.ContentType.ToLower()))
+                    // Allow images, PDF, TXT, and Excel files for standings photo
+                    var allowedTypes = new[] { 
+                        "image/jpeg", "image/png", "image/gif", "image/webp", 
+                        "application/pdf", "text/plain",
+                        "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    };
+                    var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp", ".pdf", ".txt", ".xls", ".xlsx" };
+                    var ext = Path.GetExtension(photoFile.FileName).ToLower();
+                    
+                    if (!allowedTypes.Contains(photoFile.ContentType.ToLower()) && !allowedExtensions.Contains(ext))
                     {
-                        TempData["Error"] = "Invalid file type. Allowed: JPG, PNG, GIF, WebP, PDF";
+                        TempData["Error"] = "Invalid file type. Allowed: JPG, PNG, GIF, WebP, PDF, TXT, XLS, XLSX";
                         return RedirectToAction(nameof(EditPhoto), new { tournamentId, playerId, matchId, photoType });
                     }
 

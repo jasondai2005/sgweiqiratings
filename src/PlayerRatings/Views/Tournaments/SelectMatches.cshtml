@@ -182,17 +182,12 @@
 
 <!-- Hidden form for Save Rounds -->
 <form asp-controller="Tournaments" asp-action="SaveRounds" method="post" id="saveRoundsForm">
+    @Html.AntiForgeryToken()
     <input type="hidden" name="tournamentId" value="@Model.Id" />
     <input type="hidden" name="filterMonth" value="@Model.FilterMonth" />
     <input type="hidden" name="filterYear" value="@Model.FilterYear" />
     <input type="hidden" name="filterMatchName" value="@Model.FilterMatchName" />
-    @{ var saveIdx = 0; }
-    @foreach (var m in Model.AvailableMatches.Where(x => x.IsSelected))
-    {
-        <input type="hidden" name="matchIds[@saveIdx]" value="@m.Id" class="save-round-match-id" data-match-id="@m.Id" />
-        <input type="hidden" name="rounds[@saveIdx]" value="@m.Round" class="save-round-value" data-match-id="@m.Id" />
-        saveIdx++;
-    }
+    <div id="saveRoundsData"></div>
 </form>
 
 <!-- Hidden form for Shift Match Times -->
@@ -237,21 +232,33 @@
                 });
             });
             
-            // Save Rounds button - sync values from main form and submit
+            // Save Rounds button - build form data dynamically and submit
             $('#saveRoundsBtn').on('click', function() {
-                // Update hidden form values from the visible round inputs
-                $('.save-round-value').each(function() {
-                    var matchId = $(this).data('match-id');
-                    // Find the corresponding round input by matching the checkbox value
-                    var checkbox = $('input.match-checkbox[value="' + matchId + '"]');
-                    if (checkbox.length > 0) {
-                        var idx = checkbox.data('index');
-                        var roundInput = $('.round-input[data-index="' + idx + '"]');
-                        if (roundInput.length > 0) {
-                            $(this).val(roundInput.val());
-                        }
+                var container = $('#saveRoundsData');
+                container.empty();
+                
+                var idx = 0;
+                // Find all matches that are in the tournament (have the green "In Tournament" label)
+                $('.match-checkbox').each(function() {
+                    var $row = $(this).closest('tr');
+                    var isInTournament = $row.find('.label-success').length > 0;
+                    
+                    if (isInTournament) {
+                        var matchId = $(this).val();
+                        // Find the round input in the same row
+                        var roundValue = $row.find('.round-input').val() || '';
+                        
+                        container.append('<input type="hidden" name="matchIds[' + idx + ']" value="' + matchId + '" />');
+                        container.append('<input type="hidden" name="rounds[' + idx + ']" value="' + roundValue + '" />');
+                        idx++;
                     }
                 });
+                
+                if (idx === 0) {
+                    alert('No matches in tournament to update.');
+                    return;
+                }
+                
                 $('#saveRoundsForm').submit();
             });
             

@@ -124,7 +124,31 @@
 </div>
 
 @* Show StandingsPhoto as separate section if no rounds exist but photo exists *@
-@if (Model.MaxRounds == 0 && !string.IsNullOrEmpty(Model.StandingsPhoto) && !Model.StandingsPhoto.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+@{
+    bool IsImageFile(string url) => !string.IsNullOrEmpty(url) && 
+        !url.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) &&
+        !url.EndsWith(".txt", StringComparison.OrdinalIgnoreCase) &&
+        !url.EndsWith(".xls", StringComparison.OrdinalIgnoreCase) &&
+        !url.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase);
+    
+    string GetFileIcon(string url) {
+        if (string.IsNullOrEmpty(url)) return "";
+        if (url.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) return "📄";
+        if (url.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)) return "📝";
+        if (url.EndsWith(".xls", StringComparison.OrdinalIgnoreCase) || url.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase)) return "📊";
+        return "";
+    }
+    
+    string GetFileLabel(string url) {
+        if (string.IsNullOrEmpty(url)) return "";
+        if (url.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) return "PDF";
+        if (url.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)) return "TXT";
+        if (url.EndsWith(".xls", StringComparison.OrdinalIgnoreCase)) return "XLS";
+        if (url.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase)) return "XLSX";
+        return "";
+    }
+}
+@if (Model.MaxRounds == 0 && !string.IsNullOrEmpty(Model.StandingsPhoto) && IsImageFile(Model.StandingsPhoto))
 {
     <div style="margin-top: 20px;">
         <div style="margin-top: 10px;">
@@ -153,11 +177,11 @@
         <h4 style="display: inline-block;">@LocString[nameof(LocalizationKey.Standings)]</h4>
         @if (!string.IsNullOrEmpty(Model.StandingsPhoto))
         {
-            var isPdf = Model.StandingsPhoto.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
+            var isImage = IsImageFile(Model.StandingsPhoto);
             <a href="@Model.StandingsPhoto" target="_blank" style="margin-left: 10px;">
-                @if (isPdf)
+                @if (!isImage)
                 {
-                    <span style="font-size: 1.2em; vertical-align: middle;" title="PDF">📄</span>
+                    <span style="font-size: 1.2em; vertical-align: middle;" title="@GetFileLabel(Model.StandingsPhoto)">@GetFileIcon(Model.StandingsPhoto)</span>
                 }
                 else
                 {
@@ -379,11 +403,11 @@
         <h4 style="display: inline-block;">@LocString[nameof(LocalizationKey.TeamStandings)]</h4>
         @if (!Model.SupportsPersonalAward && !string.IsNullOrEmpty(Model.StandingsPhoto))
         {
-            var isPdfTeam = Model.StandingsPhoto.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
+            var isImageTeam = IsImageFile(Model.StandingsPhoto);
             <a href="@Model.StandingsPhoto" target="_blank" style="margin-left: 10px;">
-                @if (isPdfTeam)
+                @if (!isImageTeam)
                 {
-                    <span style="font-size: 1.2em; vertical-align: middle;" title="PDF">📄</span>
+                    <span style="font-size: 1.2em; vertical-align: middle;" title="@GetFileLabel(Model.StandingsPhoto)">@GetFileIcon(Model.StandingsPhoto)</span>
                 }
                 else
                 {

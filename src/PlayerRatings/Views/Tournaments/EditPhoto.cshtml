@@ -42,21 +42,33 @@
                 {
                     <div class="form-group">
                         <label>@LocString[nameof(LocalizationKey.UploadFile)]</label>
-                        <input type="file" name="photoFile" class="form-control" accept="image/*,.pdf" />
+                        <input type="file" name="photoFile" class="form-control" accept="image/*,.pdf,.txt,.xls,.xlsx" />
                         <p class="help-block" style="font-size: 0.85em; color: #666;">
-                            @LocString[nameof(LocalizationKey.SupportedFormats)]: JPG, PNG, GIF, WebP, PDF (max 10MB)
+                            @LocString[nameof(LocalizationKey.SupportedFormats)]: JPG, PNG, GIF, WebP, PDF, TXT, XLS, XLSX (max 10MB)
                         </p>
                     </div>
 
                     @if (!string.IsNullOrEmpty((string)ViewBag.CurrentUrl))
                     {
-                        var isPdf = ((string)ViewBag.CurrentUrl).EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
+                        var currentUrl = (string)ViewBag.CurrentUrl;
+                        var isPdf = currentUrl.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
+                        var isTxt = currentUrl.EndsWith(".txt", StringComparison.OrdinalIgnoreCase);
+                        var isXls = currentUrl.EndsWith(".xls", StringComparison.OrdinalIgnoreCase) || currentUrl.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase);
+                        var isDocument = isPdf || isTxt || isXls;
                         <div class="form-group">
                             <label>Current:</label>
                             <div>
                                 @if (isPdf)
                                 {
                                     <a href="@ViewBag.CurrentUrl" target="_blank" style="font-size: 2em;">📄 PDF</a>
+                                }
+                                else if (isTxt)
+                                {
+                                    <a href="@ViewBag.CurrentUrl" target="_blank" style="font-size: 2em;">📝 TXT</a>
+                                }
+                                else if (isXls)
+                                {
+                                    <a href="@ViewBag.CurrentUrl" target="_blank" style="font-size: 2em;">📊 @(currentUrl.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase) ? "XLSX" : "XLS")</a>
                                 }
                                 else
                                 {
