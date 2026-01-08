@@ -296,11 +296,30 @@ namespace PlayerRatings.ViewModels.Player
         public double? TournamentFactor { get; set; }
         
         /// <summary>
+        /// Tournament organizer (e.g., "SWA", "TGA", etc.)
+        /// </summary>
+        public string Organizer { get; set; }
+        
+        /// <summary>
+        /// Tournament type (e.g., "Competition", "International+", "International", etc.)
+        /// </summary>
+        public string TournamentType { get; set; }
+        
+        /// <summary>
         /// Whether this tournament is rated (based on tournament's Factor, not individual match factors).
         /// A tournament is NOT rated if: Factor == 0 OR StartDate is before 2023.
         /// Factor null is considered rated (default).
         /// </summary>
         public bool IsRated => (TournamentFactor == null || TournamentFactor.Value != 0) && StartDate.Year >= 2023;
+        
+        /// <summary>
+        /// Whether this tournament counts as rated when SWA Only mode is on.
+        /// Returns true if organizer contains "SWA" OR if it's an international tournament.
+        /// </summary>
+        public bool IsRatedForSwaOnly => 
+            (Organizer?.Contains("SWA") ?? false) || 
+            TournamentType == Models.Tournament.TypeIntlOpen || 
+            TournamentType == Models.Tournament.TypeIntlSelection;
         
         /// <summary>
         /// Whether this is an International Selection tournament (achievement).

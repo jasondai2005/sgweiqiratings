@@ -255,9 +255,10 @@
         .GroupBy(t => new DateTime(t.StartDate.Year, t.StartDate.Month, 1).AddMonths(1).AddSeconds(-1).ToString("MMM yyyy"))
         .ToDictionary(g => g.Key, g => g.ToList());
     
-    // Build a lookup for tournament IsRated status (based on tournament's Factor, not match factors)
+    // Build a lookup for tournament IsRated status
+    // When SWA Only mode is on, also check if the tournament is from SWA or is an international tournament
     var tournamentIsRatedLookup = Model.TournamentParticipations
-        .ToDictionary(t => t.TournamentId, t => t.IsRated);
+        .ToDictionary(t => t.TournamentId, t => t.IsRated && (!Model.SwaOnly || t.IsRatedForSwaOnly));
 
     // Build ranking labels for each month - show ranking when it changes
     // Use playerRankings from Rankings table directly
@@ -457,7 +458,7 @@
                                         TeamPosition = tp.TeamPosition,
                                         StartDate = tp.StartDate,
                                         HasMatches = false,
-                                        IsRated = tp.IsRated
+                                        IsRated = tournamentIsRatedLookup.TryGetValue(tp.TournamentId, out var isRatedNoMatch) && isRatedNoMatch
                                     })
                                     : Enumerable.Empty<TournamentDisplayItem>())
                                 .OrderByDescending(t => t.StartDate)
@@ -636,7 +637,7 @@
                                     TeamPosition = tp.TeamPosition,
                                     StartDate = tp.StartDate,
                                     HasMatches = false,
-                                    IsRated = tp.IsRated
+                                    IsRated = tournamentIsRatedLookup.TryGetValue(tp.TournamentId, out var isRatedPreEntry) && isRatedPreEntry
                                 }))
                                 .OrderByDescending(t => t.StartDate)
                                 .ToList();

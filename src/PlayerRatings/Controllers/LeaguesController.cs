@@ -782,6 +782,9 @@ namespace PlayerRatings.Controllers
                         FemalePosition = tp.FemalePosition,
                         TeamPosition = tp.TeamPosition,
                         HasMatches = false,
+                        TournamentFactor = tp.Tournament.Factor,
+                        Organizer = tp.Tournament.Organizer,
+                        TournamentType = tp.Tournament.TournamentType,
                         IsIntlSelection = tp.Tournament.TournamentType == Tournament.TypeIntlSelection,
                         IsTitle = tp.Tournament.TournamentType == Tournament.TypeTitle,
                         TitleEn = tp.Tournament.TournamentType == Tournament.TypeTitle ? tp.Tournament.TitleEn : null,
@@ -1187,6 +1190,8 @@ namespace PlayerRatings.Controllers
                     TeamPosition = tp.TeamPosition,
                     HasMatches = false, // Will be set after query
                     TournamentFactor = tp.Tournament.Factor, // Tournament's own factor (determines if rated)
+                    Organizer = tp.Tournament.Organizer,
+                    TournamentType = tp.Tournament.TournamentType,
                     IsIntlSelection = tp.Tournament.TournamentType == Tournament.TypeIntlSelection,
                     IsTitle = tp.Tournament.TournamentType == Tournament.TypeTitle,
                     TitleEn = tp.Tournament.TournamentType == Tournament.TypeTitle ? tp.Tournament.TitleEn : null,
