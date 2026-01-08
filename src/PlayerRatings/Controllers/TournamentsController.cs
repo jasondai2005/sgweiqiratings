@@ -899,10 +899,23 @@ namespace PlayerRatings.Controllers
             var maxRound = 0;
             
             // Get the tournament start/end dates for rating calculations
-            // Use previous day of start date for "before" ratings, end date for "after" ratings
+            // For accurate before/after comparison, use actual match times (not tournament dates which may be midnight UTC)
+            // This handles timezone issues where matches at e.g. 7AM UTC+8 are stored as 23:00 UTC previous day
             var hasMatches = tournament.Matches.Any();
-            var tournamentStartDate = (tournament.StartDate ?? (hasMatches ? tournament.Matches.Min(m => m.Date) : DateTimeOffset.UtcNow));
-            var tournamentEndDate = tournament.EndDate ?? (hasMatches ? tournament.Matches.Max(m => m.Date) : DateTimeOffset.UtcNow);
+            var tournamentMatchIds = tournament.Matches.Select(m => m.Id).ToHashSet();
+            
+            // "Before" cutoff: 1 second before the earliest tournament match (so tournament matches are excluded)
+            // "After" cutoff: the latest tournament match time (so all tournament matches are included)
+            // Fallback chain: actual match times -> tournament dates -> UtcNow
+            var earliestMatchTime = hasMatches 
+                ? tournament.Matches.Min(m => m.Date) 
+                : (tournament.StartDate ?? DateTimeOffset.UtcNow);
+            var latestMatchTime = hasMatches 
+                ? tournament.Matches.Max(m => m.Date) 
+                : (tournament.EndDate ?? DateTimeOffset.UtcNow);
+            
+            var tournamentStartDate = earliestMatchTime.AddSeconds(-1); // 1 second before first match
+            var tournamentEndDate = latestMatchTime; // Include all matches up to the last one
             
             // Load all league matches for rating calculation
             var leagueMatches = await _context.Match
@@ -1063,7 +1076,6 @@ namespace PlayerRatings.Controllers
             RatingCalculationHelper.CalculateRatings(leagueMatches, tournamentEndDate, swaOnly, isSgLeague);
             
             // Get tournament matches from the calculated league matches (same objects with populated ratings)
-            var tournamentMatchIds = tournament.Matches.Select(m => m.Id).ToHashSet();
             var orderedMatches = leagueMatches
                 .Where(m => tournamentMatchIds.Contains(m.Id))
                 .OrderBy(m => m.Date)
