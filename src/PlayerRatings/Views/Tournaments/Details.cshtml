@@ -162,6 +162,7 @@
 @if (Model.SupportsPersonalAward && Model.Players.Any())
 {
     var hasAnyPromotion = Model.Players.Any(p => !string.IsNullOrEmpty(p.PromotionRanking));
+    var showPromoColumn = hasAnyPromotion || Model.IsAdmin; // Always show for Admin
     var hasFemaleAward = Model.SupportsFemaleAward && Model.Players.Any(p => p.IsFemale);
     // Only show residence column for tournaments from 2023 onwards
     var showResidence = Model.StartDate.HasValue && Model.StartDate.Value >= new DateTimeOffset(2023, 1, 1, 0, 0, 0, TimeSpan.Zero);
@@ -229,9 +230,9 @@
                         {
                             <th style="width: 45px; text-align: center;" title="@LocString[nameof(LocalizationKey.FemaleAward)]">♀</th>
                         }
-                        @if (hasAnyPromotion)
+                        @if (showPromoColumn)
                         {
-                            <th style="width: 70px;">@LocString[nameof(LocalizationKey.Promo)]</th>
+                            <th style="width: 90px;">@LocString[nameof(LocalizationKey.Promo)]</th>
                         }
                     </tr>
                 </thead>
@@ -376,7 +377,7 @@
                                     }
                                 </td>
                             }
-                            @if (hasAnyPromotion)
+                            @if (showPromoColumn)
                             {
                                 <td>
                                     @if (!string.IsNullOrEmpty(p.PromotionRanking))
@@ -386,6 +387,11 @@
                                         {
                                             <span style="color: #5cb85c; font-size: 0.85em; margin-left: 2px;">+@p.PromotionBonus.Value.ToString("F1")</span>
                                         }
+                                    }
+                                    else if (Model.IsAdmin)
+                                    {
+                                        <a href="@Url.Action("EditRankingHistory", "Leagues", new { id = Model.LeagueId, playerId = p.PlayerId, tournamentId = Model.Id })" 
+                                           target="_blank" class="btn btn-xs btn-default" title="Add Promotion">+</a>
                                     }
                                 </td>
                             }

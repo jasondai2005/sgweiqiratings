@@ -1365,6 +1365,63 @@ namespace PlayerRatings.Controllers
             return RedirectToAction(nameof(Player), new { id = leagueId, playerId = playerId });
         }
 
+        // GET: Leagues/EditRankingHistory - Separate page for editing player ranking history
+        public async Task<IActionResult> EditRankingHistory(Guid id, string playerId, Guid? tournamentId = null)
+        {
+            if (string.IsNullOrEmpty(playerId))
+            {
+                return NotFound();
+            }
+
+            var currentUser = await User.GetApplicationUser(_userManager);
+
+            // Check if user is authorized for this league
+            if (!_context.LeaguePlayers.Any(lp => lp.LeagueId == id && lp.UserId == currentUser.Id))
+            {
+                return NotFound();
+            }
+
+            var league = await _context.League.FindAsync(id);
+            if (league == null)
+            {
+                return NotFound();
+            }
+
+            var player = await _userManager.FindByIdAsync(playerId);
+            if (player == null)
+            {
+                return NotFound();
+            }
+
+            // Load rankings for this player
+            var rankings = await _context.PlayerRankings
+                .Include(r => r.Tournament)
+                .Where(r => r.PlayerId == playerId)
+                .OrderByDescending(r => r.RankingDate ?? DateTimeOffset.MinValue)
+                .ToListAsync();
+
+            // Load tournaments for ranking dropdown
+            var tournamentOptions = await _context.Tournaments
+                .Where(t => t.LeagueId == id)
+                .OrderByDescending(t => t.StartDate)
+                .Select(t => new ViewModels.Player.TournamentOption
+                {
+                    Id = t.Id,
+                    Name = t.FullName
+                })
+                .ToListAsync();
+
+            return View(new ViewModels.Player.EditRankingHistoryViewModel
+            {
+                Player = player,
+                LeagueId = id,
+                LeagueName = league.Name,
+                Rankings = rankings,
+                TournamentOptions = tournamentOptions,
+                PreselectedTournamentId = tournamentId
+            });
+        }
+
         // POST: Leagues/AddRanking
         [HttpPost]
         [ValidateAntiForgeryToken]

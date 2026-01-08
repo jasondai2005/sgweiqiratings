@@ -385,6 +385,7 @@ namespace PlayerRatings.Localization
         public static readonly LocalizationKey ShiftHours = new LocalizationKey("Shift Hours", "调整时间");
         public static readonly LocalizationKey AddPlayer = new LocalizationKey("Add Player", "添加选手");
         public static readonly LocalizationKey BackToEdit = new LocalizationKey("Back to Edit", "返回编辑");
+        public static readonly LocalizationKey BackToPlayer = new LocalizationKey("Back to Player", "返回选手");
         public static readonly LocalizationKey SelectAll = new LocalizationKey("Select All", "全选");
         public static readonly LocalizationKey SetRoundForSelected = new LocalizationKey("Set Round for selected", "为选中项设置轮次");
         public static readonly LocalizationKey InTournament = new LocalizationKey("In Tournament", "已添加");
