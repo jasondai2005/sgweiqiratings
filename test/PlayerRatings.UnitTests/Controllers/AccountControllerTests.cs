@@ -29,7 +29,7 @@ namespace PlayerRatings.UnitTests.Controllers
 
         private IServiceProvider ServiceProvider { get; }
 
-        private Mock<Services.IEmailSender> EmailSenderMock { get; } = new Mock<Services.IEmailSender>();
+        private Mock<PlayerRatings.Services.IEmailSender> EmailSenderMock { get; } = new Mock<PlayerRatings.Services.IEmailSender>();
 
         private Mock<IStringLocalizer<AccountController>> StringLocalizerMock { get; } = new Mock<IStringLocalizer<AccountController>>();
 

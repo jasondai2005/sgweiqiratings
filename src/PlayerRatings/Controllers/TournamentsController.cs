@@ -49,173 +49,6 @@ namespace PlayerRatings.Controllers
         }
 
         /// <summary>
-        /// Calculate Swiss-system stats for tournament players
-        /// </summary>
-        private static SwissStats CalculateSwissStats(IEnumerable<Match> matches)
-        {
-            var playerStats = new Dictionary<string, PlayerMatchStats>();
-            var byeWins = new Dictionary<string, int>(); // Track bye wins separately
-
-            foreach (var match in matches)
-            {
-                // Handle bye matches (opponent is NULL)
-                if (string.IsNullOrEmpty(match.FirstPlayerId) || string.IsNullOrEmpty(match.SecondPlayerId))
-                {
-                    // Find the real player (non-null)
-                    var realPlayerId = !string.IsNullOrEmpty(match.FirstPlayerId) ? match.FirstPlayerId : match.SecondPlayerId;
-                    if (string.IsNullOrEmpty(realPlayerId))
-                        continue; // Both players are null, skip
-                    
-                    if (!playerStats.ContainsKey(realPlayerId))
-                        playerStats[realPlayerId] = new PlayerMatchStats();
-                    
-                    var realPlayerScore = !string.IsNullOrEmpty(match.FirstPlayerId) ? match.FirstPlayerScore : match.SecondPlayerScore;
-                    var byeScore = !string.IsNullOrEmpty(match.FirstPlayerId) ? match.SecondPlayerScore : match.FirstPlayerScore;
-                    
-                    // Count bye as a win if player won, loss if player lost
-                    if (realPlayerScore > byeScore)
-                    {
-                        playerStats[realPlayerId].Wins++;
-                        byeWins[realPlayerId] = byeWins.GetValueOrDefault(realPlayerId) + 1;
-                    }
-                    else if (byeScore > realPlayerScore)
-                    {
-                        playerStats[realPlayerId].Losses++;
-                    }
-                    
-                    // No opponent to track for bye matches, no points for/against from bye
-                    continue;
-                }
-                
-                if (!playerStats.ContainsKey(match.FirstPlayerId))
-                    playerStats[match.FirstPlayerId] = new PlayerMatchStats();
-                if (!playerStats.ContainsKey(match.SecondPlayerId))
-                    playerStats[match.SecondPlayerId] = new PlayerMatchStats();
-
-                var stats1 = playerStats[match.FirstPlayerId];
-                var stats2 = playerStats[match.SecondPlayerId];
-
-                // Track opponents
-                stats1.Opponents.Add(match.SecondPlayerId);
-                stats2.Opponents.Add(match.FirstPlayerId);
-
-                // Update points
-                stats1.PointsFor += match.FirstPlayerScore;
-                stats1.PointsAgainst += match.SecondPlayerScore;
-                stats2.PointsFor += match.SecondPlayerScore;
-                stats2.PointsAgainst += match.FirstPlayerScore;
-
-                // Determine winner or draw
-                if (match.FirstPlayerScore > match.SecondPlayerScore)
-                {
-                    stats1.Wins++;
-                    stats2.Losses++;
-                }
-                else if (match.SecondPlayerScore > match.FirstPlayerScore)
-                {
-                    stats1.Losses++;
-                    stats2.Wins++;
-                }
-                else
-                {
-                    // Draw: award 0.5 points to each player
-                    stats1.Wins += 0.5;
-                    stats2.Wins += 0.5;
-                    stats1.Draws++;
-                    stats2.Draws++;
-                }
-            }
-
-            // Calculate SOS (Sum of Opponents' Scores)
-            var sosScores = new Dictionary<string, double>();
-            foreach (var player in playerStats)
-            {
-                sosScores[player.Key] = player.Value.Opponents.Sum(oppId =>
-                    playerStats.TryGetValue(oppId, out var oppStats) ? oppStats.Wins : 0);
-            }
-
-            // Calculate SOSOS (Sum of Opponents' SOS)
-            var sososScores = new Dictionary<string, double>();
-            foreach (var player in playerStats)
-            {
-                sososScores[player.Key] = player.Value.Opponents.Sum(oppId =>
-                    sosScores.TryGetValue(oppId, out var oppSos) ? oppSos : 0);
-            }
-
-            return new SwissStats { PlayerStats = playerStats, SOS = sosScores, SOSOS = sososScores };
-        }
-
-        /// <summary>
-        /// Calculate positions using Swiss-system ranking.
-        /// All undefeated players (0 losses, at least 1 win) get position 1 (champions).
-        /// Other players keep their true positions (e.g., if 3 players are at position 1, next is position 4).
-        /// </summary>
-        private static Dictionary<string, int> CalculateSwissPositions(SwissStats stats)
-        {
-            var rankedPlayers = stats.PlayerStats
-                .OrderByDescending(p => p.Value.Losses == 0 && p.Value.Wins > 0 ? 1 : 0) // Undefeated first
-                .ThenByDescending(p => p.Value.Wins)
-                .ThenByDescending(p => stats.SOS[p.Key])
-                .ThenByDescending(p => stats.SOSOS[p.Key])
-                .ThenByDescending(p => p.Value.PointsFor - p.Value.PointsAgainst)
-                .ToList();
-
-            var positions = new Dictionary<string, int>();
-            
-            for (int i = 0; i < rankedPlayers.Count; i++)
-            {
-                var current = rankedPlayers[i];
-                bool isUndefeated = current.Value.Losses == 0 && current.Value.Wins > 0;
-                
-                // All undefeated players get position 1
-                if (isUndefeated)
-                {
-                    positions[current.Key] = 1;
-                    continue;
-                }
-                
-                // For defeated players, check for ties
-                if (i > 0)
-                {
-                    var previous = rankedPlayers[i - 1];
-                    bool previousUndefeated = previous.Value.Losses == 0 && previous.Value.Wins > 0;
-                    
-                    // Check for ties among defeated players (not with undefeated)
-                    if (!previousUndefeated &&
-                        current.Value.Wins == previous.Value.Wins &&
-                        stats.SOS[current.Key] == stats.SOS[previous.Key] &&
-                        stats.SOSOS[current.Key] == stats.SOSOS[previous.Key])
-                    {
-                        positions[current.Key] = positions[previous.Key];
-                        continue;
-                    }
-                }
-                
-                // True position based on ranking order (1-indexed)
-                positions[current.Key] = i + 1;
-            }
-
-            return positions;
-        }
-
-        private class PlayerMatchStats
-        {
-            public double Wins { get; set; }  // Use double to support draws (0.5 points each)
-            public int Losses { get; set; }
-            public int Draws { get; set; }
-            public int PointsFor { get; set; }
-            public int PointsAgainst { get; set; }
-            public List<string> Opponents { get; } = new List<string>();
-        }
-
-        private class SwissStats
-        {
-            public Dictionary<string, PlayerMatchStats> PlayerStats { get; set; }
-            public Dictionary<string, double> SOS { get; set; }  // Use double to support draws
-            public Dictionary<string, double> SOSOS { get; set; }
-        }
-
-        /// <summary>
         /// Calculate team standings based on tournament type:
         /// - If SupportsPersonalAward: sum of top 3 players' positions per team
         /// - If not SupportsPersonalAward: Swiss-system ranking based on team results (3+ wins = team win, 2 wins = draw, etc.)
@@ -903,8 +736,8 @@ namespace PlayerRatings.Controllers
             var isAdmin = tournament.League.CreatedByUserId == currentUser.Id;
 
             // Calculate Swiss-system stats
-            var swissStats = CalculateSwissStats(tournament.Matches);
-            var calculatedPositions = CalculateSwissPositions(swissStats);
+            var swissStats = _swissService.CalculateSwissStats(tournament.Matches);
+            var calculatedPositions = _swissService.CalculateSwissPositions(swissStats);
 
             // Build round results for each player
             var playerRoundResults = new Dictionary<string, Dictionary<int, RoundResult>>();
@@ -1337,7 +1170,7 @@ namespace PlayerRatings.Controllers
             var selectedMatchIds = tournament.Matches.Select(m => m.Id).ToHashSet();
 
             // Calculate Swiss-system stats
-            var swissStats = CalculateSwissStats(tournament.Matches);
+            var swissStats = _swissService.CalculateSwissStats(tournament.Matches);
 
             // Get league players not already in tournament
             var existingPlayerIds = tournament.TournamentPlayers.Select(tp => tp.PlayerId).ToHashSet();
@@ -1902,8 +1735,8 @@ namespace PlayerRatings.Controllers
             }
 
             // Calculate personal positions using Swiss-system
-            var swissStats = CalculateSwissStats(tournament.Matches);
-            var positions = CalculateSwissPositions(swissStats);
+            var swissStats = _swissService.CalculateSwissStats(tournament.Matches);
+            var positions = _swissService.CalculateSwissPositions(swissStats);
 
             // Update personal positions in database (only if SupportsPersonalAward is true)
             foreach (var kvp in positions)

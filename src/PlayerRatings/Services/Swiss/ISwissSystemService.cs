@@ -9,7 +9,7 @@ namespace PlayerRatings.Services.Swiss
     public class PlayerMatchStats
     {
         public double Wins { get; set; }
-        public double Losses { get; set; }
+        public int Losses { get; set; }
         public int Draws { get; set; }
         public int PointsFor { get; set; }
         public int PointsAgainst { get; set; }

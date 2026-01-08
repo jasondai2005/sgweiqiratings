@@ -55,41 +55,6 @@ namespace PlayerRatings.Controllers
         }
 
         /// <summary>
-        /// Gets league with all matches and players from cache, or loads from database if not cached.
-        /// OPTIMIZED: Removed deep includes for Tournament.TournamentPlayers which caused exponential data loading.
-        /// Rankings only need date, grade, and organization - not the full tournament data.
-        /// </summary>
-        private League GetLeagueWithMatches(Guid leagueId, bool forceRefresh = false)
-        {
-            string cacheKey = $"League_{leagueId}";
-
-            if (forceRefresh)
-            {
-                _cache.Remove(cacheKey);
-            }
-
-            if (!_cache.TryGetValue(cacheKey, out League league))
-            {
-                league = _context.League
-                    .Include(l => l.Matches).ThenInclude(m => m.FirstPlayer).ThenInclude(p => p.Rankings)
-                    .Include(l => l.Matches).ThenInclude(m => m.SecondPlayer).ThenInclude(p => p.Rankings)
-                    .Include(l => l.Matches).ThenInclude(m => m.Tournament)
-                    .AsSplitQuery() // Use split queries for better performance with multiple includes
-                    .SingleOrDefault(m => m.Id == leagueId);
-
-                if (league != null)
-                {
-                    // Detach entities before caching so they're not tied to this DbContext
-                    _context.ChangeTracker.Clear();
-                    
-                    _cache.Set(cacheKey, league, CacheDurations.League);
-                }
-            }
-
-            return league;
-        }
-
-        /// <summary>
         /// Gets the SWA Only preference from cookie.
         /// </summary>
         private bool GetSwaOnlyPreference()
