@@ -280,6 +280,7 @@ namespace PlayerRatings.Localization
         public static readonly LocalizationKey Note = new LocalizationKey("Note", "备注");
         public static readonly LocalizationKey MonthlyRatingHistory = new LocalizationKey("Monthly Rating History", "月等级分历史");
         public static readonly LocalizationKey Month = new LocalizationKey("Month", "月份");
+        public static readonly LocalizationKey AllMonths = new LocalizationKey("All Months", "全部月份");
         public static readonly LocalizationKey PreEntry = new LocalizationKey("Pre-entry", "入榜前");
         public static readonly LocalizationKey GameRecords = new LocalizationKey("Game Records", "对局记录");
         public static readonly LocalizationKey Opponent = new LocalizationKey("Opponent", "对手");

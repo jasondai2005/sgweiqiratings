@@ -25,6 +25,25 @@ namespace PlayerRatings.ViewModels.Tournament
         
         public List<int> AvailableYears { get; set; } = new List<int>();
         
+        // Month filtering properties
+        public int? CurrentMonth { get; set; }
+        
+        public int? PreviousMonth { get; set; }
+        
+        public int? NextMonth { get; set; }
+        
+        /// <summary>
+        /// Year for previous month navigation (may differ from CurrentYear if crossing year boundary)
+        /// </summary>
+        public int? PreviousMonthYear { get; set; }
+        
+        /// <summary>
+        /// Year for next month navigation (may differ from CurrentYear if crossing year boundary)
+        /// </summary>
+        public int? NextMonthYear { get; set; }
+        
+        public List<int> AvailableMonths { get; set; } = new List<int>();
+        
         public int TotalTournamentCount { get; set; }
     }
     

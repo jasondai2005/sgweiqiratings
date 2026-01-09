@@ -4,6 +4,7 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -21,11 +22,13 @@ namespace PlayerRatings.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IWebHostEnvironment _env;
 
-        public TournamentsController(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
+        public TournamentsController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, IWebHostEnvironment env)
         {
             _context = context;
             _userManager = userManager;
+            _env = env;
         }
         
         /// <summary>
@@ -752,8 +755,8 @@ namespace PlayerRatings.Controllers
             }
         }
 
-        // GET: Tournaments?leagueId=xxx&year=2024
-        public async Task<IActionResult> Index(Guid leagueId, int? year)
+        // GET: Tournaments?leagueId=xxx&year=2024&month=6
+        public async Task<IActionResult> Index(Guid leagueId, int? year, int? month)
         {
             var currentUser = await User.GetApplicationUser(_userManager);
             
@@ -814,6 +817,27 @@ namespace PlayerRatings.Controllers
             var tournamentsQuery = baseQuery
                 .Where(t => t.StartDate.HasValue && t.StartDate >= yearStart && t.StartDate < yearEnd);
             
+            // Get available months for this year (before applying month filter)
+            var yearTournamentDates = allStartDates
+                .Where(d => d.Year == currentYear)
+                .ToList();
+            var availableMonths = yearTournamentDates
+                .Select(d => d.Month)
+                .Distinct()
+                .OrderByDescending(m => m)
+                .ToList();
+            
+            // Apply month filter if specified
+            if (month.HasValue && month.Value >= 1 && month.Value <= 12)
+            {
+                var monthStart = new DateTimeOffset(currentYear, month.Value, 1, 0, 0, 0, TimeSpan.Zero);
+                var monthEnd = month.Value == 12 
+                    ? new DateTimeOffset(currentYear + 1, 1, 1, 0, 0, 0, TimeSpan.Zero)
+                    : new DateTimeOffset(currentYear, month.Value + 1, 1, 0, 0, 0, TimeSpan.Zero);
+                tournamentsQuery = tournamentsQuery
+                    .Where(t => t.StartDate >= monthStart && t.StartDate < monthEnd);
+            }
+            
             var tournaments = await tournamentsQuery
                 .OrderByDescending(t => t.StartDate ?? DateTimeOffset.MinValue)
                 .ThenBy(t => t.Name)
@@ -841,6 +865,40 @@ namespace PlayerRatings.Controllers
             if (previousYear == 0) previousYear = null;
             if (nextYear == 0) nextYear = null;
             
+            // Calculate prev/next months (only when a month is selected)
+            int? previousMonth = null;
+            int? previousMonthYear = null;
+            int? nextMonth = null;
+            int? nextMonthYear = null;
+            
+            if (month.HasValue)
+            {
+                // Build list of all (year, month) combinations with tournaments
+                var allYearMonths = allStartDates
+                    .Select(d => (Year: d.Year, Month: d.Month))
+                    .Distinct()
+                    .OrderBy(ym => ym.Year)
+                    .ThenBy(ym => ym.Month)
+                    .ToList();
+                
+                var currentYearMonth = (Year: currentYear, Month: month.Value);
+                var currentIndex = allYearMonths.IndexOf(currentYearMonth);
+                
+                if (currentIndex > 0)
+                {
+                    var prev = allYearMonths[currentIndex - 1];
+                    previousMonth = prev.Month;
+                    previousMonthYear = prev.Year;
+                }
+                
+                if (currentIndex >= 0 && currentIndex < allYearMonths.Count - 1)
+                {
+                    var next = allYearMonths[currentIndex + 1];
+                    nextMonth = next.Month;
+                    nextMonthYear = next.Year;
+                }
+            }
+            
             var viewModel = new TournamentListViewModel
             {
                 LeagueId = leagueId,
@@ -851,6 +909,12 @@ namespace PlayerRatings.Controllers
                 PreviousYear = previousYear,
                 NextYear = nextYear,
                 AvailableYears = availableYears,
+                CurrentMonth = month,
+                PreviousMonth = previousMonth,
+                PreviousMonthYear = previousMonthYear,
+                NextMonth = nextMonth,
+                NextMonthYear = nextMonthYear,
+                AvailableMonths = availableMonths,
                 TotalTournamentCount = tournaments.Count
             };
 
@@ -2238,7 +2302,27 @@ namespace PlayerRatings.Controllers
 
                 var fileExtension = Path.GetExtension(photoFile.FileName).ToLower();
                 var fileName = $"{Guid.NewGuid()}{fileExtension}";
-                var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "tournament");
+                
+                // Determine upload folder based on photo type:
+                // - gamerecord: game records, match photos, match result photos
+                // - tournament: tournament standings photos only
+                // - gallery: tournament player photos (photo, teamphoto, femaleawardphoto)
+                string subFolder;
+                var photoTypeLower = photoType?.ToLower();
+                if (isGameRecord || photoTypeLower == "matchphoto" || photoTypeLower == "matchresultphoto")
+                {
+                    subFolder = "gamerecord";
+                }
+                else if (isStandingsPhoto)
+                {
+                    subFolder = "tournament";
+                }
+                else
+                {
+                    subFolder = "gallery";
+                }
+                
+                var uploadsFolder = Path.Combine(_env.WebRootPath, "uploads", subFolder);
                 
                 if (!Directory.Exists(uploadsFolder))
                 {
@@ -2251,7 +2335,7 @@ namespace PlayerRatings.Controllers
                     await photoFile.CopyToAsync(stream);
                 }
 
-                finalUrl = $"/uploads/tournament/{fileName}";
+                finalUrl = $"/uploads/{subFolder}/{fileName}";
             }
 
             // Save to database
@@ -2327,7 +2411,27 @@ namespace PlayerRatings.Controllers
                 // Generate unique filename
                 var extension = Path.GetExtension(photoFile.FileName).ToLower();
                 var fileName = $"{Guid.NewGuid()}{extension}";
-                var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "tournament");
+                
+                // Determine upload folder based on photo type:
+                // - gamerecord: game records, match photos, match result photos
+                // - tournament: tournament standings photos only
+                // - gallery: tournament player photos (photo, teamphoto, femaleawardphoto)
+                string subFolder;
+                var photoTypeLower = photoType?.ToLower();
+                if (photoTypeLower == "matchphoto" || photoTypeLower == "matchresultphoto" || photoTypeLower == "gamerecord")
+                {
+                    subFolder = "gamerecord";
+                }
+                else if (photoTypeLower == "standings_photo" || photoTypeLower == "standingsphoto")
+                {
+                    subFolder = "tournament";
+                }
+                else
+                {
+                    subFolder = "gallery";
+                }
+                
+                var uploadsFolder = Path.Combine(_env.WebRootPath, "uploads", subFolder);
                 
                 if (!Directory.Exists(uploadsFolder))
                 {
@@ -2341,7 +2445,7 @@ namespace PlayerRatings.Controllers
                     await photoFile.CopyToAsync(stream);
                 }
 
-                var photoUrl = $"/uploads/tournament/{fileName}";
+                var photoUrl = $"/uploads/{subFolder}/{fileName}";
 
                 // Update the appropriate record based on photoType
                 switch (photoType?.ToLower())

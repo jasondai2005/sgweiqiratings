@@ -154,6 +154,64 @@
         </ul>
     </div>
 
+    @if (Model.AvailableMonths.Any())
+    {
+        @if (Model.CurrentMonth.HasValue && Model.PreviousMonth.HasValue)
+        {
+            <a asp-action="Index" asp-route-leagueId="@Model.LeagueId" asp-route-year="@Model.PreviousMonthYear" asp-route-month="@Model.PreviousMonth" 
+               class="btn btn-outline-info" title="@(new DateTime(2000, Model.PreviousMonth.Value, 1).ToString("MMM")) @Model.PreviousMonthYear">
+                ←
+            </a>
+        }
+        else if (Model.CurrentMonth.HasValue)
+        {
+            <span class="btn btn-outline-secondary disabled">←</span>
+        }
+
+        <div class="dropdown">
+            <button class="btn @(Model.CurrentMonth.HasValue ? "btn-info" : "btn-default") dropdown-toggle" type="button" data-toggle="dropdown">
+                @if (Model.CurrentMonth.HasValue)
+                {
+                    <span>@(new DateTime(2000, Model.CurrentMonth.Value, 1).ToString("MMM"))</span>
+                }
+                else
+                {
+                    <span>@LocString[nameof(LocalizationKey.AllMonths)]</span>
+                }
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu">
+                <li class="@(!Model.CurrentMonth.HasValue ? "active" : "")">
+                    <a asp-action="Index" asp-route-leagueId="@Model.LeagueId" asp-route-year="@Model.CurrentYear">
+                        @LocString[nameof(LocalizationKey.AllMonths)]
+                    </a>
+                </li>
+                <li role="separator" class="divider"></li>
+                @foreach (var m in Model.AvailableMonths)
+                {
+                    var isActive = Model.CurrentMonth == m;
+                    <li class="@(isActive ? "active" : "")">
+                        <a asp-action="Index" asp-route-leagueId="@Model.LeagueId" asp-route-year="@Model.CurrentYear" asp-route-month="@m">
+                            @(new DateTime(2000, m, 1).ToString("MMMM"))
+                        </a>
+                    </li>
+                }
+            </ul>
+        </div>
+
+        @if (Model.CurrentMonth.HasValue && Model.NextMonth.HasValue)
+        {
+            <a asp-action="Index" asp-route-leagueId="@Model.LeagueId" asp-route-year="@Model.NextMonthYear" asp-route-month="@Model.NextMonth" 
+               class="btn btn-outline-info" title="@(new DateTime(2000, Model.NextMonth.Value, 1).ToString("MMM")) @Model.NextMonthYear">
+                →
+            </a>
+        }
+        else if (Model.CurrentMonth.HasValue)
+        {
+            <span class="btn btn-outline-secondary disabled">→</span>
+        }
+    }
+
     @if (Model.NextYear.HasValue)
     {
         <a asp-action="Index" asp-route-leagueId="@Model.LeagueId" asp-route-year="@Model.NextYear.Value" class="btn btn-outline-primary">
