@@ -1336,20 +1336,20 @@ namespace PlayerRatings.Controllers
 
             // Generate unique filename using player ID
             var fileName = $"{playerId}{extension}";
-            var picFolder = Path.Combine(_env.WebRootPath, "pic");
+            var uploadsFolder = Path.Combine(_env.WebRootPath, "uploads", "player");
             
-            // Ensure the pic folder exists
-            if (!Directory.Exists(picFolder))
+            // Ensure the uploads/player folder exists
+            if (!Directory.Exists(uploadsFolder))
             {
-                Directory.CreateDirectory(picFolder);
+                Directory.CreateDirectory(uploadsFolder);
             }
 
-            var filePath = Path.Combine(picFolder, fileName);
+            var filePath = Path.Combine(uploadsFolder, fileName);
 
             // Delete existing photo if exists (different extension)
             foreach (var ext in allowedExtensions)
             {
-                var existingFile = Path.Combine(picFolder, $"{playerId}{ext}");
+                var existingFile = Path.Combine(uploadsFolder, $"{playerId}{ext}");
                 if (System.IO.File.Exists(existingFile) && existingFile != filePath)
                 {
                     System.IO.File.Delete(existingFile);
@@ -1363,7 +1363,7 @@ namespace PlayerRatings.Controllers
             }
 
             // Update player's photo URL
-            player.Photo = $"/pic/{fileName}";
+            player.Photo = $"/uploads/player/{fileName}";
             await _userManager.UpdateAsync(player);
 
             if (isAjax) return Json(new { success = true, message = "Photo uploaded", photoUrl = player.Photo });
