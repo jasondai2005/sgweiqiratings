@@ -969,18 +969,14 @@ namespace PlayerRatings.Controllers
             var tournamentMatchIds = tournament.Matches.Select(m => m.Id).ToHashSet();
             
             // "Before" cutoff: 1 second before the earliest tournament match (so tournament matches are excluded)
-            // "After" cutoff: the latest tournament match time (so all tournament matches are included)
             // Fallback chain: actual match times -> tournament dates -> UtcNow
             var earliestMatchTime = hasMatches 
                 ? tournament.Matches.Min(m => m.Date) 
                 : (tournament.StartDate ?? DateTimeOffset.UtcNow);
-            var latestMatchTime = hasMatches 
-                ? tournament.Matches.Max(m => m.Date) 
-                : (tournament.EndDate ?? DateTimeOffset.UtcNow);
             
             var tournamentStartDate = earliestMatchTime.AddSeconds(-1); // 1 second before first match
-            var tournamentEndDate = latestMatchTime; // Include all matches up to the last one
-            
+            var tournamentEndDate = tournament.EndDate ?? DateTimeOffset.UtcNow;
+
             // Load all league matches for rating calculation
             var leagueMatches = await _context.Match
                 .Where(m => m.LeagueId == tournament.LeagueId)
@@ -1032,7 +1028,7 @@ namespace PlayerRatings.Controllers
             
             // Get promotion bonuses awarded during/after the tournament (not before it started)
             var promotionBonuses = RatingCalculationHelper.GetPromotionBonuses(
-                leagueMatches, tournamentStartDate, tournamentEndDate, swaOnly, isSgLeague, tournamentPlayerIds);
+                leagueMatches, tournamentStartDate.Date, tournamentEndDate, swaOnly, isSgLeague, tournamentPlayerIds);
             
             // Track first match date for each round (for creating new matches)
             var roundDates = new Dictionary<int, DateTimeOffset>();
