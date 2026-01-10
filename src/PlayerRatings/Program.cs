@@ -68,7 +68,15 @@ else
 }
 
 app.UseHttpsRedirection();
-app.UseStaticFiles();
+
+// Configure static files with proper UTF-8 encoding for text files
+var contentTypeProvider = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
+contentTypeProvider.Mappings[".txt"] = "text/plain; charset=utf-8";
+contentTypeProvider.Mappings[".sgf"] = "text/plain; charset=utf-8";
+app.UseStaticFiles(new StaticFileOptions
+{
+    ContentTypeProvider = contentTypeProvider
+});
 
 app.UseRouting();
 
