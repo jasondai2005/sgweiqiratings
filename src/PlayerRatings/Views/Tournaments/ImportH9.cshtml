@@ -42,7 +42,7 @@
     }
 </style>
 
-<h2>Import Tournament Results</h2>
+<h2>@LocString[nameof(LocalizationKey.ImportTournamentResults)]</h2>
 <h4 class="text-muted">@Model.TournamentName</h4>
 <hr />
 
@@ -55,25 +55,25 @@
             <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
             <div class="form-group">
-                <label class="control-label">Tournament File (EGF Text Format)</label>
+                <label class="control-label">@LocString[nameof(LocalizationKey.TournamentFile)]</label>
                 <div class="upload-area" id="uploadArea">
                     <div class="icon">📁</div>
-                    <p><strong>Click to select</strong> or drag and drop a tournament file here</p>
+                    <p><strong>@LocString[nameof(LocalizationKey.ClickToSelect)]</strong> @LocString[nameof(LocalizationKey.DragAndDropFile)]</p>
                     <p class="text-muted" style="font-size: 0.85em; margin-top: 10px;">
-                        Any file containing EGF text format results
+                        @LocString[nameof(LocalizationKey.EgfFormatHint)]
                     </p>
                     <input type="file" asp-for="H9File" id="fileInput" style="display: none;" />
                 </div>
                 <div class="file-info" id="fileInfo">
                     <span id="fileName"></span>
-                    <button type="button" class="btn btn-xs btn-link" onclick="clearFile()">Remove</button>
+                    <button type="button" class="btn btn-xs btn-link" onclick="clearFile()">@LocString[nameof(LocalizationKey.Remove)]</button>
                 </div>
                 <span asp-validation-for="H9File" class="text-danger"></span>
             </div>
 
             <div class="form-group" style="margin-top: 20px;">
                 <button type="submit" class="btn btn-primary btn-lg" id="submitBtn" disabled>
-                    <span class="glyphicon glyphicon-upload"></span> Upload &amp; Review All Rounds
+                    <span class="glyphicon glyphicon-upload"></span> @LocString[nameof(LocalizationKey.UploadAndReview)]
                 </button>
                 <a asp-action="Details" asp-route-id="@Model.TournamentId" class="btn btn-default btn-lg">
                     @LocString[nameof(LocalizationKey.Cancel)]

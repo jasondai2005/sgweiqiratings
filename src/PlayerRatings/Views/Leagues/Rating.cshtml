@@ -184,7 +184,7 @@
     {
         <a href="@Url.Action("Rating", new { id = Model.LeagueId })" class="btn btn-success">@LocString[nameof(LocalizationKey.Today)]</a>
     }
-    <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = Model.ByDate, refresh = true })" class="btn btn-outline-secondary" title="Reload data from database">⟳</a>
+    <a href="@Url.Action("Rating", new { id = Model.LeagueId, byDate = Model.ByDate, refresh = true })" class="btn btn-outline-secondary" title="@LocString[nameof(LocalizationKey.Refresh)]">⟳</a>
 </form>
 
 <!-- Active Players Section -->

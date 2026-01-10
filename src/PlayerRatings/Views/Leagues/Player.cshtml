@@ -34,7 +34,7 @@
         
         <div class="mb-3" style="display: inline-flex; gap: 4px; align-items: center;">
             <a href="@Url.Action("Rating", new { id = Model.LeagueId })" class="btn btn-outline-secondary btn-sm" title="@LocString[nameof(LocalizationKey.BackToRating)]">↩</a>
-            <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = Model.Player.Id, refresh = true })" class="btn btn-outline-secondary btn-sm" title="Reload data from database">⟳</a>
+            <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = Model.Player.Id, refresh = true })" class="btn btn-outline-secondary btn-sm" title="@LocString[nameof(LocalizationKey.Refresh)]">⟳</a>
             
             @if (!string.IsNullOrEmpty(Model.PreviousPlayerId) || !string.IsNullOrEmpty(Model.NextPlayerId))
             {
@@ -108,7 +108,7 @@
                 {
                 <!-- Mobile: Photo on its own row -->
                 <div class="player-photo-mobile-row">
-                    <img src="@(Model.Player.Photo)@(Model.Player.Photo.Contains("?") ? "&" : "?")v=@DateTime.UtcNow.Ticks" alt="@Model.Player.DisplayName" style="max-width: 150px; max-height: 150px; border-radius: 8px; cursor: pointer;" onclick="showPhotoModal(this.src)" title="Click to enlarge" />
+                    <img src="@(Model.Player.Photo)@(Model.Player.Photo.Contains("?") ? "&" : "?")v=@DateTime.UtcNow.Ticks" alt="@Model.Player.DisplayName" style="max-width: 150px; max-height: 150px; border-radius: 8px; cursor: pointer;" onclick="showPhotoModal(this.src)" title="@LocString[nameof(LocalizationKey.ClickToEnlarge)]" />
                 </div>
                 }
                 <div class="row">
@@ -116,7 +116,7 @@
                     {
                     <!-- Desktop: Photo inline -->
                     <div class="col-xs-3 col-sm-2 player-photo-desktop" id="playerPhotoContainer">
-                        <img id="playerPhoto" src="@(Model.Player.Photo)@(Model.Player.Photo.Contains("?") ? "&" : "?")v=@DateTime.UtcNow.Ticks" alt="@Model.Player.DisplayName" style="max-width: 120px; max-height: 120px; border-radius: 8px; cursor: pointer;" onclick="showPhotoModal(this.src)" title="Click to enlarge" />
+                        <img id="playerPhoto" src="@(Model.Player.Photo)@(Model.Player.Photo.Contains("?") ? "&" : "?")v=@DateTime.UtcNow.Ticks" alt="@Model.Player.DisplayName" style="max-width: 120px; max-height: 120px; border-radius: 8px; cursor: pointer;" onclick="showPhotoModal(this.src)" title="@LocString[nameof(LocalizationKey.ClickToEnlarge)]" />
                     </div>
                     }
                     <div class="@(string.IsNullOrEmpty(Model.Player.Photo) ? "col-xs-12" : "col-xs-9 col-sm-10 player-info-full-width")" id="playerInfoContainer">
@@ -184,19 +184,19 @@
                         }
                         @if (Model.ChampionshipCount > 0)
                         {
-                            <div><span style="color: #f0ad4e;">🏆</span> <strong style="color: #f0ad4e;">@Model.ChampionshipCount</strong> <span style="color: #666;">@(Model.ChampionshipCount == 1 ? "Champion" : "Champions")</span></div>
+                            <div><span style="color: #f0ad4e;">🏆</span> <strong style="color: #f0ad4e;">@Model.ChampionshipCount</strong> <span style="color: #666;">@(Model.ChampionshipCount == 1 ? LocString[nameof(LocalizationKey.Champion)] : LocString[nameof(LocalizationKey.Champions)])</span></div>
                         }
                         @if (Model.TeamChampionshipCount > 0)
                         {
-                            <div><span style="color: #337ab7;">🏅</span> <strong style="color: #337ab7;">@Model.TeamChampionshipCount</strong> <span style="color: #666;">Team @(Model.TeamChampionshipCount == 1 ? "Champion" : "Champions")</span></div>
+                            <div><span style="color: #337ab7;">🏅</span> <strong style="color: #337ab7;">@Model.TeamChampionshipCount</strong> <span style="color: #666;">@(Model.TeamChampionshipCount == 1 ? LocString[nameof(LocalizationKey.TeamChampion)] : LocString[nameof(LocalizationKey.TeamChampions)])</span></div>
                         }
                         @if (Model.FemaleChampionshipCount > 0)
                         {
-                            <div><span style="color: #d63384;">👑</span> <strong style="color: #d63384;">@Model.FemaleChampionshipCount</strong> <span style="color: #666;">Female @(Model.FemaleChampionshipCount == 1 ? "Champion" : "Champions")</span></div>
+                            <div><span style="color: #d63384;">👑</span> <strong style="color: #d63384;">@Model.FemaleChampionshipCount</strong> <span style="color: #666;">@(Model.FemaleChampionshipCount == 1 ? LocString[nameof(LocalizationKey.FemaleChampion)] : LocString[nameof(LocalizationKey.FemaleChampions)])</span></div>
                         }
                         @if (Model.IntlSelectionCount > 0)
                         {
-                            <div><span style="color: #9932cc;">🌍</span> <strong style="color: #9932cc;">@Model.IntlSelectionCount</strong> <span style="color: #666;">Selected to Intl @(Model.IntlSelectionCount == 1 ? "Event" : "Events")</span></div>
+                            <div><span style="color: #9932cc;">🌍</span> <strong style="color: #9932cc;">@Model.IntlSelectionCount</strong> <span style="color: #666;">@(Model.IntlSelectionCount == 1 ? LocString[nameof(LocalizationKey.SelectedToIntlEvent)] : LocString[nameof(LocalizationKey.SelectedToIntlEvents)])</span></div>
                         }
                     </div>
                     @if (Model.CurrentYearGames > 0 || Model.CurrentYearTournaments > 0)
@@ -218,19 +218,19 @@
                         }
                         @if (Model.CurrentYearChampionships > 0)
                         {
-                            <div><span style="color: #f0ad4e;">🏆</span> <strong style="color: #f0ad4e;">@Model.CurrentYearChampionships</strong> <span style="color: #666;">@(Model.CurrentYearChampionships == 1 ? "Champion" : "Champions")</span></div>
+                            <div><span style="color: #f0ad4e;">🏆</span> <strong style="color: #f0ad4e;">@Model.CurrentYearChampionships</strong> <span style="color: #666;">@(Model.CurrentYearChampionships == 1 ? LocString[nameof(LocalizationKey.Champion)] : LocString[nameof(LocalizationKey.Champions)])</span></div>
                         }
                         @if (Model.CurrentYearTeamChampionships > 0)
                         {
-                            <div><span style="color: #337ab7;">🏅</span> <strong style="color: #337ab7;">@Model.CurrentYearTeamChampionships</strong> <span style="color: #666;">Team @(Model.CurrentYearTeamChampionships == 1 ? "Champion" : "Champions")</span></div>
+                            <div><span style="color: #337ab7;">🏅</span> <strong style="color: #337ab7;">@Model.CurrentYearTeamChampionships</strong> <span style="color: #666;">@(Model.CurrentYearTeamChampionships == 1 ? LocString[nameof(LocalizationKey.TeamChampion)] : LocString[nameof(LocalizationKey.TeamChampions)])</span></div>
                         }
                         @if (Model.CurrentYearFemaleChampionships > 0)
                         {
-                            <div><span style="color: #d63384;">👑</span> <strong style="color: #d63384;">@Model.CurrentYearFemaleChampionships</strong> <span style="color: #666;">Female @(Model.CurrentYearFemaleChampionships == 1 ? "Champion" : "Champions")</span></div>
+                            <div><span style="color: #d63384;">👑</span> <strong style="color: #d63384;">@Model.CurrentYearFemaleChampionships</strong> <span style="color: #666;">@(Model.CurrentYearFemaleChampionships == 1 ? LocString[nameof(LocalizationKey.FemaleChampion)] : LocString[nameof(LocalizationKey.FemaleChampions)])</span></div>
                         }
                         @if (Model.CurrentYearIntlSelectionCount > 0)
                         {
-                            <div><span style="color: #9932cc;">🌍</span> <strong style="color: #9932cc;">@Model.CurrentYearIntlSelectionCount</strong> <span style="color: #666;">Selected to Intl @(Model.CurrentYearIntlSelectionCount == 1 ? "Event" : "Events")</span></div>
+                            <div><span style="color: #9932cc;">🌍</span> <strong style="color: #9932cc;">@Model.CurrentYearIntlSelectionCount</strong> <span style="color: #666;">@(Model.CurrentYearIntlSelectionCount == 1 ? LocString[nameof(LocalizationKey.SelectedToIntlEvent)] : LocString[nameof(LocalizationKey.SelectedToIntlEvents)])</span></div>
                         }
                     </div>
                     }
@@ -253,19 +253,19 @@
                         }
                         @if (Model.LastYearChampionships > 0)
                         {
-                            <div><span style="color: #f0ad4e;">🏆</span> <strong style="color: #f0ad4e;">@Model.LastYearChampionships</strong> <span style="color: #666;">@(Model.LastYearChampionships == 1 ? "Champion" : "Champions")</span></div>
+                            <div><span style="color: #f0ad4e;">🏆</span> <strong style="color: #f0ad4e;">@Model.LastYearChampionships</strong> <span style="color: #666;">@(Model.LastYearChampionships == 1 ? LocString[nameof(LocalizationKey.Champion)] : LocString[nameof(LocalizationKey.Champions)])</span></div>
                         }
                         @if (Model.LastYearTeamChampionships > 0)
                         {
-                            <div><span style="color: #337ab7;">🏅</span> <strong style="color: #337ab7;">@Model.LastYearTeamChampionships</strong> <span style="color: #666;">Team @(Model.LastYearTeamChampionships == 1 ? "Champion" : "Champions")</span></div>
+                            <div><span style="color: #337ab7;">🏅</span> <strong style="color: #337ab7;">@Model.LastYearTeamChampionships</strong> <span style="color: #666;">@(Model.LastYearTeamChampionships == 1 ? LocString[nameof(LocalizationKey.TeamChampion)] : LocString[nameof(LocalizationKey.TeamChampions)])</span></div>
                         }
                         @if (Model.LastYearFemaleChampionships > 0)
                         {
-                            <div><span style="color: #d63384;">👑</span> <strong style="color: #d63384;">@Model.LastYearFemaleChampionships</strong> <span style="color: #666;">Female @(Model.LastYearFemaleChampionships == 1 ? "Champion" : "Champions")</span></div>
+                            <div><span style="color: #d63384;">👑</span> <strong style="color: #d63384;">@Model.LastYearFemaleChampionships</strong> <span style="color: #666;">@(Model.LastYearFemaleChampionships == 1 ? LocString[nameof(LocalizationKey.FemaleChampion)] : LocString[nameof(LocalizationKey.FemaleChampions)])</span></div>
                         }
                         @if (Model.LastYearIntlSelectionCount > 0)
                         {
-                            <div><span style="color: #9932cc;">🌍</span> <strong style="color: #9932cc;">@Model.LastYearIntlSelectionCount</strong> <span style="color: #666;">Selected to Intl @(Model.LastYearIntlSelectionCount == 1 ? "Event" : "Events")</span></div>
+                            <div><span style="color: #9932cc;">🌍</span> <strong style="color: #9932cc;">@Model.LastYearIntlSelectionCount</strong> <span style="color: #666;">@(Model.LastYearIntlSelectionCount == 1 ? LocString[nameof(LocalizationKey.SelectedToIntlEvent)] : LocString[nameof(LocalizationKey.SelectedToIntlEvents)])</span></div>
                         }
                     </div>
                     }
@@ -573,7 +573,7 @@
                                             var fromDisplay = ApplicationUser.FormatRankingForDisplay(bonus.FromRanking, bonus.FromOrg);
                                             var toDisplay = ApplicationUser.FormatRankingForDisplay(bonus.ToRanking, bonus.ToOrg);
                                             <div style="margin-left: 8px;">
-                                                <span style="color: #5cb85c; font-size: 0.85em; font-weight: bold;" title="Promotion bonus applied">
+                                                <span style="color: #5cb85c; font-size: 0.85em; font-weight: bold;" title="@LocString[nameof(LocalizationKey.PromotionBonusApplied)]">
                                                     +@bonus.BonusAmount.ToString("F1")
                                                 </span>
                                                 <span style="color: #888; font-size: 0.8em;">
@@ -596,7 +596,7 @@
                                     var fromDisplay = ApplicationUser.FormatRankingForDisplay(bonus.FromRanking, bonus.FromOrg);
                                     var toDisplay = ApplicationUser.FormatRankingForDisplay(bonus.ToRanking, bonus.ToOrg);
                                     <div>
-                                        <span style="color: #5cb85c; font-size: 0.85em; font-weight: bold;" title="Promotion bonus applied">
+                                        <span style="color: #5cb85c; font-size: 0.85em; font-weight: bold;" title="@LocString[nameof(LocalizationKey.PromotionBonusApplied)]">
                                             +@bonus.BonusAmount.ToString("F1")
                                         </span>
                                         <span style="color: #888; font-size: 0.8em;">
@@ -709,7 +709,7 @@
                                         {
                                             @if (t.FemalePosition == 1)
                                             {
-                                                <span style="color: #d63384; margin-left: 4px;" title="Female Champion">👑</span>
+                                                <span style="color: #d63384; margin-left: 4px;" title="@LocString[nameof(LocalizationKey.FemaleChampion)]">👑</span>
                                             }
                                             else
                                             {
@@ -1060,7 +1060,7 @@
                             if (photoUrl) {
                                 if ($photoContainer.length === 0) {
                                     // Create photo container if it doesn't exist
-                                    $infoContainer.before('<div class="col-xs-3 col-sm-2" id="playerPhotoContainer"><img id="playerPhoto" src="' + photoUrl + '" style="max-width: 120px; max-height: 120px; border-radius: 8px; cursor: pointer;" onclick="showPhotoModal(this.src)" title="Click to enlarge" /></div>');
+                                    $infoContainer.before('<div class="col-xs-3 col-sm-2" id="playerPhotoContainer"><img id="playerPhoto" src="' + photoUrl + '" style="max-width: 120px; max-height: 120px; border-radius: 8px; cursor: pointer;" onclick="showPhotoModal(this.src)" title="@LocString[nameof(LocalizationKey.ClickToEnlarge)]" /></div>');
                                     $infoContainer.removeClass('col-xs-12').addClass('col-xs-9 col-sm-10');
                                 } else {
                                     $('#playerPhoto').attr('src', photoUrl);
@@ -1155,7 +1155,7 @@
             // Handle delete ranking
             $(document).on('submit', '.delete-ranking-form', function(e) {
                 e.preventDefault();
-                if (!confirm('Delete this ranking?')) return;
+                if (!confirm('@LocString[nameof(LocalizationKey.DeleteThisRanking)]')) return;
                 
                 var $form = $(this);
                 var rankingId = $form.find('[name="rankingId"]').val();
@@ -1204,7 +1204,7 @@
                             var photoUrl = response.photoUrl + '?t=' + Date.now();
                             if ($photoContainer.length === 0) {
                                 // Create container if it doesn't exist - insert before info container
-                                $infoContainer.before('<div class="col-xs-3 col-sm-2" id="playerPhotoContainer"><img id="playerPhoto" src="' + photoUrl + '" style="max-width: 120px; max-height: 120px; border-radius: 8px; cursor: pointer;" onclick="showPhotoModal(this.src)" title="Click to enlarge" /></div>');
+                                $infoContainer.before('<div class="col-xs-3 col-sm-2" id="playerPhotoContainer"><img id="playerPhoto" src="' + photoUrl + '" style="max-width: 120px; max-height: 120px; border-radius: 8px; cursor: pointer;" onclick="showPhotoModal(this.src)" title="@LocString[nameof(LocalizationKey.ClickToEnlarge)]" /></div>');
                                 $infoContainer.removeClass('col-xs-12').addClass('col-xs-9 col-sm-10');
                             } else {
                                 $('#playerPhoto').attr('src', photoUrl);

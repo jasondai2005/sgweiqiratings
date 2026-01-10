@@ -2,7 +2,7 @@
 @inject Microsoft.Extensions.Localization.IStringLocalizer<LocalizationKey> LocString
 
 @{
-    ViewData["Title"] = ViewBag.Title ?? "Edit Photo";
+    ViewData["Title"] = ViewBag.Title ?? LocString[nameof(LocalizationKey.EditPhoto)];
     Layout = "_Layout";
 }
 
@@ -24,7 +24,7 @@
                 <input type="hidden" name="photoType" value="@ViewBag.PhotoType" />
 
                 <div class="form-group">
-                    <label>URL</label>
+                    <label>@LocString[nameof(LocalizationKey.Url)]</label>
                     <input type="text" name="photoUrl" class="form-control" value="@ViewBag.CurrentUrl" placeholder="https://..." />
                 </div>
 
@@ -56,7 +56,7 @@
                         var isXls = currentUrl.EndsWith(".xls", StringComparison.OrdinalIgnoreCase) || currentUrl.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase);
                         var isDocument = isPdf || isTxt || isXls;
                         <div class="form-group">
-                            <label>Current:</label>
+                            <label>@LocString[nameof(LocalizationKey.Current)]:</label>
                             <div>
                                 @if (isPdf)
                                 {
@@ -91,7 +91,7 @@
                     @if (!string.IsNullOrEmpty((string)ViewBag.CurrentUrl))
                     {
                         <div class="form-group">
-                            <label>Current:</label>
+                            <label>@LocString[nameof(LocalizationKey.Current)]:</label>
                             <div>
                                 <img src="@ViewBag.CurrentUrl" style="max-width: 100%; max-height: 200px; border-radius: 4px;" />
                             </div>

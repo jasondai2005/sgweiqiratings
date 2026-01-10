@@ -92,7 +92,7 @@
                             }
                         }
                     </select>
-                    <a asp-controller="Tournaments" asp-action="Create" asp-route-leagueId="@Model.LeagueId" class="btn btn-default create-tournament-link" title="Create New Tournament">+</a>
+                    <a asp-controller="Tournaments" asp-action="Create" asp-route-leagueId="@Model.LeagueId" class="btn btn-default create-tournament-link" title="@LocString[nameof(LocalizationKey.CreateNewTournament)]">+</a>
                 </div>
                 <span asp-validation-for="TournamentId" class="text-danger" />
             </div>

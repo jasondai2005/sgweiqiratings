@@ -68,6 +68,7 @@ namespace PlayerRatings.Localization
         public static readonly LocalizationKey Details = new LocalizationKey("Details", "详细信息");
 
         public static readonly LocalizationKey DisplayName = new LocalizationKey("Display name", "名字");
+        public static readonly LocalizationKey Name = new LocalizationKey("Name", "名称");
         public static readonly LocalizationKey Username = new LocalizationKey("Username", "用户名");
         public static readonly LocalizationKey BirthYear = new LocalizationKey("Birth Year", "生年");
         public static readonly LocalizationKey Ranking = new LocalizationKey("Ranking", "段/级位");
@@ -128,6 +129,11 @@ namespace PlayerRatings.Localization
         public static readonly LocalizationKey Hello = new LocalizationKey("Hello", "您好");
 
         public static readonly LocalizationKey Import = new LocalizationKey("Import", "导入");
+        public static readonly LocalizationKey ImportTournamentResults = new LocalizationKey("Import Tournament Results", "导入赛事结果");
+        public static readonly LocalizationKey ReviewImport = new LocalizationKey("Review Import", "审核导入");
+        public static readonly LocalizationKey TournamentFile = new LocalizationKey("Tournament File (EGF Text Format)", "赛事文件（EGF文本格式）");
+        public static readonly LocalizationKey MatchDate = new LocalizationKey("Match Date", "比赛日期");
+        public static readonly LocalizationKey MapToPlayer = new LocalizationKey("Map to Player", "映射到选手");
         
         public static readonly LocalizationKey ImportFromH9 = new LocalizationKey("Import Results", "导入成绩");
 
@@ -285,6 +291,8 @@ namespace PlayerRatings.Localization
         public static readonly LocalizationKey GameRecords = new LocalizationKey("Game Records", "对局记录");
         public static readonly LocalizationKey Opponent = new LocalizationKey("Opponent", "对手");
         public static readonly LocalizationKey Result = new LocalizationKey("Result", "结果");
+        public static readonly LocalizationKey White = new LocalizationKey("White", "白方");
+        public static readonly LocalizationKey Black = new LocalizationKey("Black", "黑方");
         public static readonly LocalizationKey Win = new LocalizationKey("Win", "胜");
         public static readonly LocalizationKey Loss = new LocalizationKey("Loss", "负");
         public static readonly LocalizationKey Draw = new LocalizationKey("Draw", "和");
@@ -295,8 +303,15 @@ namespace PlayerRatings.Localization
         public static readonly LocalizationKey BackToRating = new LocalizationKey("Back to Rating", "返回等级分");
         public static readonly LocalizationKey RatingHistoryChart = new LocalizationKey("Rating History Chart", "等级分历史图表");
         public static readonly LocalizationKey PhotoUrl = new LocalizationKey("Photo URL", "照片链接");
+        public static readonly LocalizationKey Url = new LocalizationKey("URL", "链接");
+        public static readonly LocalizationKey Current = new LocalizationKey("Current", "当前");
+        public static readonly LocalizationKey EditPhoto = new LocalizationKey("Edit Photo", "编辑照片");
         public static readonly LocalizationKey UploadPhoto = new LocalizationKey("Upload Photo", "上传照片");
         public static readonly LocalizationKey UploadFile = new LocalizationKey("Upload File", "上传文件");
+        public static readonly LocalizationKey ClickToSelect = new LocalizationKey("Click to select", "点击选择");
+        public static readonly LocalizationKey DragAndDropFile = new LocalizationKey("or drag and drop a tournament file here", "或将赛事文件拖放到此处");
+        public static readonly LocalizationKey EgfFormatHint = new LocalizationKey("Any file containing EGF text format results", "任何包含EGF文本格式结果的文件");
+        public static readonly LocalizationKey UploadAndReview = new LocalizationKey("Upload & Review All Rounds", "上传并审核所有轮次");
         public static readonly LocalizationKey SupportedFormats = new LocalizationKey("Supported Formats", "支持的格式");
         public static readonly LocalizationKey Upload = new LocalizationKey("Upload", "上传");
         public static readonly LocalizationKey Screenshot = new LocalizationKey("Screenshot", "截图");
@@ -403,6 +418,11 @@ namespace PlayerRatings.Localization
         public static readonly LocalizationKey CreateTournament = new LocalizationKey("Create Tournament", "创建赛事");
         public static readonly LocalizationKey EditTournament = new LocalizationKey("Edit Tournament", "编辑赛事");
         public static readonly LocalizationKey DeleteTournament = new LocalizationKey("Delete Tournament", "删除赛事");
+        public static readonly LocalizationKey AreYouSureDeleteTournament = new LocalizationKey("Are you sure you want to delete this tournament?", "确定要删除这个赛事吗？");
+        public static readonly LocalizationKey DeleteTournamentNote = new LocalizationKey("Deleting this tournament will:", "删除此赛事将会：");
+        public static readonly LocalizationKey DeleteTournamentNote1 = new LocalizationKey("Remove tournament information", "删除赛事信息");
+        public static readonly LocalizationKey DeleteTournamentNote2 = new LocalizationKey("Clear tournament assignments from matches (matches will remain)", "清除比赛中的赛事关联（比赛记录将保留）");
+        public static readonly LocalizationKey DeleteTournamentNote3 = new LocalizationKey("Remove player positions and promotions from tournament", "删除选手在赛事中的名次和升段记录");
         public static readonly LocalizationKey MatchesNotRatedNote = new LocalizationKey(
             "Note: Games with Factor = 0 won't affect ratings (e.g., opponent no-show, handicapped games).",
             "注：权值为0的对局不计入等级分（例如：对手未到场、让子棋等）。");
@@ -416,11 +436,17 @@ namespace PlayerRatings.Localization
         public static readonly LocalizationKey Undefeated = new LocalizationKey("Undefeated", "全胜");
         public static readonly LocalizationKey FemaleChampion = new LocalizationKey("Female Champion", "女子冠军");
         public static readonly LocalizationKey Championships = new LocalizationKey("Championships", "冠军次数");
+        public static readonly LocalizationKey Champion = new LocalizationKey("Champion", "冠军");
+        public static readonly LocalizationKey Champions = new LocalizationKey("Champions", "冠军");
+        public static readonly LocalizationKey TeamChampion = new LocalizationKey("Team Champion", "团体冠军");
+        public static readonly LocalizationKey TeamChampions = new LocalizationKey("Team Champions", "团体冠军");
+        public static readonly LocalizationKey FemaleChampions = new LocalizationKey("Female Champions", "女子冠军");
+        public static readonly LocalizationKey SelectedToIntlEvent = new LocalizationKey("Selected to Intl Event", "入选国际赛事");
+        public static readonly LocalizationKey SelectedToIntlEvents = new LocalizationKey("Selected to Intl Events", "入选国际赛事");
         public static readonly LocalizationKey TeamChampionships = new LocalizationKey("Team Championships", "团体冠军次数");
         public static readonly LocalizationKey FemaleChampionships = new LocalizationKey("Female Championships", "女子冠军次数");
         public static readonly LocalizationKey Photo = new LocalizationKey("Photo", "照片");
         public static readonly LocalizationKey AddPhoto = new LocalizationKey("Add Photo", "添加照片");
-        public static readonly LocalizationKey EditPhoto = new LocalizationKey("Edit Photo", "编辑照片");
         public static readonly LocalizationKey MatchPhoto = new LocalizationKey("Match Photo", "对局照片");
         public static readonly LocalizationKey ResultPhoto = new LocalizationKey("Result Photo", "结果照片");
         public static readonly LocalizationKey GameRecordLink = new LocalizationKey("Game Record", "棋谱");
@@ -436,6 +462,13 @@ namespace PlayerRatings.Localization
         public static readonly LocalizationKey FormerTitle = new LocalizationKey("Former Title", "曾获头衔");
         public static readonly LocalizationKey Promotions = new LocalizationKey("Promotions", "升段");
         public static readonly LocalizationKey ActivePlayers = new LocalizationKey("Active Players", "活跃选手");
+        public static readonly LocalizationKey Refresh = new LocalizationKey("Reload data from database", "从数据库重新加载");
+        public static readonly LocalizationKey ClickToEnlarge = new LocalizationKey("Click to enlarge", "点击放大");
+        public static readonly LocalizationKey PromotionBonusApplied = new LocalizationKey("Promotion bonus applied", "升段加分");
+        public static readonly LocalizationKey AddPromotion = new LocalizationKey("Add Promotion", "添加升段");
+        public static readonly LocalizationKey CreateNewTournament = new LocalizationKey("Create New Tournament", "创建新赛事");
+        public static readonly LocalizationKey DeleteThisRanking = new LocalizationKey("Delete this ranking?", "删除此段位？");
+        public static readonly LocalizationKey ConfirmDeleteAction = new LocalizationKey("This action cannot be undone. Are you absolutely sure?", "此操作无法撤销。确定要继续吗？");
 
         private const string En = "en";
         private const string Cn = "cn";

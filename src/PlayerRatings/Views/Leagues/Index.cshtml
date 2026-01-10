@@ -41,7 +41,7 @@
         <td>
             <a asp-action="Rating" asp-route-id="@item.Id">@LocString[nameof(LocalizationKey.Rating)]</a> |
             <a asp-controller="Matches" asp-action="Index" asp-route-leagueId="@item.Id">@LocString[nameof(LocalizationKey.Matches)]</a> |
-            <a asp-controller="Tournaments" asp-action="Index" asp-route-leagueId="@item.Id">Tournaments</a> |
+            <a asp-controller="Tournaments" asp-action="Index" asp-route-leagueId="@item.Id">@LocString[nameof(LocalizationKey.Tournaments)]</a> |
             <a asp-action="Details" asp-route-id="@item.Id">@LocString[nameof(LocalizationKey.Details)]</a>
             @if (item.CreatedByUserId == appUser.Id)
             {

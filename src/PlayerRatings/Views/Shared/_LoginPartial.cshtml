@@ -15,7 +15,7 @@
     <form asp-controller="Account" asp-action="LogOff" method="post" id="logoutForm" class="navbar-right">
         <ul class="nav navbar-nav navbar-right">
             <li>
-                <a asp-controller="Manage" asp-action="Index" title="Manage">@LocString[nameof(LocalizationKey.Hello)] @(appUser?.DisplayName)!</a>
+                <a asp-controller="Manage" asp-action="Index" title="@LocString[nameof(LocalizationKey.Manage)]">@LocString[nameof(LocalizationKey.Hello)] @(appUser?.DisplayName)!</a>
             </li>
             <li>
                 <button type="submit" class="btn btn-link navbar-btn navbar-link">@LocString[nameof(LocalizationKey.LogOff)]</button>

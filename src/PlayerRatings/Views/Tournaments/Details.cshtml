@@ -360,7 +360,7 @@
                                     {
                                         @if (p.FemalePosition == 1)
                                         {
-                                            <span style="color: #d63384;" title="Female Champion">👑</span>
+                                            <span style="color: #d63384;" title="@LocString[nameof(LocalizationKey.FemaleChampion)]">👑</span>
                                         }
                                         else
                                         {
@@ -387,7 +387,7 @@
                                     else if (Model.IsAdmin)
                                     {
                                         <a href="@Url.Action("EditRankingHistory", "Leagues", new { id = Model.LeagueId, playerId = p.PlayerId, tournamentId = Model.Id })" 
-                                           target="_blank" class="btn btn-xs btn-default" title="Add Promotion">+</a>
+                                           target="_blank" class="btn btn-xs btn-default" title="@LocString[nameof(LocalizationKey.AddPromotion)]">+</a>
                                     }
                                 </td>
                             }

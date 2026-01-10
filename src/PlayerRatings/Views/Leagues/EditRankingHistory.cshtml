@@ -19,7 +19,7 @@
             <!-- Back link -->
             <div style="margin-bottom: 15px;">
                 <a asp-action="Player" asp-route-id="@Model.LeagueId" asp-route-playerId="@Model.Player.Id" class="btn btn-default btn-sm">
-                    ← @LocString[nameof(LocalizationKey.BackToPlayer)]
+                    ↩ @LocString[nameof(LocalizationKey.BackToPlayer)]
                 </a>
             </div>
 
@@ -48,7 +48,7 @@
                             <input type="date" class="form-control" name="RankingDate" />
                         </div>
                         <div class="col-md-3 form-group">
-                            <label>Tournament</label>
+                            <label>@LocString[nameof(LocalizationKey.Tournament)]</label>
                             <select class="form-control" name="TournamentId" id="tournamentSelect">
                                 <option value="">-- None --</option>
                                 @foreach (var t in Model.TournamentOptions)
@@ -84,7 +84,7 @@
                                 <th>@LocString[nameof(LocalizationKey.Ranking)]</th>
                                 <th>@LocString[nameof(LocalizationKey.Organization)]</th>
                                 <th>@LocString[nameof(LocalizationKey.Date)]</th>
-                                <th>Tournament</th>
+                                <th>@LocString[nameof(LocalizationKey.Tournament)]</th>
                                 <th>@LocString[nameof(LocalizationKey.Note)]</th>
                                 <th style="width: 150px;"></th>
                             </tr>
@@ -107,7 +107,7 @@
                                     </td>
                                     <td style="font-size: 0.9em; color: #666;">@ranking.RankingNote</td>
                                     <td>
-                                        <button class="btn btn-primary btn-xs" type="button" data-toggle="collapse" data-target="#@editFormId" title="Edit">
+                                        <button class="btn btn-primary btn-xs" type="button" data-toggle="collapse" data-target="#@editFormId" title="@LocString[nameof(LocalizationKey.Edit)]">
                                             ✏️ Edit
                                         </button>
                                         <form asp-action="DeleteRanking" method="post" style="display: inline;" class="delete-ranking-form">
@@ -115,7 +115,7 @@
                                             <input type="hidden" name="playerId" value="@Model.Player.Id" />
                                             <input type="hidden" name="leagueId" value="@Model.LeagueId" />
                                             <input type="hidden" name="returnToEditPage" value="true" />
-                                            <button type="submit" class="btn btn-danger btn-xs" title="Delete" onclick="return confirm('Delete this ranking?');">🗑️</button>
+                                            <button type="submit" class="btn btn-danger btn-xs" title="@LocString[nameof(LocalizationKey.Delete)]" onclick="return confirm('@LocString[nameof(LocalizationKey.DeleteThisRanking)]');">🗑️</button>
                                         </form>
                                     </td>
                                 </tr>
@@ -147,7 +147,7 @@
                                                     <input type="date" class="form-control input-sm" name="RankingDate" value="@(ranking.RankingDate?.ToString("yyyy-MM-dd"))" />
                                                 </div>
                                                 <div class="col-md-3 form-group">
-                                                    <label>Tournament</label>
+                                                    <label>@LocString[nameof(LocalizationKey.Tournament)]</label>
                                                     <select class="form-control input-sm" name="TournamentId">
                                                         <option value="">-- None --</option>
                                                         @foreach (var t in Model.TournamentOptions)

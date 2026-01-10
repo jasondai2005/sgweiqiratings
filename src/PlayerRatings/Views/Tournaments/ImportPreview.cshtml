@@ -92,7 +92,7 @@
     }
 </style>
 
-<h2>Review Import</h2>
+<h2>@LocString[nameof(LocalizationKey.ReviewImport)]</h2>
 <h4 class="text-muted">@Model.TournamentName</h4>
 <hr />
 
@@ -132,7 +132,7 @@
         <!-- Settings Row -->
         <div class="row" style="margin-bottom: 15px;">
             <div class="col-md-3">
-                <label class="control-label">Match Date</label>
+                <label class="control-label">@LocString[nameof(LocalizationKey.MatchDate)]</label>
                 @{
                     var matchDate = Model.H9StartDate?.Date ?? DateTime.Now.Date;
                     var defaultTime = matchDate.AddHours(10); // 10:00 AM
@@ -157,10 +157,10 @@
                         <tr>
                             <th style="width: 40px;">#</th>
                             <th style="width: 200px;">Name in File</th>
-                            <th style="width: 60px;">Rank</th>
-                            <th style="width: 60px;">Games</th>
-                            <th>Map to Player</th>
-                            <th style="width: 100px;">Create New</th>
+                            <th style="width: 60px;">@LocString[nameof(LocalizationKey.Ranking)]</th>
+                            <th style="width: 60px;">@LocString[nameof(LocalizationKey.Games)]</th>
+                            <th>@LocString[nameof(LocalizationKey.MapToPlayer)]</th>
+                            <th style="width: 100px;">@LocString[nameof(LocalizationKey.CreateNew)]</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -231,9 +231,9 @@
                         <tr>
                             <th style="width: 40px;">✓</th>
                             <th style="width: 50px;">Tbl</th>
-                            <th>White</th>
-                            <th style="width: 80px; text-align: center;">Result</th>
-                            <th>Black</th>
+                            <th>@LocString[nameof(LocalizationKey.White)]</th>
+                            <th style="width: 80px; text-align: center;">@LocString[nameof(LocalizationKey.Result)]</th>
+                            <th>@LocString[nameof(LocalizationKey.Black)]</th>
                         </tr>
                     </thead>
                     <tbody>

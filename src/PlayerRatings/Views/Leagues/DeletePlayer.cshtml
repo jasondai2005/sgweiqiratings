@@ -71,7 +71,7 @@
             @Html.AntiForgeryToken()
             <input type="hidden" name="leagueId" value="@Model.LeagueId" />
             <input type="hidden" name="playerId" value="@Model.PlayerId" />
-            <button type="submit" class="btn btn-danger" onclick="return confirm('This action cannot be undone. Are you absolutely sure?');">
+            <button type="submit" class="btn btn-danger" onclick="return confirm('@LocString[nameof(LocalizationKey.ConfirmDeleteAction)]');">
                 🗑️ @LocString[nameof(LocalizationKey.Delete)]
             </button>
             <a asp-action="Details" asp-route-id="@Model.LeagueId" class="btn btn-default">
