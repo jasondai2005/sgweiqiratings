@@ -52,7 +52,14 @@
                     </div>
                     }
                     <div class="@(string.IsNullOrEmpty(Model.Player.Photo) ? "col-xs-12" : "col-xs-9 col-sm-10")" id="playerInfoContainer">
-                        <p style="margin-bottom: 5px; @(Model.Player.BirthYearValue == null ? "display:none;" : "")" id="birthYearRow"><strong>@LocString[nameof(LocalizationKey.BirthYear)]:</strong> <span id="displayBirthYear">@Model.Player.BirthYear</span></p>
+                        @{
+                            // Show birth year if admin, or if player is U18
+                            var showBirthYear = Model.IsAdmin 
+                                ? Model.Player.BirthYearValue != null 
+                                : !string.IsNullOrEmpty(Model.Player.BirthYearU18);
+                            var displayBirthYear = Model.IsAdmin ? Model.Player.BirthYear : Model.Player.BirthYearU18;
+                        }
+                        <p style="margin-bottom: 5px; @(showBirthYear ? "" : "display:none;")" id="birthYearRow"><strong>@LocString[nameof(LocalizationKey.BirthYear)]:</strong> <span id="displayBirthYear">@displayBirthYear</span></p>
                         <p style="margin-bottom: 5px;"><strong>@LocString[nameof(LocalizationKey.Residence)]:</strong> <span id="displayResidence">@(string.IsNullOrEmpty(Model.Player.CurrentResidence) ? "Singapore" : Model.Player.CurrentResidence)</span></p>
                         <p style="margin-bottom: 5px;"><strong>@LocString[nameof(LocalizationKey.CurrentRanking)]:</strong> @Model.Player.LatestRanking</p>
                         @if (Model.Position > 0)
