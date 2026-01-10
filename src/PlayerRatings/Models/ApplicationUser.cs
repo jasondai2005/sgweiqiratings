@@ -715,32 +715,6 @@ namespace PlayerRatings.Models
             }
         }
 
-        public string FormatedRankingHistory
-        {
-            get
-            {
-                var rankingHistory = RankingHistory.Where(x => x.Key != LatestRanking && !string.IsNullOrEmpty(x.Key) && !x.Key.Contains("K?"));
-                if (rankingHistory.Count() > 2)
-                    return string.Join(Environment.NewLine, rankingHistory.Select(x => string.Join(":", x.Key, x.Value == DateTimeOffset.MinValue ? "?" : x.Value.ToString(DATE_FORMAT)).Replace(" ", string.Empty)));
-                else
-                    return string.Empty;
-            }
-        }
-
-        public string LatestRankingHistory(int noOfRecords, bool swaOnly)
-        {
-            var source = swaOnly ? SwaRankingHistory : RankingHistory;
-            if (!source.Any())
-                return string.Empty;
-            var latestRanking = source.First().Key;
-            var rankingHistory = source.Where(x => x.Key != latestRanking && !string.IsNullOrEmpty(x.Key) && !x.Key.Contains("K?"));
-            if (swaOnly)
-                rankingHistory = rankingHistory.Where(x => !x.Key.Contains("K"));
-            else
-                rankingHistory = rankingHistory.Take(noOfRecords);
-            return string.Join(". ", rankingHistory.Select(x => x.Value == DateTimeOffset.MinValue ? x.Key : string.Join(":", x.Key, x.Value.ToString(DATE_FORMAT))));
-        }
-
         /// <summary>
         /// Formats a PlayerRanking for display (e.g., "1D" for SWA, "(1D)" for TGA, "[1D]" for foreign)
         /// When SwaOnly mode is enabled, TGA rankings are shown as "[1D]" like foreign rankings.

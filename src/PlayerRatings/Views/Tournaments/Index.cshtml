@@ -129,12 +129,12 @@
     @if (Model.PreviousYear.HasValue)
     {
         <a asp-action="Index" asp-route-leagueId="@Model.LeagueId" asp-route-year="@Model.PreviousYear.Value" class="btn btn-outline-primary">
-            ← @Model.PreviousYear
+            ◀ @Model.PreviousYear
         </a>
     }
     else
     {
-        <span class="btn btn-outline-secondary disabled">← Prev</span>
+        <span class="btn btn-outline-secondary disabled">◀ Prev</span>
     }
 
     <div class="dropdown">
@@ -160,12 +160,12 @@
         {
             <a asp-action="Index" asp-route-leagueId="@Model.LeagueId" asp-route-year="@Model.PreviousMonthYear" asp-route-month="@Model.PreviousMonth" 
                class="btn btn-outline-info" title="@(new DateTime(2000, Model.PreviousMonth.Value, 1).ToString("MMM")) @Model.PreviousMonthYear">
-                ←
+                ◀
             </a>
         }
         else if (Model.CurrentMonth.HasValue)
         {
-            <span class="btn btn-outline-secondary disabled">←</span>
+            <span class="btn btn-outline-secondary disabled">◀</span>
         }
 
         <div class="dropdown">
@@ -203,24 +203,24 @@
         {
             <a asp-action="Index" asp-route-leagueId="@Model.LeagueId" asp-route-year="@Model.NextMonthYear" asp-route-month="@Model.NextMonth" 
                class="btn btn-outline-info" title="@(new DateTime(2000, Model.NextMonth.Value, 1).ToString("MMM")) @Model.NextMonthYear">
-                →
+                ▶
             </a>
         }
         else if (Model.CurrentMonth.HasValue)
         {
-            <span class="btn btn-outline-secondary disabled">→</span>
+            <span class="btn btn-outline-secondary disabled">▶</span>
         }
     }
 
     @if (Model.NextYear.HasValue)
     {
         <a asp-action="Index" asp-route-leagueId="@Model.LeagueId" asp-route-year="@Model.NextYear.Value" class="btn btn-outline-primary">
-            @Model.NextYear →
+            @Model.NextYear ▶
         </a>
     }
     else
     {
-        <span class="btn btn-outline-secondary disabled">Next →</span>
+        <span class="btn btn-outline-secondary disabled">Next ▶</span>
     }
 
     @if (Model.IsAdmin)

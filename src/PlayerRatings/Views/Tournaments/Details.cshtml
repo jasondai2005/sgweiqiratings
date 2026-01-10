@@ -9,22 +9,18 @@
 <h2>@ViewData["Title"]</h2>
 <hr />
 
-<div class="form-group">
-    <a asp-action="Index" asp-route-leagueId="@Model.LeagueId" class="btn btn-default">
-        ← @LocString[nameof(LocalizationKey.BackToTournaments)]
-    </a>
+<div class="form-group" style="display: inline-flex; gap: 4px; align-items: center; flex-wrap: wrap;">
+    <a asp-action="Index" asp-route-leagueId="@Model.LeagueId" class="btn btn-default btn-sm" title="@LocString[nameof(LocalizationKey.BackToTournaments)]">↩</a>
     @if (Model.IsAdmin)
     {
         <a asp-controller="Matches" asp-action="Create" 
            asp-route-leagueId="@Model.LeagueId" 
            asp-route-tournamentId="@Model.Id"
            asp-route-lastMatchDateTime="@((Model.StartDate ?? DateTimeOffset.UtcNow).ToString("o"))"
-           class="btn btn-success">+ @LocString[nameof(LocalizationKey.AddNewResult)]</a>
-        <a asp-action="ImportH9" asp-route-id="@Model.Id" class="btn btn-info" title="Import from H9 file">
-            📥 @LocString[nameof(LocalizationKey.Import)]
-        </a>
-        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">@LocString[nameof(LocalizationKey.Edit)]</a>
-        <a asp-action="Delete" asp-route-id="@Model.Id" class="btn btn-danger">@LocString[nameof(LocalizationKey.Delete)]</a>
+           class="btn btn-success btn-sm" title="@LocString[nameof(LocalizationKey.AddNewResult)]">+</a>
+        <a asp-action="ImportH9" asp-route-id="@Model.Id" class="btn btn-info btn-sm" title="@LocString[nameof(LocalizationKey.Import)]">📥</a>
+        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary btn-sm" title="@LocString[nameof(LocalizationKey.Edit)]">✏️</a>
+        <a asp-action="Delete" asp-route-id="@Model.Id" class="btn btn-danger btn-sm" title="@LocString[nameof(LocalizationKey.Delete)]">🗑️</a>
     }
 </div>
 
@@ -859,9 +855,8 @@
                         @if (Model.IsAdmin)
                         {
                             <td>
-                                <a asp-controller="Matches" asp-action="Edit" asp-route-id="@m.Id" target="_blank">@LocString[nameof(LocalizationKey.Edit)]</a>
-                                |
-                                <a asp-controller="Matches" asp-action="Delete" asp-route-id="@m.Id" target="_blank">@LocString[nameof(LocalizationKey.Delete)]</a>
+                                <a asp-controller="Matches" asp-action="Edit" asp-route-id="@m.Id" target="_blank" title="@LocString[nameof(LocalizationKey.Edit)]">✏️</a>
+                                <a asp-controller="Matches" asp-action="Delete" asp-route-id="@m.Id" target="_blank" title="@LocString[nameof(LocalizationKey.Delete)]">🗑️</a>
                             </td>
                         }
                     </tr>

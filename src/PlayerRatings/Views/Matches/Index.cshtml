@@ -18,12 +18,12 @@
     @if (Model.PreviousMonth.HasValue)
     {
         <a asp-action="Index" asp-route-leagueid="@Model.LeagueId" asp-route-year="@Model.PreviousMonth.Value.Year" asp-route-month="@Model.PreviousMonth.Value.Month" class="btn btn-default btn-sm">
-            ← @Model.PreviousMonth.Value.ToString("MM/yyyy")
+            ◀ @Model.PreviousMonth.Value.ToString("MM/yyyy")
         </a>
     }
     else
     {
-        <span class="btn btn-default btn-sm disabled">← Prev</span>
+        <span class="btn btn-default btn-sm disabled">◀ Prev</span>
     }
 
     <div class="dropdown">
@@ -46,12 +46,12 @@
     @if (Model.NextMonth.HasValue)
     {
         <a asp-action="Index" asp-route-leagueid="@Model.LeagueId" asp-route-year="@Model.NextMonth.Value.Year" asp-route-month="@Model.NextMonth.Value.Month" class="btn btn-default btn-sm">
-            @Model.NextMonth.Value.ToString("MM/yyyy") →
+            @Model.NextMonth.Value.ToString("MM/yyyy") ▶
         </a>
     }
     else
     {
-        <span class="btn btn-default btn-sm disabled">Next →</span>
+        <span class="btn btn-default btn-sm disabled">Next ▶</span>
     }
 
     <span style="color: #666; margin-left: 10px;">(@Model.Matches.Count() @LocString[nameof(LocalizationKey.Matches)])</span>
@@ -123,9 +123,8 @@
             <td>
                 @if (item.League.CreatedByUserId == appUser.Id)
                 {
-                    <a asp-action="Edit" asp-route-id="@item.Id">@LocString[nameof(LocalizationKey.Edit)]</a>
-                    @: |
-                    <a asp-action="Delete" asp-route-id="@item.Id">@LocString[nameof(LocalizationKey.Delete)]</a>
+                    <a asp-action="Edit" asp-route-id="@item.Id" title="@LocString[nameof(LocalizationKey.Edit)]">✏️</a>
+                    <a asp-action="Delete" asp-route-id="@item.Id" title="@LocString[nameof(LocalizationKey.Delete)]">🗑️</a>
                 }
             </td>
         </tr>

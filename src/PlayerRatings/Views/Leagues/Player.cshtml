@@ -32,6 +32,66 @@
     <div class="col-md-8">
         <h3 id="playerDisplayName">@Model.Player.DisplayName <span style="font-size: 0.6em; color: #999; font-weight: normal;">@Model.Player.UserName</span></h3>
         
+        <div class="mb-3" style="display: inline-flex; gap: 4px; align-items: center;">
+            <a href="@Url.Action("Rating", new { id = Model.LeagueId })" class="btn btn-outline-secondary btn-sm" title="@LocString[nameof(LocalizationKey.BackToRating)]">↩</a>
+            <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = Model.Player.Id, refresh = true })" class="btn btn-outline-secondary btn-sm" title="Reload data from database">⟳</a>
+            
+            @if (!string.IsNullOrEmpty(Model.PreviousPlayerId) || !string.IsNullOrEmpty(Model.NextPlayerId))
+            {
+                <span style="margin-left: 8px; color: #ccc;">|</span>
+                @if (!string.IsNullOrEmpty(Model.PreviousPlayerId))
+                {
+                    <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = Model.PreviousPlayerId })" 
+                       class="btn btn-outline-primary btn-sm" title="@LocString[nameof(LocalizationKey.PreviousPlayer)]">◀</a>
+                }
+                else
+                {
+                    <button class="btn btn-outline-secondary btn-sm" disabled>◀</button>
+                }
+                @if (Model.Position > 0)
+                {
+                    <span style="font-size: 0.85em; color: #666; min-width: 50px; text-align: center;">@Model.PositionDisplay</span>
+                }
+                else
+                {
+                    <span style="font-size: 0.85em; color: #999; min-width: 50px; text-align: center;">-</span>
+                }
+                @if (!string.IsNullOrEmpty(Model.NextPlayerId))
+                {
+                    <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = Model.NextPlayerId })" 
+                       class="btn btn-outline-primary btn-sm" title="@LocString[nameof(LocalizationKey.NextPlayer)]">▶</a>
+                }
+                else
+                {
+                    <button class="btn btn-outline-secondary btn-sm" disabled>▶</button>
+                }
+            }
+        </div>
+        
+        <style>
+            /* Mobile photo row for player details */
+            .player-photo-mobile-row {
+                display: none;
+                text-align: center;
+                margin-bottom: 15px;
+            }
+            .player-photo-desktop {
+                display: block;
+            }
+            @@media (max-width: 768px) {
+                .player-photo-mobile-row {
+                    display: block;
+                }
+                .player-photo-desktop {
+                    display: none !important;
+                }
+                .player-info-full-width {
+                    width: 100% !important;
+                    flex: 0 0 100% !important;
+                    max-width: 100% !important;
+                }
+            }
+        </style>
         <!-- Player Info Section -->
         <div class="panel panel-default" style="margin-bottom: 15px;">
             <div class="panel-heading" style="display: flex; justify-content: space-between; align-items: center;">
@@ -44,14 +104,22 @@
                 }
             </div>
             <div class="panel-body">
+                @if (!string.IsNullOrEmpty(Model.Player.Photo))
+                {
+                <!-- Mobile: Photo on its own row -->
+                <div class="player-photo-mobile-row">
+                    <img src="@(Model.Player.Photo)@(Model.Player.Photo.Contains("?") ? "&" : "?")v=@DateTime.UtcNow.Ticks" alt="@Model.Player.DisplayName" style="max-width: 150px; max-height: 150px; border-radius: 8px; cursor: pointer;" onclick="showPhotoModal(this.src)" title="Click to enlarge" />
+                </div>
+                }
                 <div class="row">
                     @if (!string.IsNullOrEmpty(Model.Player.Photo))
                     {
-                    <div class="col-xs-3 col-sm-2" id="playerPhotoContainer">
+                    <!-- Desktop: Photo inline -->
+                    <div class="col-xs-3 col-sm-2 player-photo-desktop" id="playerPhotoContainer">
                         <img id="playerPhoto" src="@(Model.Player.Photo)@(Model.Player.Photo.Contains("?") ? "&" : "?")v=@DateTime.UtcNow.Ticks" alt="@Model.Player.DisplayName" style="max-width: 120px; max-height: 120px; border-radius: 8px; cursor: pointer;" onclick="showPhotoModal(this.src)" title="Click to enlarge" />
                     </div>
                     }
-                    <div class="@(string.IsNullOrEmpty(Model.Player.Photo) ? "col-xs-12" : "col-xs-9 col-sm-10")" id="playerInfoContainer">
+                    <div class="@(string.IsNullOrEmpty(Model.Player.Photo) ? "col-xs-12" : "col-xs-9 col-sm-10 player-info-full-width")" id="playerInfoContainer">
                         @{
                             // Show birth year if admin, or if player is U18
                             var showBirthYear = Model.IsAdmin 
@@ -363,46 +431,6 @@
         )
     );
 }
-
-<div class="mb-3" style="display: inline-flex; gap: 8px; align-items: center;">
-    <a href="@Url.Action("Rating", new { id = Model.LeagueId })" class="btn btn-outline-secondary">← @LocString[nameof(LocalizationKey.BackToRating)]</a>
-    <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = Model.Player.Id, refresh = true })" class="btn btn-outline-secondary" title="Reload data from database">⟳</a>
-    
-    @if (!string.IsNullOrEmpty(Model.PreviousPlayerId) || !string.IsNullOrEmpty(Model.NextPlayerId))
-    {
-        <span style="margin-left: 16px; color: #666;">|</span>
-        @if (!string.IsNullOrEmpty(Model.PreviousPlayerId))
-        {
-            <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = Model.PreviousPlayerId })" 
-               class="btn btn-outline-primary btn-sm" title="@LocString[nameof(LocalizationKey.PreviousPlayer)]">
-                ◀ @LocString[nameof(LocalizationKey.Prev)]
-            </a>
-        }
-        else
-        {
-            <button class="btn btn-outline-secondary btn-sm" disabled>◀ @LocString[nameof(LocalizationKey.Prev)]</button>
-        }
-        @if (Model.Position > 0)
-        {
-            <span style="font-size: 0.9em; color: #666; min-width: 60px; text-align: center;">@Model.PositionDisplay</span>
-        }
-        else
-        {
-            <span style="font-size: 0.9em; color: #999; min-width: 60px; text-align: center; font-style: italic;">-</span>
-        }
-        @if (!string.IsNullOrEmpty(Model.NextPlayerId))
-        {
-            <a href="@Url.Action("Player", new { id = Model.LeagueId, playerId = Model.NextPlayerId })" 
-               class="btn btn-outline-primary btn-sm" title="@LocString[nameof(LocalizationKey.NextPlayer)]">
-                @LocString[nameof(LocalizationKey.Next)] ▶
-            </a>
-        }
-        else
-        {
-            <button class="btn btn-outline-secondary btn-sm" disabled>@LocString[nameof(LocalizationKey.Next)] ▶</button>
-        }
-    }
-</div>
 
 @if (Model.MonthlyRatings.Any())
 {
