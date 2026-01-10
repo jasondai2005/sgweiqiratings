@@ -39,6 +39,13 @@ namespace PlayerRatings.Controllers
         {
             var currentUser = await User.GetApplicationUser(_userManager);
 
+            // Only admins can access invites
+            var adminLeagues = _leaguesRepository.GetAdminAuthorizedLeagues(currentUser);
+            if (!adminLeagues.Any())
+            {
+                return NotFound();
+            }
+
             return View(await _context.Invites.AsNoTracking().Include(i => i.CreatedUser).Where(i => i.InvitedById == currentUser.Id).ToListAsync());
         }
 
@@ -46,16 +53,18 @@ namespace PlayerRatings.Controllers
         public async Task<IActionResult> Create(Guid? leagueId)
         {
             var currentUser = await User.GetApplicationUser(_userManager);
-            var leagues = _leaguesRepository.GetLeagues(currentUser).ToList();
-
-            if (leagueId.HasValue && _leaguesRepository.GetUserAuthorizedLeague(currentUser, leagueId.Value) == null)
-            {
-                return NotFound();
-            }
+            
+            // Only admins can create invites - get admin-authorized leagues only
+            var leagues = _leaguesRepository.GetAdminAuthorizedLeagues(currentUser).ToList();
 
             if (!leagues.Any())
             {
                 return RedirectToAction("NoLeagues", "Leagues");
+            }
+
+            if (leagueId.HasValue && _leaguesRepository.GetAdminAuthorizedLeague(currentUser, leagueId.Value) == null)
+            {
+                return NotFound();
             }
 
             return View(new InviteViewModel
@@ -72,7 +81,13 @@ namespace PlayerRatings.Controllers
         {
             var currentUser = await User.GetApplicationUser(_userManager);
 
-            invite.Leagues = _leaguesRepository.GetLeagues(currentUser);
+            // Only admins can create invites - get admin-authorized leagues only
+            invite.Leagues = _leaguesRepository.GetAdminAuthorizedLeagues(currentUser);
+
+            if (!invite.Leagues.Any())
+            {
+                return NotFound();
+            }
 
             if (!ModelState.IsValid)
             {
@@ -82,7 +97,7 @@ namespace PlayerRatings.Controllers
             League league = null;
             if (invite.LeagueId.HasValue)
             {
-                league = _leaguesRepository.GetUserAuthorizedLeague(currentUser, invite.LeagueId.Value);
+                league = _leaguesRepository.GetAdminAuthorizedLeague(currentUser, invite.LeagueId.Value);
 
                 if (league == null)
                 {
@@ -114,6 +129,13 @@ namespace PlayerRatings.Controllers
         {
             var currentUser = await User.GetApplicationUser(_userManager);
 
+            // Only admins can edit invites
+            var adminLeagues = _leaguesRepository.GetAdminAuthorizedLeagues(currentUser);
+            if (!adminLeagues.Any())
+            {
+                return NotFound();
+            }
+
             var invite = await _context.Invites.Include(i => i.CreatedUser).SingleAsync(m => m.Id == id);
             if (invite == null || invite.InvitedById != currentUser.Id)
             {
@@ -133,6 +155,13 @@ namespace PlayerRatings.Controllers
             if (ModelState.IsValid)
             {
                 var currentUser = await User.GetApplicationUser(_userManager);
+
+                // Only admins can edit invites
+                var adminLeagues = _leaguesRepository.GetAdminAuthorizedLeagues(currentUser);
+                if (!adminLeagues.Any())
+                {
+                    return NotFound();
+                }
 
                 var invite = await _context.Invites.Include(i => i.CreatedUser).SingleAsync(m => m.Id == model.Id);
                 if (invite == null || invite.InvitedById != currentUser.Id)
@@ -165,6 +194,15 @@ namespace PlayerRatings.Controllers
                 return NotFound();
             }
 
+            var currentUser = await User.GetApplicationUser(_userManager);
+            
+            // Only admins can delete invites
+            var adminLeagues = _leaguesRepository.GetAdminAuthorizedLeagues(currentUser);
+            if (!adminLeagues.Any())
+            {
+                return NotFound();
+            }
+
             var invite = await _context.Invites.AsNoTracking().Include(i => i.CreatedUser).SingleOrDefaultAsync(m => m.Id == id);
             if (invite == null)
             {
@@ -179,6 +217,15 @@ namespace PlayerRatings.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(Guid id)
         {
+            var currentUser = await User.GetApplicationUser(_userManager);
+            
+            // Only admins can delete invites
+            var adminLeagues = _leaguesRepository.GetAdminAuthorizedLeagues(currentUser);
+            if (!adminLeagues.Any())
+            {
+                return NotFound();
+            }
+
             var invite = await _context.Invites.SingleAsync(m => m.Id == id);
             _context.Invites.Remove(invite);
             await _context.SaveChangesAsync();

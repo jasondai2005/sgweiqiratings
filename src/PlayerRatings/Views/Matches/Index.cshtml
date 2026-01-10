@@ -121,7 +121,7 @@
                 @(item.Factor.HasValue ? item.Factor.Value.ToString("0.#") : "-")
             </td>
             <td>
-                @if (item.CreatedByUserId == appUser.Id || item.League.CreatedByUserId == appUser.Id)
+                @if (item.League.CreatedByUserId == appUser.Id)
                 {
                     <a asp-action="Edit" asp-route-id="@item.Id">@LocString[nameof(LocalizationKey.Edit)]</a>
                     @: |

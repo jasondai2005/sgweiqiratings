@@ -685,6 +685,14 @@
 
 @if (Model.Matches.Any())
 {
+    // Check if any matches have photos/game records (for non-admin column visibility)
+    var hasAnyMatchPhoto = Model.Matches.Any(m => !string.IsNullOrEmpty(m.MatchPhoto));
+    var hasAnyResultPhoto = Model.Matches.Any(m => !string.IsNullOrEmpty(m.MatchResultPhoto));
+    var hasAnyGameRecord = Model.Matches.Any(m => !string.IsNullOrEmpty(m.GameRecord));
+    var showMatchPhotoCol = Model.IsAdmin || hasAnyMatchPhoto;
+    var showResultPhotoCol = Model.IsAdmin || hasAnyResultPhoto;
+    var showGameRecordCol = Model.IsAdmin || hasAnyGameRecord;
+    
     <div style="margin-top: 20px;">
         <h4>@LocString[nameof(LocalizationKey.Matches)] (@Model.Matches.Count)</h4>
         @if (Model.IsAdmin)
@@ -705,9 +713,18 @@
                         <th style="text-align: center;">@LocString[nameof(LocalizationKey.Factor)]</th>
                         <th style="text-align: center;">@LocString[nameof(LocalizationKey.ShiftRating)]</th>
                     }
-                    <th style="text-align: center; width: 40px;" title="@LocString[nameof(LocalizationKey.MatchPhoto)]">📷</th>
-                    <th style="text-align: center; width: 40px;" title="@LocString[nameof(LocalizationKey.ResultPhoto)]">📷</th>
-                    <th style="text-align: center; width: 40px;" title="@LocString[nameof(LocalizationKey.GameRecordLink)]">📋</th>
+                    @if (showMatchPhotoCol)
+                    {
+                        <th style="text-align: center; width: 40px;" title="@LocString[nameof(LocalizationKey.MatchPhoto)]">📷</th>
+                    }
+                    @if (showResultPhotoCol)
+                    {
+                        <th style="text-align: center; width: 40px;" title="@LocString[nameof(LocalizationKey.ResultPhoto)]">📷</th>
+                    }
+                    @if (showGameRecordCol)
+                    {
+                        <th style="text-align: center; width: 40px;" title="@LocString[nameof(LocalizationKey.GameRecordLink)]">📋</th>
+                    }
                     @if (Model.IsAdmin)
                     {
                         <th></th>
@@ -770,6 +787,8 @@
                                 @(string.IsNullOrEmpty(m.ShiftRating) ? "-" : m.ShiftRating)
                             </td>
                         }
+                        @if (showMatchPhotoCol)
+                        {
                         <td style="text-align: center;">
                             @if (!string.IsNullOrEmpty(m.MatchPhoto))
                             {
@@ -790,6 +809,9 @@
                                 <span class="text-muted">-</span>
                             }
                         </td>
+                        }
+                        @if (showResultPhotoCol)
+                        {
                         <td style="text-align: center;">
                             @if (!string.IsNullOrEmpty(m.MatchResultPhoto))
                             {
@@ -810,6 +832,9 @@
                                 <span class="text-muted">-</span>
                             }
                         </td>
+                        }
+                        @if (showGameRecordCol)
+                        {
                         <td style="text-align: center;">
                             @if (!string.IsNullOrEmpty(m.GameRecord))
                             {
@@ -830,6 +855,7 @@
                                 <span class="text-muted">-</span>
                             }
                         </td>
+                        }
                         @if (Model.IsAdmin)
                         {
                             <td>

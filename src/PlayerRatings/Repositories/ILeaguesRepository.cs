@@ -11,5 +11,7 @@ namespace PlayerRatings.Repositories
         League GetUserAuthorizedLeague(ApplicationUser user, Guid leagueId);
 
         League GetAdminAuthorizedLeague(ApplicationUser user, Guid leagueId);
+
+        IEnumerable<League> GetAdminAuthorizedLeagues(ApplicationUser user);
     }
 }

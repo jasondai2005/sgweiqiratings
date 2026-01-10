@@ -76,7 +76,7 @@ namespace PlayerRatings.UnitTests.Repositories
         public void GetLeaguesEmptyTest()
         {
             // Arrange
-            var leaguesRepository = new LeaguesRepository(Context);
+            var leaguesRepository = new LeaguesRepository(Context, null);
 
             // Act
             var result = leaguesRepository.GetLeagues(User1);
@@ -109,7 +109,7 @@ namespace PlayerRatings.UnitTests.Repositories
             });
             Context.SaveChanges();
 
-            var leaguesRepository = new LeaguesRepository(Context);
+            var leaguesRepository = new LeaguesRepository(Context, null);
 
             // Act
             var result = leaguesRepository.GetLeagues(User1).ToList();
@@ -129,7 +129,7 @@ namespace PlayerRatings.UnitTests.Repositories
             Context.Users.Add(User2);
             Context.League.Add(League2);
             Context.SaveChanges();
-            var leaguesRepository = new LeaguesRepository(Context);
+            var leaguesRepository = new LeaguesRepository(Context, null);
 
             // Act
             var authorizedResult = leaguesRepository.GetAdminAuthorizedLeague(User1, League1.Id);
@@ -153,7 +153,7 @@ namespace PlayerRatings.UnitTests.Repositories
             Context.LeaguePlayers.Add(LeaguePlayer2);
             Context.SaveChanges();
 
-            var leaguesRepository = new LeaguesRepository(Context);
+            var leaguesRepository = new LeaguesRepository(Context, null);
 
             // Act
             var authorizedResult = leaguesRepository.GetUserAuthorizedLeague(User1, League1.Id);

@@ -36,9 +36,12 @@
         <div class="panel panel-default" style="margin-bottom: 15px;">
             <div class="panel-heading" style="display: flex; justify-content: space-between; align-items: center;">
                 <span><strong>@LocString[nameof(LocalizationKey.PlayerInformation)]</strong></span>
+                @if (Model.IsAdmin)
+                {
                 <button class="btn btn-sm btn-primary" type="button" data-toggle="collapse" data-target="#editPlayerInfo">
                     @LocString[nameof(LocalizationKey.Edit)]
                 </button>
+                }
             </div>
             <div class="panel-body">
                 <div class="row">
@@ -194,6 +197,8 @@
                 </div>
                 }
                 
+                @if (Model.IsAdmin)
+                {
                 <!-- Edit Player Info Form (collapsed by default) -->
                 <div class="collapse" id="editPlayerInfo" style="margin-top: 15px;">
                     <hr />
@@ -243,6 +248,7 @@
                         </div>
                     </form>
                 </div>
+                }
             </div>
         </div>
         
@@ -410,8 +416,11 @@
                 <th>@LocString[nameof(LocalizationKey.Tournaments)]</th>
                 <th>
                     @LocString[nameof(LocalizationKey.Ranking)]
+                    @if (Model.IsAdmin)
+                    {
                     <a asp-action="EditRankingHistory" asp-route-id="@Model.LeagueId" asp-route-playerId="@Model.Player.Id" 
                        target="_blank" class="btn btn-xs btn-default" style="margin-left: 3px; padding: 0px 4px;" title="@LocString[nameof(LocalizationKey.EditRankingHistory)]">✏️</a>
+                    }
                 </th>
             </tr>
         </thead>

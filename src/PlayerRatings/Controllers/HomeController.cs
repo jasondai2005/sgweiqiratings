@@ -56,31 +56,6 @@ namespace PlayerRatings.Controllers
             return View();
         }
 
-        public IActionResult Contact()
-        {
-            return View();
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Contact(ContactViewModel model)
-        {
-            if (ModelState.IsValid)
-            {
-                if (_settings.Value.ContactEmail != null)
-                {
-                    await _emailSender.SendEmailAsync(_settings.Value.ContactEmail, "Message from support page",
-                        model.Message + "\n\n\n" + model.ClientContact);
-                }
-
-                ViewData["Message"] = _localizer[nameof(LocalizationKey.YourMessageIsSent)];
-
-                return View();
-            }
-
-            return View(model);
-        }
-
         public IActionResult Date()
         {
             return Content(DateTime.Now.ToString(CultureInfo.InvariantCulture));

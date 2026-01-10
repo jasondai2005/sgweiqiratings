@@ -127,7 +127,8 @@ namespace PlayerRatings.Controllers
         {
             var currentUser = await _userManager.GetUserAsync(User);
 
-            var leagues = GetLeagues(currentUser, null);
+            // Only admins can create matches - get admin-authorized leagues only
+            var leagues = _leaguesRepository.GetAdminAuthorizedLeagues(currentUser);
 
             if (!leagues.Any())
             {
@@ -214,12 +215,13 @@ namespace PlayerRatings.Controllers
 
             if (ModelState.IsValid)
             {
-                var league = _leaguesRepository.GetUserAuthorizedLeague(currentUser, model.LeagueId);
+                // Only admins can create matches
+                var league = _leaguesRepository.GetAdminAuthorizedLeague(currentUser, model.LeagueId);
 
                 if (league == null)
                 {
                     ModelState.AddModelError("", _localizer[nameof(LocalizationKey.LeagueNotFound)]);
-                    var allLeagues = GetLeagues(currentUser, null);
+                    var allLeagues = _leaguesRepository.GetAdminAuthorizedLeagues(currentUser).ToList();
                     var allLeagueIds = allLeagues.Select(l => l.Id).ToList();
                     model.Leagues = allLeagues;
                     model.Users = GetUsers(allLeagueIds);
@@ -325,7 +327,7 @@ namespace PlayerRatings.Controllers
                 }
             }
 
-            model.Leagues = GetLeagues(currentUser, null);
+            model.Leagues = _leaguesRepository.GetAdminAuthorizedLeagues(currentUser).ToList();
             var availableLeagueIds = model.Leagues.Select(l => l.Id).ToList();
             model.Users = GetUsers(availableLeagueIds);
             model.Tournaments = _context.Tournaments
@@ -352,9 +354,9 @@ namespace PlayerRatings.Controllers
 
             var currentUser = await User.GetApplicationUser(_userManager);
 
-            var league = match.League;
-
-            if (league.CreatedByUserId != currentUser.Id && match.CreatedByUserId != currentUser.Id)
+            // Only admins can edit matches
+            var league = _leaguesRepository.GetAdminAuthorizedLeague(currentUser, match.LeagueId);
+            if (league == null)
             {
                 return NotFound();
             }
@@ -404,7 +406,8 @@ namespace PlayerRatings.Controllers
 
                 var currentUser = await User.GetApplicationUser(_userManager);
 
-                var league = _leaguesRepository.GetUserAuthorizedLeague(currentUser, model.LeagueId);
+                // Only admins can edit matches
+                var league = _leaguesRepository.GetAdminAuthorizedLeague(currentUser, model.LeagueId);
 
                 if (league == null)
                 {
@@ -495,9 +498,9 @@ namespace PlayerRatings.Controllers
 
             var currentUser = await User.GetApplicationUser(_userManager);
 
-            var league = match.League;
-
-            if (league.CreatedByUserId != currentUser.Id && match.CreatedByUserId != currentUser.Id)
+            // Only admins can delete matches
+            var league = _leaguesRepository.GetAdminAuthorizedLeague(currentUser, match.LeagueId);
+            if (league == null)
             {
                 return NotFound();
             }
@@ -517,7 +520,8 @@ namespace PlayerRatings.Controllers
 
             var currentUser = await User.GetApplicationUser(_userManager);
 
-            var league = _leaguesRepository.GetUserAuthorizedLeague(currentUser, match.LeagueId);
+            // Only admins can delete matches
+            var league = _leaguesRepository.GetAdminAuthorizedLeague(currentUser, match.LeagueId);
 
             if (league == null)
             {

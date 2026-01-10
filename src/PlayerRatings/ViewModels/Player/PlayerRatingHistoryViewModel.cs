@@ -13,6 +13,7 @@ namespace PlayerRatings.ViewModels.Player
         public List<GameRecord> GameRecords { get; set; } = new List<GameRecord>();
         public bool SwaOnly { get; set; }
         public bool IsSgLeague { get; set; }
+        public bool IsAdmin { get; set; }
         
         /// <summary>
         /// Player's current position in the league ranking (1-based). 0 means not ranked (hidden/new player).

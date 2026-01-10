@@ -196,6 +196,10 @@ else
 }
 
 <p>
-    <a asp-action="Edit" asp-route-id="@Model.League.Id">@LocString[nameof(LocalizationKey.Edit)]</a> |
+    @if (Model.IsAdmin)
+    {
+        <a asp-action="Edit" asp-route-id="@Model.League.Id">@LocString[nameof(LocalizationKey.Edit)]</a>
+        <span> | </span>
+    }
     <a asp-action="Index">@LocString[nameof(LocalizationKey.BackToList)]</a>
 </p>

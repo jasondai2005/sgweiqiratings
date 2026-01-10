@@ -185,8 +185,17 @@ namespace PlayerRatings.Controllers
         }
 
         // GET: Leagues/Create
-        public IActionResult Create()
+        public async Task<IActionResult> Create()
         {
+            var currentUser = await User.GetApplicationUser(_userManager);
+            
+            // Only admins can create new leagues
+            var adminLeagues = _leaguesRepository.GetAdminAuthorizedLeagues(currentUser);
+            if (!adminLeagues.Any())
+            {
+                return NotFound();
+            }
+            
             return View();
         }
 
@@ -195,9 +204,17 @@ namespace PlayerRatings.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(LeagueViewModel model)
         {
+            var currentUser = await User.GetApplicationUser(_userManager);
+            
+            // Only admins can create new leagues
+            var adminLeagues = _leaguesRepository.GetAdminAuthorizedLeagues(currentUser);
+            if (!adminLeagues.Any())
+            {
+                return NotFound();
+            }
+            
             if (ModelState.IsValid)
             {
-                var currentUser = await User.GetApplicationUser(_userManager);
 
                 var league = new League
                 {
@@ -352,8 +369,15 @@ namespace PlayerRatings.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult SetProtectedRatingsOption(bool supportProtectedRatings, Guid id)
+        public async Task<IActionResult> SetProtectedRatingsOption(bool supportProtectedRatings, Guid id)
         {
+            var currentUser = await User.GetApplicationUser(_userManager);
+            var league = _leaguesRepository.GetUserAuthorizedLeague(currentUser, id);
+            if (league == null)
+            {
+                return NotFound();
+            }
+            
             Elo.SwaRankedPlayersOnly = supportProtectedRatings;
             return RedirectToAction(nameof(Details), new { id });
         }
@@ -647,8 +671,14 @@ namespace PlayerRatings.Controllers
 
         private int CompareByRankingAndName(LeaguePlayer x, LeaguePlayer y)
         {
-            var user1 = x.User;
-            var user2 = y.User;
+            var user1 = x?.User;
+            var user2 = y?.User;
+            
+            // Handle null cases
+            if (user1 == null && user2 == null) return 0;
+            if (user1 == null) return 1;
+            if (user2 == null) return -1;
+            
             int rankingRating1 = 0;
             int rankingRating2 = 0;
             var user1Ranking = Elo.SwaRankedPlayersOnly ? user1.LatestSwaRanking : user1.LatestRanking;
@@ -674,7 +704,9 @@ namespace PlayerRatings.Controllers
 
                 if (latestRanking1 == latestRanking2)
                 {
-                    return user1.DisplayName.CompareTo(user2.DisplayName);
+                    var displayName1 = user1.DisplayName ?? string.Empty;
+                    var displayName2 = user2.DisplayName ?? string.Empty;
+                    return displayName1.CompareTo(displayName2);
                 }
                 else
                 {
@@ -711,6 +743,9 @@ namespace PlayerRatings.Controllers
             {
                 return NotFound();
             }
+
+            // Check if current user is admin for this league
+            var isAdmin = league.CreatedByUserId == currentUser.Id;
 
             // Get player statuses and league type info
             var (notBlockedUserIds, hiddenUserIds, _) = GetPlayerStatuses(league.Id);
@@ -833,7 +868,8 @@ namespace PlayerRatings.Controllers
                     FemaleChampionshipCount = emptyTournamentParticipations.Count(tp => tp.FemalePosition == 1),
                     ActiveTitles = emptyActiveTitles,
                     FormerTitles = emptyFormerTitles,
-                    IntlSelectionCount = emptyTournamentParticipations.Count(tp => tp.IsIntlSelection)
+                    IntlSelectionCount = emptyTournamentParticipations.Count(tp => tp.IsIntlSelection),
+                    IsAdmin = isAdmin
                 });
             }
 
@@ -1266,7 +1302,8 @@ namespace PlayerRatings.Controllers
                 FemaleChampionshipCount = femaleChampionshipCount,
                 ActiveTitles = activeTitles,
                 FormerTitles = formerTitles,
-                IntlSelectionCount = intlSelectionCount
+                IntlSelectionCount = intlSelectionCount,
+                IsAdmin = isAdmin
             });
         }
 
@@ -1276,6 +1313,14 @@ namespace PlayerRatings.Controllers
         public async Task<IActionResult> UpdatePlayerInfo(EditPlayerInfoViewModel model)
         {
             bool isAjax = Request.Headers["X-Requested-With"] == "XMLHttpRequest";
+            
+            var currentUser = await User.GetApplicationUser(_userManager);
+            var league = _leaguesRepository.GetAdminAuthorizedLeague(currentUser, model.LeagueId);
+            if (league == null)
+            {
+                if (isAjax) return Json(new { success = false, message = "Not authorized" });
+                return NotFound();
+            }
             
             if (!ModelState.IsValid)
             {
@@ -1308,6 +1353,14 @@ namespace PlayerRatings.Controllers
         public async Task<IActionResult> UploadPlayerPhoto(string playerId, Guid leagueId, IFormFile photoFile)
         {
             bool isAjax = Request.Headers["X-Requested-With"] == "XMLHttpRequest";
+            
+            var currentUser = await User.GetApplicationUser(_userManager);
+            var league = _leaguesRepository.GetAdminAuthorizedLeague(currentUser, leagueId);
+            if (league == null)
+            {
+                if (isAjax) return Json(new { success = false, message = "Not authorized" });
+                return NotFound();
+            }
             
             if (photoFile == null || photoFile.Length == 0)
             {
@@ -1384,13 +1437,8 @@ namespace PlayerRatings.Controllers
 
             var currentUser = await User.GetApplicationUser(_userManager);
 
-            // Check if user is authorized for this league
-            if (!_context.LeaguePlayers.Any(lp => lp.LeagueId == id && lp.UserId == currentUser.Id))
-            {
-                return NotFound();
-            }
-
-            var league = await _context.League.FindAsync(id);
+            // Check if user is admin for this league
+            var league = _leaguesRepository.GetAdminAuthorizedLeague(currentUser, id);
             if (league == null)
             {
                 return NotFound();
@@ -1437,6 +1485,14 @@ namespace PlayerRatings.Controllers
         public async Task<IActionResult> AddRanking(EditRankingViewModel model)
         {
             bool isAjax = Request.Headers["X-Requested-With"] == "XMLHttpRequest";
+            
+            var currentUser = await User.GetApplicationUser(_userManager);
+            var league = _leaguesRepository.GetAdminAuthorizedLeague(currentUser, model.LeagueId);
+            if (league == null)
+            {
+                if (isAjax) return Json(new { success = false, message = "Not authorized" });
+                return NotFound();
+            }
             
             if (!ModelState.IsValid)
             {
@@ -1500,6 +1556,14 @@ namespace PlayerRatings.Controllers
         public async Task<IActionResult> EditRanking(EditRankingViewModel model)
         {
             bool isAjax = Request.Headers["X-Requested-With"] == "XMLHttpRequest";
+            
+            var currentUser = await User.GetApplicationUser(_userManager);
+            var league = _leaguesRepository.GetAdminAuthorizedLeague(currentUser, model.LeagueId);
+            if (league == null)
+            {
+                if (isAjax) return Json(new { success = false, message = "Not authorized" });
+                return NotFound();
+            }
             
             if (!ModelState.IsValid || !model.RankingId.HasValue)
             {
@@ -1576,6 +1640,14 @@ namespace PlayerRatings.Controllers
         {
             bool isAjax = Request.Headers["X-Requested-With"] == "XMLHttpRequest";
             
+            var currentUser = await User.GetApplicationUser(_userManager);
+            var league = _leaguesRepository.GetAdminAuthorizedLeague(currentUser, leagueId);
+            if (league == null)
+            {
+                if (isAjax) return Json(new { success = false, message = "Not authorized" });
+                return NotFound();
+            }
+            
             var ranking = await _context.PlayerRankings.FindAsync(rankingId);
             if (ranking == null || ranking.PlayerId != playerId)
             {
@@ -1595,8 +1667,16 @@ namespace PlayerRatings.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> SetPlayerStatus(Guid playerId, int status)
         {
+            var currentUser = await User.GetApplicationUser(_userManager);
+            
             var leaguePlayer = await _context.LeaguePlayers.FindAsync(playerId);
             if (leaguePlayer == null)
+            {
+                return NotFound();
+            }
+
+            var league = _leaguesRepository.GetAdminAuthorizedLeague(currentUser, leaguePlayer.LeagueId);
+            if (league == null)
             {
                 return NotFound();
             }

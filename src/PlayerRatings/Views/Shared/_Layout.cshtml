@@ -1,6 +1,12 @@
 ﻿@using PlayerRatings.Localization
+@using PlayerRatings.Models
+@using PlayerRatings.Repositories
+@using PlayerRatings.Util
+@using Microsoft.AspNetCore.Identity
 
 @inject ILanguageData LanguageData
+@inject ILeaguesRepository LeaguesRepository
+@inject UserManager<ApplicationUser> UserManager
 
 <!DOCTYPE html>
 <html>
@@ -28,13 +34,16 @@
                 /* Prevent first column from being cut off */
                 .table-responsive { margin-left: 0; padding-left: 10px; }
                 .table th:first-child, .table td:first-child { padding-left: 12px; }
-                .name-en { display: none; }
-                .name-cn { display: inline; }
-                .name-female { display: none; }
                 /* Tournament links: hide full name, show short name */
                 .tournament-link-processed .full-name { display: none; }
                 .tournament-link-processed .short-name { display: inline; }
-                /* Language preference overrides - only on mobile */
+                .name-female { display: none; }
+                /* Default: show CN, hide EN (before JS adds lang class) */
+                .name-en { display: none; }
+                .name-cn { display: inline; }
+            }
+            /* Language preference for bilingual names - applies on mobile only */
+            @@media (max-width: 767px) {
                 body.lang-en .name-en { display: inline !important; }
                 body.lang-en .name-cn { display: none !important; }
                 body.lang-cn .name-en { display: none !important; }
@@ -53,6 +62,17 @@
     <body>
         <div class="navbar navbar-inverse navbar-fixed-top">
             <div class="container">
+                @{
+                    var isAdmin = false;
+                    if (User.Identity?.IsAuthenticated == true)
+                    {
+                        var currentUser = await User.GetApplicationUser(UserManager);
+                        if (currentUser != null)
+                        {
+                            isAdmin = LeaguesRepository.GetAdminAuthorizedLeagues(currentUser).Any();
+                        }
+                    }
+                }
                 <div class="navbar-header">
                     <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
                         <span class="sr-only">@LocString[nameof(LocalizationKey.ToggleNavigation)]</span>
@@ -63,17 +83,46 @@
                     <a asp-controller="Home" asp-action="Index" class="navbar-brand">
                         <span class="glyphicon glyphicon-home" aria-hidden="true"></span>
                     </a>
-                    <a asp-controller="Matches" asp-action="Create" class="navbar-brand visible-xs-block">
-                        <span class="glyphicon glyphicon-plus" aria-hidden="true"></span>
-                    </a>
+                    @if (isAdmin)
+                    {
+                        <a asp-controller="Matches" asp-action="Create" class="navbar-brand visible-xs-block">
+                            <span class="glyphicon glyphicon-plus" aria-hidden="true"></span>
+                        </a>
+                    }
+                    <!-- Mobile-only: Screenshot and Language buttons -->
+                    <div class="visible-xs-block pull-right" style="display: flex; align-items: center; height: 50px;">
+                        <a href="#" onclick="captureScreenshot(); return false;" title="@LocString[nameof(LocalizationKey.Screenshot)]" class="navbar-brand" style="padding: 15px 8px;">
+                            <span>📷</span>
+                        </a>
+                        @if (LanguageData.ValidLanguages.Count() > 1)
+                        {
+                            var otherLang = LanguageData.ValidLanguages.FirstOrDefault(l => l != LanguageData.CurrentLanguage);
+                            if (otherLang != null)
+                            {
+                                <form asp-controller="Home" asp-action="ChangeLanguage" method="post" style="margin: 0; display: inline;">
+                                    <input type="hidden" name="curUrl" value="@(Context.Request.Path + Context.Request.QueryString)" />
+                                    <button type="submit" class="navbar-brand" name="language" value="@otherLang" 
+                                            style="background: none; border: none; padding: 15px 8px; color: #9d9d9d; cursor: pointer;"
+                                            title="@LocString[otherLang]">
+                                        @(LanguageData.CurrentLanguage == "en" ? "中" : "EN")
+                                    </button>
+                                </form>
+                            }
+                        }
+                    </div>
                 </div>
                 <div class="navbar-collapse collapse">
                     <ul class="nav navbar-nav">
-                        <li><a asp-controller="Matches" asp-action="Create">@LocString[nameof(LocalizationKey.AddNewResult)]</a></li>
+                        @if (isAdmin)
+                        {
+                            <li><a asp-controller="Matches" asp-action="Create">@LocString[nameof(LocalizationKey.AddNewResult)]</a></li>
+                        }
                         <li><a asp-controller="Leagues" asp-action="Index">@LocString[nameof(LocalizationKey.Leagues)]</a></li>
-                        <li><a asp-controller="Invites" asp-action="Index">@LocString[nameof(LocalizationKey.Invites)]</a></li>
+                        @if (isAdmin)
+                        {
+                            <li><a asp-controller="Invites" asp-action="Index">@LocString[nameof(LocalizationKey.Invites)]</a></li>
+                        }
                         <li><a asp-controller="Home" asp-action="RatingSystem">@LocString[nameof(LocalizationKey.HowItWorks)]</a></li>
-                        <li><a asp-controller="Home" asp-action="Contact">@LocString[nameof(LocalizationKey.Support)]</a></li>
                     </ul>
 
                     @await Html.PartialAsync("_LoginPartial")
@@ -94,14 +143,14 @@
                                 </form>
                             </li>
                         }
-                        <li>
+                        <li class="hidden-xs">
                             <a href="#" onclick="captureScreenshot(); return false;" title="@LocString[nameof(LocalizationKey.Screenshot)]" style="padding: 15px 10px;">
                                 <span id="screenshotIcon">📷</span>
                             </a>
                         </li>
                     @if (LanguageData.ValidLanguages.Count() > 1)
                     {
-                            <li class="dropdown">
+                            <li class="dropdown hidden-xs">
                                 <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">@LocString[LanguageData.CurrentLanguage] <span class="caret"></span></a>
                                 <ul class="dropdown-menu" role="menu" style="min-width: 100px">
                                     @foreach (var language in LanguageData.ValidLanguages)
@@ -152,7 +201,17 @@
             // Bilingual name processing for mobile-friendly tables
             (function() {
                 // Get language preference from cookie (cookie name is "lang") or default to 'cn' for mobile
-                var lang = (document.cookie.match(/(?:^|;\s*)lang=([^;]+)/) || [])[1] || 'cn';
+                var lang = 'cn'; // default
+                var cookies = document.cookie.split(';');
+                for (var i = 0; i < cookies.length; i++) {
+                    var cookie = cookies[i].trim();
+                    if (cookie.indexOf('lang=') === 0) {
+                        lang = cookie.substring(5);
+                        break;
+                    }
+                }
+                // Remove any existing lang class and add the correct one
+                document.body.classList.remove('lang-en', 'lang-cn');
                 document.body.classList.add('lang-' + lang);
                 
                 // Process bilingual names in table cells
