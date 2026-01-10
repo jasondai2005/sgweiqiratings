@@ -150,12 +150,9 @@ namespace PlayerRatings.Engine.Rating
             var matches = FilterMatches(allMatches, cutoffDate, swaOnly, isSgLeague);
             foreach (var match in matches)
             {
-                // Skip rating calculation for Factor=0 matches (byes, unrated games)
-                if (match.Factor != 0 ||
-                    // for new players to avoid they enter the rating system too early
-                    // so they can enter with the latest ranking when first rated match happens
-                    (match.FirstPlayer?.MatchCount > 0 && match.SecondPlayer?.MatchCount > 0))
+                if (match.Factor != 0)
                 {
+                    // Normal rated match
                     // Add users (with optional filter) - skip NULL players for bye matches
                     if (match.FirstPlayer != null && (allowedUserIds == null || allowedUserIds.Contains(match.FirstPlayerId)))
                     {
@@ -168,9 +165,16 @@ namespace PlayerRatings.Engine.Rating
 
                     eloStat.AddMatch(match);
                 }
-                else if (match.SecondPlayer == null || match.FirstPlayerScore == 0)
+                else if (match.SecondPlayer == null)
                 {
-                    continue; // Bye match for FirstPlayer, skip
+                    continue; // Bye match, skip
+                }
+                else if (match.FirstPlayer?.MatchCount > 0 && match.SecondPlayer?.MatchCount > 0)
+                {
+                    // Add a record so promotion bonus could be applied
+                    // for new players, avoid them entering the rating system too early
+                    // so they can enter with the latest ranking when first rated match happens
+                    eloStat.AddMatch(match);
                 }
 
                 onMatchProcessed?.Invoke(match, eloStat);
