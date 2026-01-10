@@ -19,6 +19,35 @@
                   asp-fallback-test-class="sr-only" asp-fallback-test-property="position" asp-fallback-test-value="absolute" />
             <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
         </environment>
+        
+        <!-- Bilingual name responsive styles -->
+        <style>
+            /* On mobile: hide-mobile class, show only preferred language */
+            @@media (max-width: 767px) {
+                .hide-mobile { display: none !important; }
+                /* Prevent first column from being cut off */
+                .table-responsive { margin-left: 0; padding-left: 10px; }
+                .table th:first-child, .table td:first-child { padding-left: 12px; }
+                .name-en { display: none; }
+                .name-cn { display: inline; }
+                .name-female { display: none; }
+                /* Tournament links: hide full name, show short name */
+                .tournament-link-processed .full-name { display: none; }
+                .tournament-link-processed .short-name { display: inline; }
+                /* Language preference overrides - only on mobile */
+                body.lang-en .name-en { display: inline !important; }
+                body.lang-en .name-cn { display: none !important; }
+                body.lang-cn .name-en { display: none !important; }
+                body.lang-cn .name-cn { display: inline !important; }
+            }
+            /* On desktop, always show full name (both EN and CN) */
+            @@media (min-width: 768px) {
+                .name-en, .name-cn, .name-female { display: inline !important; }
+                /* Tournament links: show full name, hide short name */
+                .tournament-link-processed .full-name { display: inline !important; }
+                .tournament-link-processed .short-name { display: none !important; }
+            }
+        </style>
         @RenderSection("styles", required: false)
     </head>
     <body>
@@ -119,6 +148,109 @@
         </environment>
 
         <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+        <script>
+            // Bilingual name processing for mobile-friendly tables
+            (function() {
+                // Get language preference from cookie (cookie name is "lang") or default to 'cn' for mobile
+                var lang = (document.cookie.match(/(?:^|;\s*)lang=([^;]+)/) || [])[1] || 'cn';
+                document.body.classList.add('lang-' + lang);
+                
+                // Process bilingual names in table cells
+                function processBilingualNames() {
+                    // Target table cells in specific tables (exclude team standings)
+                    var tables = document.querySelectorAll('.table:not(.no-bilingual)');
+                    tables.forEach(function(table) {
+                        var cells = table.querySelectorAll('td');
+                        cells.forEach(function(cell) {
+                            // Skip cells with team-related classes or in team columns
+                            if (cell.closest('.team-name') || cell.classList.contains('team-name')) return;
+                            // First process tournament links specially
+                            processTournamentLinks(cell);
+                            // Then process regular bilingual text
+                            processNode(cell);
+                        });
+                    });
+                    
+                    // Also process elements explicitly marked with bilingual-name class
+                    var bilingualElements = document.querySelectorAll('.bilingual-name');
+                    bilingualElements.forEach(function(el) {
+                        processNode(el);
+                    });
+                }
+                
+                // Process tournament links - use data-name attribute for short name
+                function processTournamentLinks(cell) {
+                    var links = cell.querySelectorAll('a[href*="/Tournaments/Details/"]');
+                    links.forEach(function(link) {
+                        var shortName = link.getAttribute('data-name');
+                        if (!shortName) return;
+                        
+                        var fullText = link.textContent.trim();
+                        // Convert short name to bilingual HTML, or use plain short name if single language
+                        var bilingualHtml = makeBilingual(shortName);
+                        var shortNameHtml = bilingualHtml || shortName;
+                        
+                        link.innerHTML = '<span class="full-name">' + fullText + '</span>' +
+                            '<span class="short-name">' + shortNameHtml + '</span>';
+                        link.classList.add('tournament-link-processed');
+                    });
+                }
+                
+                // Convert bilingual text to HTML with spans
+                function makeBilingual(text) {
+                    // Pattern: English followed by Chinese (find first Chinese character as split point)
+                    var match = text.match(/^([A-Za-z][^\u4e00-\u9fff]*?)\s+([\u4e00-\u9fff].*)$/);
+                    if (match) {
+                        var enPart = match[1].trim();
+                        var cnPart = match[2].trim();
+                        return '<span class="name-en">' + enPart + '</span> <span class="name-cn">' + cnPart + '</span>';
+                    }
+                    return null;
+                }
+                
+                function processNode(node) {
+                    // Skip already processed tournament links
+                    if (node.classList && node.classList.contains('tournament-link-processed')) return;
+                    
+                    // Process text nodes and links
+                    var walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, null, false);
+                    var textNodes = [];
+                    while (walker.nextNode()) {
+                        // Skip if inside a processed tournament link
+                        if (walker.currentNode.parentNode.closest && 
+                            walker.currentNode.parentNode.closest('.tournament-link-processed')) continue;
+                        if (walker.currentNode.textContent.trim()) {
+                            textNodes.push(walker.currentNode);
+                        }
+                    }
+                    
+                    textNodes.forEach(function(textNode) {
+                        var text = textNode.textContent;
+                        // Check if text contains both English and Chinese characters
+                        // Pattern: English part followed by Chinese part, optionally with ♀ between
+                        var match = text.match(/^([A-Za-z][A-Za-z\s\-\.,']+?)\s*(♀?)\s*([\u4e00-\u9fff][\u4e00-\u9fff\s]*?)$/);
+                        if (match) {
+                            var enPart = match[1].trim();
+                            var femaleSymbol = match[2];
+                            var cnPart = match[3].trim();
+                            
+                            var span = document.createElement('span');
+                            span.innerHTML = '<span class="name-en">' + enPart + '</span>' +
+                                (femaleSymbol ? '<span class="name-female">♀</span>' : ' ') +
+                                '<span class="name-cn">' + cnPart + '</span>';
+                            textNode.parentNode.replaceChild(span, textNode);
+                        }
+                    });
+                }
+                
+                // Run after DOM is ready
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', processBilingualNames);
+                } else {
+                    processBilingualNames();
+                }
+            })();
+        </script>
         <script>
             async function captureScreenshot() {
                 const icon = document.getElementById('screenshotIcon');

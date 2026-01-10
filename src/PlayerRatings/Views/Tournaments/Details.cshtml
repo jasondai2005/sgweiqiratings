@@ -491,7 +491,7 @@
                                     <td rowspan="@playerCount" style="text-align: center; vertical-align: middle;">@(team.Position?.ToString() ?? "-")</td>
                                     @if (Model.SupportsPersonalAward)
                                     {
-                                        <td rowspan="@playerCount" style="white-space: nowrap; vertical-align: middle;">@team.TeamName</td>
+                                        <td rowspan="@playerCount" style="white-space: nowrap; vertical-align: middle;" class="team-name">@team.TeamName</td>
                                         <td rowspan="@playerCount" style="text-align: center; font-weight: bold; vertical-align: middle;">@team.SumOfPlayerPositions</td>
                                     }
                                 }
@@ -525,7 +525,7 @@
                                     <td style="white-space: nowrap;">
                                         @if (isFirstRow)
                                         {
-                                            <strong>@team.TeamName</strong>
+                                            <strong class="team-name">@team.TeamName</strong>
                                             <hr style="margin: 4px 0; border-top: 1px solid #ddd;" />
                                         }
                                         <span style="padding-left: 15px;">

@@ -37,7 +37,7 @@ namespace PlayerRatings.ViewModels.Match
 
         public List<DateTime> AvailableMonths { get; private set; }
 
-        public string CurrentMonthDisplay => CurrentMonth.ToString("MMM yyyy");
+        public string CurrentMonthDisplay => CurrentMonth.ToString("MM/yyyy");
 
         public DateTime? PreviousMonth => AvailableMonths
             .Where(m => m < CurrentMonth)

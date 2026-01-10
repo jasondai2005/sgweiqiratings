@@ -777,6 +777,7 @@ namespace PlayerRatings.Controllers
                     {
                         TournamentId = tp.TournamentId,
                         TournamentName = tp.Tournament.FullName,
+                        TournamentShortName = tp.Tournament.Name,
                         StartDate = tp.Tournament.StartDate.Value,
                         Position = tp.Position,
                         FemalePosition = tp.FemalePosition,
@@ -921,6 +922,7 @@ namespace PlayerRatings.Controllers
                             MatchName = match.MatchName,
                             TournamentId = match.TournamentId,
                             TournamentName = match.Tournament?.FullName,
+                            TournamentShortName = match.Tournament?.Name,
                             Round = match.Round,
                             TournamentPosition = tournamentPosition,
                             FemalePosition = femalePosition,
@@ -1154,6 +1156,7 @@ namespace PlayerRatings.Controllers
                     Factor = match.Factor,
                     TournamentId = match.TournamentId,
                     TournamentName = match.Tournament?.FullName,
+                    TournamentShortName = match.Tournament?.Name,
                     Round = match.Round,
                     TournamentPosition = tournamentPosition,
                     FemalePosition = femalePosition,
@@ -1184,6 +1187,7 @@ namespace PlayerRatings.Controllers
                 {
                     TournamentId = tp.TournamentId,
                     TournamentName = tp.Tournament.FullName,
+                    TournamentShortName = tp.Tournament.Name,
                     StartDate = tp.Tournament.StartDate.Value,
                     Position = tp.Position,
                     FemalePosition = tp.FemalePosition,

@@ -280,6 +280,10 @@ namespace PlayerRatings.ViewModels.Player
     {
         public Guid TournamentId { get; set; }
         public string TournamentName { get; set; }
+        /// <summary>
+        /// Short tournament name (just the Name field, bilingual without ordinal/date)
+        /// </summary>
+        public string TournamentShortName { get; set; }
         public DateTimeOffset StartDate { get; set; }
         public int? Position { get; set; }
         public int? FemalePosition { get; set; }
@@ -373,7 +377,7 @@ namespace PlayerRatings.ViewModels.Player
     public class MonthlyRating
     {
         public DateTime Month { get; set; }
-        public string MonthDisplay => Month.ToString("MMM yyyy");
+        public string MonthDisplay => Month.ToString("MM/yyyy");
         public double Rating { get; set; }
         public string RatingDisplay => Rating.ToString("F1");
         public int MatchesInMonth { get; set; }
@@ -419,6 +423,10 @@ namespace PlayerRatings.ViewModels.Player
         public string MatchName { get; set; }
         public Guid? TournamentId { get; set; }
         public string TournamentName { get; set; }
+        /// <summary>
+        /// Short tournament name (just the Name field, bilingual without ordinal/date)
+        /// </summary>
+        public string TournamentShortName { get; set; }
         public int? Round { get; set; }
         
         /// <summary>
@@ -478,6 +486,11 @@ namespace PlayerRatings.ViewModels.Player
         /// Tournament full name for display.
         /// </summary>
         public string TournamentName { get; set; }
+        
+        /// <summary>
+        /// Short tournament name (just the Name field, bilingual without ordinal/date)
+        /// </summary>
+        public string TournamentShortName { get; set; }
         
         /// <summary>
         /// Round number within the tournament.

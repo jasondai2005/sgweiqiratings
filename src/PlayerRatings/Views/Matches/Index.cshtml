@@ -18,7 +18,7 @@
     @if (Model.PreviousMonth.HasValue)
     {
         <a asp-action="Index" asp-route-leagueid="@Model.LeagueId" asp-route-year="@Model.PreviousMonth.Value.Year" asp-route-month="@Model.PreviousMonth.Value.Month" class="btn btn-default btn-sm">
-            ← @Model.PreviousMonth.Value.ToString("MMM yyyy")
+            ← @Model.PreviousMonth.Value.ToString("MM/yyyy")
         </a>
     }
     else
@@ -36,7 +36,7 @@
                 var isActive = month == Model.CurrentMonth;
                 <li class="@(isActive ? "active" : "")">
                     <a asp-action="Index" asp-route-leagueid="@Model.LeagueId" asp-route-year="@month.Year" asp-route-month="@month.Month">
-                        @month.ToString("MMM yyyy")
+                        @month.ToString("MM/yyyy")
                     </a>
                 </li>
             }
@@ -46,7 +46,7 @@
     @if (Model.NextMonth.HasValue)
     {
         <a asp-action="Index" asp-route-leagueid="@Model.LeagueId" asp-route-year="@Model.NextMonth.Value.Year" asp-route-month="@Model.NextMonth.Value.Month" class="btn btn-default btn-sm">
-            @Model.NextMonth.Value.ToString("MMM yyyy") →
+            @Model.NextMonth.Value.ToString("MM/yyyy") →
         </a>
     }
     else
@@ -103,7 +103,7 @@
             <td>
                 @if (item.TournamentId.HasValue && item.Tournament != null)
                 {
-                    <a asp-controller="Tournaments" asp-action="Details" asp-route-id="@item.TournamentId">@item.Tournament.FullName</a>
+                    <a asp-controller="Tournaments" asp-action="Details" asp-route-id="@item.TournamentId" data-name="@item.Tournament.Name">@item.Tournament.FullName</a>
                     @if (item.Round.HasValue)
                     {
                         <text> R@(item.Round)</text>

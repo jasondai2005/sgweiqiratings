@@ -418,15 +418,15 @@
     </div>
 }
 
-<!-- Last Matches Section -->
-<div class="section-header matches collapsed" onclick="toggleSection('last-matches')">
+<!-- Last Matches Section (hidden on mobile) -->
+<div class="section-header matches collapsed hide-mobile" onclick="toggleSection('last-matches')">
     <span>
         @LocString[nameof(LocalizationKey.LastMatches)]
         <span class="badge">@Model.LastMatches.Count()</span>
     </span>
     <span class="toggle-icon">▼</span>
 </div>
-<div id="last-matches" class="section-content collapsed">
+<div id="last-matches" class="section-content collapsed hide-mobile">
     <div class="table-responsive">
         <table class="table table-striped">
             <tr>
@@ -453,7 +453,7 @@
                     <td>
                         @if (item.TournamentId.HasValue && item.Tournament != null)
                         {
-                            <a asp-controller="Tournaments" asp-action="Details" asp-route-id="@item.TournamentId">@item.Tournament.FullName</a>
+                            <a asp-controller="Tournaments" asp-action="Details" asp-route-id="@item.TournamentId" data-name="@item.Tournament.Name">@item.Tournament.FullName</a>
                             @if (item.Round.HasValue)
                             {
                                 <text> R@(item.Round)</text>
