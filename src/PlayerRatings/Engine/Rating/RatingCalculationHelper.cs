@@ -151,7 +151,10 @@ namespace PlayerRatings.Engine.Rating
             foreach (var match in matches)
             {
                 // Skip rating calculation for Factor=0 matches (byes, unrated games)
-                if (match.Factor != 0)
+                if (match.Factor != 0 ||
+                    // for new players to avoid they enter the rating system too early
+                    // so they can enter with the latest ranking when first rated match happens
+                    (match.FirstPlayer?.MatchCount > 0 && match.SecondPlayer?.MatchCount > 0))
                 {
                     // Add users (with optional filter) - skip NULL players for bye matches
                     if (match.FirstPlayer != null && (allowedUserIds == null || allowedUserIds.Contains(match.FirstPlayerId)))
