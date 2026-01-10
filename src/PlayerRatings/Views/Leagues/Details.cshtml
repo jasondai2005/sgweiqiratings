@@ -51,9 +51,7 @@ else
             <th>
                 №
             </th>
-            <th>
-                @LocString[nameof(LocalizationKey.Username)]
-            </th>
+            <th style="width: 40px;"></th>
             <th>
                 @LocString[nameof(LocalizationKey.DisplayName)]
             </th>
@@ -83,8 +81,17 @@ else
                 <td>
                     @(number++)
                 </td>
-                <td>
-                    <small class="text-muted">@player.User.UserName</small>
+                <td style="padding: 4px;">
+                    @if (!string.IsNullOrEmpty(player.User.Photo))
+                    {
+                        <img src="@player.User.Photo" alt="" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;" />
+                    }
+                    else
+                    {
+                        <div style="width: 32px; height: 32px; border-radius: 50%; background: #e0e0e0; display: flex; align-items: center; justify-content: center;">
+                            <span style="color: #999; font-size: 14px;">👤</span>
+                        </div>
+                    }
                 </td>
                 <td>
                     <a href="@Url.Action("Player", new { id = Model.League.Id, playerId = player.User.Id })">@player.User.DisplayName</a>
