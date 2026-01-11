@@ -904,7 +904,7 @@ namespace PlayerRatings.Controllers
             {
                 currentEloStat = elo;
                 var matchMonth = GetEndOfMonth(match.Date.DateTime);
-                
+
                 // Track all players for position calculation (skip NULL players for bye matches)
                 if (!string.IsNullOrEmpty(match.FirstPlayerId) && !allPlayersInMatches.ContainsKey(match.FirstPlayerId))
                     allPlayersInMatches[match.FirstPlayerId] = match.FirstPlayer;
@@ -914,16 +914,16 @@ namespace PlayerRatings.Controllers
                     playerLastMatchDates[match.FirstPlayerId] = match.Date;
                 if (!string.IsNullOrEmpty(match.SecondPlayerId))
                     playerLastMatchDates[match.SecondPlayerId] = match.Date;
-                
+
                 // When month changes, capture snapshot of previous month
                 if (matchMonth > currentProcessingMonth && currentProcessingMonth.Year > 1900)
                 {
                     CaptureSnapshot(currentProcessingMonth);
-                    
+
                     // Clear match data before filling skipped months (they have no matches)
                     matchesInCurrentMonth = 0;
                     matchInfosInCurrentMonth.Clear();
-                    
+
                     // Fill in any skipped months (with empty match names)
                     // Use GetEndOfMonth to ensure consistent end-of-month DateTime values
                     var nextMonth = GetEndOfMonth(currentProcessingMonth.AddMonths(1));
@@ -934,9 +934,10 @@ namespace PlayerRatings.Controllers
                     }
                 }
                 currentProcessingMonth = matchMonth;
-                
-                // Track this player's monthly stats
-                if (match.FirstPlayerId == playerId || match.SecondPlayerId == playerId)
+
+                // Track this player's monthly stats (only for rated matches)
+                // Unrated matches (Factor=0 like handicap games) don't count toward rating
+                if ((match.FirstPlayerId == playerId || match.SecondPlayerId == playerId) && match.Factor != 0)
                 {
                     playerMatchCount++;
                     matchesInCurrentMonth++;
