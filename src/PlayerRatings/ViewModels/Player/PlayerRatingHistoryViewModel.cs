@@ -56,17 +56,17 @@ namespace PlayerRatings.ViewModels.Player
         /// <summary>
         /// Total number of games played (all time, excluding factor 0 games).
         /// </summary>
-        public int TotalGames => GameRecords?.Count(g => g.Factor != 0) ?? 0;
+        public int TotalGames => GameRecords?.Count(g => g.Factor != 0 && g.Date.Year >= 2023) ?? 0;
         
         /// <summary>
         /// Total wins (all time, excluding factor 0 games).
         /// </summary>
-        public int TotalWins => GameRecords?.Count(g => g.Factor != 0 && g.Result == "Win") ?? 0;
+        public int TotalWins => GameRecords?.Count(g => g.Factor != 0 && g.Date.Year >= 2023 && g.Result == "Win") ?? 0;
         
         /// <summary>
         /// Total losses (all time, excluding factor 0 games).
         /// </summary>
-        public int TotalLosses => GameRecords?.Count(g => g.Factor != 0 && g.Result == "Loss") ?? 0;
+        public int TotalLosses => GameRecords?.Count(g => g.Factor != 0 && g.Date.Year >= 2023 && g.Result == "Loss") ?? 0;
         
         /// <summary>
         /// Overall win rate as a percentage (0-100).
