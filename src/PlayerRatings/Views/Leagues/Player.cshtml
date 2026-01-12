@@ -333,7 +333,7 @@
 @{
     // Build a lookup of tournaments without matches by month (for display in Monthly Rating History)
     var tournamentsWithoutMatchesByMonth = Model.TournamentParticipations
-        .Where(t => !t.HasMatches)
+        .Where(t => !t.HasRatedMatches)
         .GroupBy(t => new DateTime(t.StartDate.Year, t.StartDate.Month, 1).AddMonths(1).AddSeconds(-1).ToString("MM/yyyy"))
         .ToDictionary(g => g.Key, g => g.ToList());
     
@@ -645,7 +645,7 @@
                 // Get tournaments without matches that are before the first rated month
                 var preEntryTournamentIds = new HashSet<Guid>(preEntryMatches.Where(m => m.TournamentId.HasValue).Select(m => m.TournamentId.Value));
                 var preEntryTournamentsWithoutMatches = Model.TournamentParticipations
-                    .Where(t => !t.HasMatches && 
+                    .Where(t => !t.HasRatedMatches && 
                            (t.StartDate.Year < firstRatedMonth.Year || 
                             (t.StartDate.Year == firstRatedMonth.Year && t.StartDate.Month < firstRatedMonth.Month)) &&
                            !preEntryTournamentIds.Contains(t.TournamentId))

@@ -216,7 +216,7 @@ namespace PlayerRatings.ViewModels.Player
         /// <summary>
         /// Total number of tournaments participated in (all time).
         /// </summary>
-        public int TotalTournaments => TournamentParticipations?.Count ?? 0;
+        public int TotalTournaments => TournamentParticipations?.Count(t => t.StartDate.Year >= 2023) ?? 0;
         
         /// <summary>
         /// Tournaments participated in the current calendar year.
@@ -293,7 +293,7 @@ namespace PlayerRatings.ViewModels.Player
         /// <summary>
         /// Whether this tournament has match records for the player.
         /// </summary>
-        public bool HasMatches { get; set; }
+        public bool HasRatedMatches { get; set; }
         
         /// <summary>
         /// The tournament's factor value. Determines if the tournament is rated.

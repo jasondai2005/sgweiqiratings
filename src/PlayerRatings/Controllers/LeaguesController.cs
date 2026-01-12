@@ -817,7 +817,7 @@ namespace PlayerRatings.Controllers
                         Position = tp.Position,
                         FemalePosition = tp.FemalePosition,
                         TeamPosition = tp.TeamPosition,
-                        HasMatches = false,
+                        HasRatedMatches = false,
                         TournamentFactor = tp.Tournament.Factor,
                         Organizer = tp.Tournament.Organizer,
                         TournamentType = tp.Tournament.TournamentType,
@@ -1218,8 +1218,8 @@ namespace PlayerRatings.Controllers
 
             // Load all tournament participations (including those without match records)
             // Use tournament IDs from any match (regardless of factor) to determine if matches exist
-            var tournamentIdsWithMatches = new HashSet<Guid>(
-                gameRecords.Where(g => g.TournamentId.HasValue).Select(g => g.TournamentId.Value));
+            var tournamentIdsWithRatedMatches = new HashSet<Guid>(
+                gameRecords.Where(g => g.TournamentId.HasValue && g.Factor != 0).Select(g => g.TournamentId.Value));
             
             var tournamentParticipations = await _context.TournamentPlayers
                 .Where(tp => tp.PlayerId == playerId && tp.Tournament.StartDate.HasValue)
@@ -1233,7 +1233,7 @@ namespace PlayerRatings.Controllers
                     Position = tp.Position,
                     FemalePosition = tp.FemalePosition,
                     TeamPosition = tp.TeamPosition,
-                    HasMatches = false, // Will be set after query
+                    HasRatedMatches = false, // Will be set after query
                     TournamentFactor = tp.Tournament.Factor, // Tournament's own factor (determines if rated)
                     Organizer = tp.Tournament.Organizer,
                     TournamentType = tp.Tournament.TournamentType,
@@ -1247,7 +1247,7 @@ namespace PlayerRatings.Controllers
             // Mark which tournaments have matches (regardless of factor)
             foreach (var tp in tournamentParticipations)
             {
-                tp.HasMatches = tournamentIdsWithMatches.Contains(tp.TournamentId);
+                tp.HasRatedMatches = tournamentIdsWithRatedMatches.Contains(tp.TournamentId);
             }
             
             // Build title lists
