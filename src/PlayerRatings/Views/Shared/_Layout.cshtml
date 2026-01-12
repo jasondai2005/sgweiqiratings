@@ -258,7 +258,8 @@
                 // Convert bilingual text to HTML with spans
                 function makeBilingual(text) {
                     // Pattern: English followed by Chinese (find first Chinese character as split point)
-                    var match = text.match(/^([A-Za-z][^\u4e00-\u9fff]*?)\s+([\u4e00-\u9fff].*)$/);
+                    // Allow optional whitespace, middle dot variants (·・･•), or hyphen between EN and CN parts
+                    var match = text.match(/^([A-Za-z][^\u4e00-\u9fff]*?)[\s·・･•\-]*([\u4e00-\u9fff].*)$/);
                     if (match) {
                         var enPart = match[1].trim();
                         var cnPart = match[2].trim();
@@ -287,7 +288,8 @@
                         var text = textNode.textContent;
                         // Check if text contains both English and Chinese characters
                         // Pattern: English part followed by Chinese part, optionally with ♀ between
-                        var match = text.match(/^([A-Za-z][A-Za-z\s\-\.,']+?)\s*(♀?)\s*([\u4e00-\u9fff][\u4e00-\u9fff\s]*?)$/);
+                        // Include middle dot variants (·・･•) and hyphen in allowed characters
+                        var match = text.match(/^([A-Za-z][A-Za-z\s\-\.,'·・･•]+?)\s*(♀?)[\s·・･•\-]*([\u4e00-\u9fff][\u4e00-\u9fff\s·・･•\-]*?)$/);
                         if (match) {
                             var enPart = match[1].trim();
                             var femaleSymbol = match[2];

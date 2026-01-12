@@ -828,6 +828,7 @@ namespace PlayerRatings.Controllers
                 .ToList();
             
             // Default to current month if not specified (for current year) or latest month with tournaments
+            // month=0 means explicitly "all months" (user selected from dropdown)
             if (!month.HasValue && availableMonths.Any())
             {
                 // If viewing current year, default to current month if it has tournaments, otherwise latest month
@@ -839,6 +840,11 @@ namespace PlayerRatings.Controllers
                 {
                     month = availableMonths.First(); // Latest month with tournaments
                 }
+            }
+            else if (month == 0)
+            {
+                // Explicit "all months" selection - clear the month filter
+                month = null;
             }
             
             // Apply month filter if specified
