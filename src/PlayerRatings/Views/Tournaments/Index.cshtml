@@ -4,6 +4,7 @@
 
 @{
     ViewData["Title"] = LocString[nameof(LocalizationKey.Tournaments)];
+    var viewMode = Context.Request.Query["view"].FirstOrDefault() ?? "list";
 }
 
 <style>
@@ -120,6 +121,139 @@
     .table .tournament-name {
         max-width: 300px;
     }
+    
+    /* View mode toggle */
+    .view-toggle {
+        display: flex;
+        gap: 4px;
+        margin-left: auto;
+    }
+    .view-toggle .btn {
+        padding: 6px 10px;
+    }
+    .view-toggle .btn.active {
+        background: #667eea;
+        color: white;
+        border-color: #667eea;
+    }
+    
+    /* Calendar styles */
+    .calendar-container {
+        margin-top: 20px;
+    }
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 1px;
+        background: #e0e0e0;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    .calendar-header {
+        background: #667eea;
+        color: white;
+        padding: 10px 4px;
+        text-align: center;
+        font-weight: 600;
+        font-size: 0.85em;
+    }
+    .calendar-day {
+        background: white;
+        min-height: 100px;
+        padding: 4px;
+        vertical-align: top;
+        position: relative;
+    }
+    .calendar-day.other-month {
+        background: #f8f8f8;
+    }
+    .calendar-day.other-month .day-number {
+        color: #bbb;
+    }
+    .calendar-day.today {
+        background: #fff9e6;
+    }
+    .calendar-day.today .day-number {
+        background: #667eea;
+        color: white;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .day-number {
+        font-weight: 600;
+        font-size: 0.85em;
+        color: #333;
+        margin-bottom: 4px;
+    }
+    .calendar-tournament {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 3px 6px;
+        border-radius: 4px;
+        font-size: 0.75em;
+        margin-bottom: 3px;
+        cursor: pointer;
+        text-decoration: none;
+        display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .calendar-tournament:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 6px rgba(102, 126, 234, 0.4);
+        color: white;
+        text-decoration: none;
+    }
+    .calendar-tournament.multi-day {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    }
+    .calendar-tournament.end-day {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+    .calendar-more {
+        font-size: 0.7em;
+        color: #667eea;
+        cursor: pointer;
+        padding: 2px 4px;
+    }
+    .calendar-more:hover {
+        text-decoration: underline;
+    }
+    
+    /* Mobile calendar */
+    @@media (max-width: 768px) {
+        .calendar-header {
+            padding: 8px 2px;
+            font-size: 0.7em;
+        }
+        .calendar-day {
+            min-height: 60px;
+            padding: 2px;
+        }
+        .day-number {
+            font-size: 0.75em;
+        }
+        .calendar-tournament {
+            font-size: 0.65em;
+            padding: 2px 4px;
+        }
+        .calendar-day.today .day-number {
+            width: 20px;
+            height: 20px;
+            font-size: 0.7em;
+        }
+        .view-toggle {
+            margin-left: 0;
+            margin-top: 8px;
+        }
+    }
 </style>
 
 <h3>@ViewData["Title"] - @Model.LeagueName</h3>
@@ -128,7 +262,7 @@
 <div class="year-nav">
     @if (Model.PreviousYear.HasValue)
     {
-        <a asp-action="Index" asp-route-leagueId="@Model.LeagueId" asp-route-year="@Model.PreviousYear.Value" class="btn btn-outline-primary">
+        <a asp-action="Index" asp-route-leagueId="@Model.LeagueId" asp-route-year="@Model.PreviousYear.Value" asp-route-view="@viewMode" class="btn btn-outline-primary">
             ◀ @Model.PreviousYear
         </a>
     }
@@ -146,7 +280,7 @@
             {
                 var isActive = year == Model.CurrentYear;
                 <li class="@(isActive ? "active" : "")">
-                    <a asp-action="Index" asp-route-leagueId="@Model.LeagueId" asp-route-year="@year">
+                    <a asp-action="Index" asp-route-leagueId="@Model.LeagueId" asp-route-year="@year" asp-route-view="@viewMode">
                         @year
                     </a>
                 </li>
@@ -158,7 +292,7 @@
     {
         @if (Model.CurrentMonth.HasValue && Model.PreviousMonth.HasValue)
         {
-            <a asp-action="Index" asp-route-leagueId="@Model.LeagueId" asp-route-year="@Model.PreviousMonthYear" asp-route-month="@Model.PreviousMonth" 
+            <a asp-action="Index" asp-route-leagueId="@Model.LeagueId" asp-route-year="@Model.PreviousMonthYear" asp-route-month="@Model.PreviousMonth" asp-route-view="@viewMode"
                class="btn btn-outline-info" title="@(new DateTime(2000, Model.PreviousMonth.Value, 1).ToString("MMM")) @Model.PreviousMonthYear">
                 ◀
             </a>
@@ -182,7 +316,7 @@
             </button>
             <ul class="dropdown-menu">
                 <li class="@(!Model.CurrentMonth.HasValue ? "active" : "")">
-                    <a asp-action="Index" asp-route-leagueId="@Model.LeagueId" asp-route-year="@Model.CurrentYear">
+                    <a asp-action="Index" asp-route-leagueId="@Model.LeagueId" asp-route-year="@Model.CurrentYear" asp-route-view="@viewMode">
                         @LocString[nameof(LocalizationKey.AllMonths)]
                     </a>
                 </li>
@@ -191,7 +325,7 @@
                 {
                     var isActive = Model.CurrentMonth == m;
                     <li class="@(isActive ? "active" : "")">
-                        <a asp-action="Index" asp-route-leagueId="@Model.LeagueId" asp-route-year="@Model.CurrentYear" asp-route-month="@m">
+                        <a asp-action="Index" asp-route-leagueId="@Model.LeagueId" asp-route-year="@Model.CurrentYear" asp-route-month="@m" asp-route-view="@viewMode">
                             @(new DateTime(2000, m, 1).ToString("MMMM"))
                         </a>
                     </li>
@@ -201,7 +335,7 @@
 
         @if (Model.CurrentMonth.HasValue && Model.NextMonth.HasValue)
         {
-            <a asp-action="Index" asp-route-leagueId="@Model.LeagueId" asp-route-year="@Model.NextMonthYear" asp-route-month="@Model.NextMonth" 
+            <a asp-action="Index" asp-route-leagueId="@Model.LeagueId" asp-route-year="@Model.NextMonthYear" asp-route-month="@Model.NextMonth" asp-route-view="@viewMode"
                class="btn btn-outline-info" title="@(new DateTime(2000, Model.NextMonth.Value, 1).ToString("MMM")) @Model.NextMonthYear">
                 ▶
             </a>
@@ -214,7 +348,7 @@
 
     @if (Model.NextYear.HasValue)
     {
-        <a asp-action="Index" asp-route-leagueId="@Model.LeagueId" asp-route-year="@Model.NextYear.Value" class="btn btn-outline-primary">
+        <a asp-action="Index" asp-route-leagueId="@Model.LeagueId" asp-route-year="@Model.NextYear.Value" asp-route-view="@viewMode" class="btn btn-outline-primary">
             @Model.NextYear ▶
         </a>
     }
@@ -232,12 +366,184 @@
     }
 
     <span style="color: #666; margin-left: 8px;">(@Model.TotalTournamentCount @LocString[nameof(LocalizationKey.Tournaments)])</span>
+    
+    <!-- View Mode Toggle -->
+    <div class="view-toggle">
+        <a asp-action="Index" asp-route-leagueId="@Model.LeagueId" asp-route-year="@Model.CurrentYear" asp-route-month="@Model.CurrentMonth" asp-route-view="list"
+           class="btn btn-outline-secondary @(viewMode == "list" ? "active" : "")" title="List View">
+            ☰
+        </a>
+        <a asp-action="Index" asp-route-leagueId="@Model.LeagueId" asp-route-year="@Model.CurrentYear" asp-route-month="@Model.CurrentMonth" asp-route-view="calendar"
+           class="btn btn-outline-secondary @(viewMode == "calendar" ? "active" : "")" title="Calendar View">
+            📅
+        </a>
+    </div>
 </div>
 
 @if (!Model.Tournaments.Any())
 {
     <div class="alert alert-info">
         No tournaments found for @Model.CurrentYear. @if (Model.IsAdmin) { <text>Click "Create Tournament" to add one.</text> }
+    </div>
+}
+else if (viewMode == "calendar")
+{
+    var displayYear = Model.CurrentYear ?? DateTime.Now.Year;
+    var today = DateTime.Today;
+    var dayNames = new[] { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+    
+    // Group tournaments by date
+    var tournamentsByDate = Model.Tournaments
+        .Where(t => t.StartDate.HasValue)
+        .GroupBy(t => t.StartDate.Value.Date)
+        .ToDictionary(g => g.Key, g => g.ToList());
+    
+    // Track multi-day tournaments
+    var multiDayTournaments = Model.Tournaments
+        .Where(t => t.StartDate.HasValue && t.EndDate.HasValue && t.EndDate.Value.Date > t.StartDate.Value.Date)
+        .ToList();
+
+    if (Model.CurrentMonth.HasValue)
+    {
+        // Single month view
+        var displayMonth = Model.CurrentMonth.Value;
+        var firstDayOfMonth = new DateTime(displayYear, displayMonth, 1);
+        var lastDayOfMonth = firstDayOfMonth.AddMonths(1).AddDays(-1);
+        
+        // Start from Sunday of the week containing the first day
+        var startDay = firstDayOfMonth.AddDays(-(int)firstDayOfMonth.DayOfWeek);
+        // End on Saturday of the week containing the last day
+        var endDay = lastDayOfMonth.AddDays(6 - (int)lastDayOfMonth.DayOfWeek);
+        
+        <!-- Calendar View - Single Month -->
+        <div class="calendar-container">
+            <div class="calendar-grid">
+                @foreach (var dayName in dayNames)
+                {
+                    <div class="calendar-header">@dayName</div>
+                }
+                
+                @{ var currentDay = startDay; }
+                @while (currentDay <= endDay)
+                {
+                    var isOtherMonth = currentDay.Month != displayMonth;
+                    var isToday = currentDay.Date == today;
+                    var dayClasses = "calendar-day";
+                    if (isOtherMonth) { dayClasses += " other-month"; }
+                    if (isToday) { dayClasses += " today"; }
+                    
+                    List<PlayerRatings.ViewModels.Tournament.TournamentSummary> dayTournaments;
+                    if (tournamentsByDate.TryGetValue(currentDay.Date, out var startingTournaments))
+                    {
+                        dayTournaments = startingTournaments;
+                    }
+                    else
+                    {
+                        dayTournaments = new List<PlayerRatings.ViewModels.Tournament.TournamentSummary>();
+                    }
+                    
+                    var spanningTournaments = multiDayTournaments
+                        .Where(t => t.StartDate.Value.Date < currentDay.Date && t.EndDate.Value.Date >= currentDay.Date)
+                        .ToList();
+                    
+                    var maxDisplay = 3;
+                    var displayCount = 0;
+                    var totalCount = dayTournaments.Count + spanningTournaments.Count;
+                    
+                    <div class="@dayClasses">
+                        <div class="day-number">@currentDay.Day</div>
+                        @foreach (var t in dayTournaments.Take(maxDisplay))
+                        {
+                            var isMultiDay = t.EndDate.HasValue && t.EndDate.Value.Date > t.StartDate.Value.Date;
+                            var cssClass = isMultiDay ? "calendar-tournament multi-day" : "calendar-tournament";
+                            <a asp-action="Details" asp-route-id="@t.Id" class="@cssClass" title="@t.FullName">
+                                @t.Name
+                            </a>
+                            displayCount++;
+                        }
+                        @foreach (var t in spanningTournaments.Take(maxDisplay - displayCount))
+                        {
+                            var isEndDay = t.EndDate.Value.Date == currentDay.Date;
+                            var cssClass = isEndDay ? "calendar-tournament end-day" : "calendar-tournament multi-day";
+                            <a asp-action="Details" asp-route-id="@t.Id" class="@cssClass" title="@t.FullName (continues)" style="opacity: 0.7;">
+                                ↳ @t.Name
+                            </a>
+                        }
+                        @if (totalCount > maxDisplay)
+                        {
+                            <div class="calendar-more">+@(totalCount - maxDisplay) more</div>
+                        }
+                    </div>
+                    currentDay = currentDay.AddDays(1);
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        // Year view - show all 12 months in a grid
+        <div class="calendar-container">
+            <div class="year-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
+                @for (var month = 1; month <= 12; month++)
+                {
+                    var firstDayOfMonth = new DateTime(displayYear, month, 1);
+                    var lastDayOfMonth = firstDayOfMonth.AddMonths(1).AddDays(-1);
+                    var startDay = firstDayOfMonth.AddDays(-(int)firstDayOfMonth.DayOfWeek);
+                    var endDay = lastDayOfMonth.AddDays(6 - (int)lastDayOfMonth.DayOfWeek);
+                    var monthName = firstDayOfMonth.ToString("MMMM");
+                    
+                    <div class="month-card" style="background: white; border-radius: 8px; padding: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.1);">
+                        <a asp-action="Index" asp-route-leagueId="@Model.LeagueId" asp-route-year="@displayYear" asp-route-month="@month" asp-route-view="calendar"
+                           style="font-weight: 600; font-size: 1.1em; color: #667eea; text-decoration: none; display: block; margin-bottom: 8px;">
+                            @monthName
+                        </a>
+                        <div class="calendar-grid mini" style="font-size: 0.75em;">
+                            @foreach (var dayName in dayNames)
+                            {
+                                <div class="calendar-header" style="padding: 4px 2px; font-size: 0.8em;">@dayName.Substring(0, 1)</div>
+                            }
+                            @{ var currentDay = startDay; var loopMonth = month; }
+                            @while (currentDay <= endDay)
+                            {
+                                var isOtherMonth = currentDay.Month != loopMonth;
+                                var isToday = currentDay.Date == today;
+                                var dayClasses = "calendar-day";
+                                if (isOtherMonth) { dayClasses += " other-month"; }
+                                if (isToday) { dayClasses += " today"; }
+                                
+                                var hasTournament = tournamentsByDate.ContainsKey(currentDay.Date) || 
+                                    multiDayTournaments.Any(t => t.StartDate.Value.Date <= currentDay.Date && t.EndDate.Value.Date >= currentDay.Date);
+                                
+                                <div class="@dayClasses" style="min-height: 24px; padding: 2px; text-align: center;">
+                                    <div class="day-number" style="font-size: 0.85em;">@currentDay.Day</div>
+                                    @if (hasTournament && !isOtherMonth)
+                                    {
+                                        <div style="width: 6px; height: 6px; background: #667eea; border-radius: 50%; margin: 0 auto;"></div>
+                                    }
+                                </div>
+                                currentDay = currentDay.AddDays(1);
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+    
+    <!-- Legend -->
+    <div style="margin-top: 15px; font-size: 0.85em; color: #666;">
+        <span style="display: inline-flex; align-items: center; margin-right: 15px;">
+            <span style="display: inline-block; width: 12px; height: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 3px; margin-right: 5px;"></span>
+            Single day
+        </span>
+        <span style="display: inline-flex; align-items: center; margin-right: 15px;">
+            <span style="display: inline-block; width: 12px; height: 12px; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); border-radius: 3px; margin-right: 5px;"></span>
+            Multi-day / Continues
+        </span>
+        <span style="display: inline-flex; align-items: center;">
+            <span style="display: inline-block; width: 12px; height: 12px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 3px; margin-right: 5px;"></span>
+            Last day
+        </span>
     </div>
 }
 else

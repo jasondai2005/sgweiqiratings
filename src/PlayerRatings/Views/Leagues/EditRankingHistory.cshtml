@@ -30,9 +30,9 @@
                     <input type="hidden" name="PlayerId" value="@Model.Player.Id" />
                     <input type="hidden" name="LeagueId" value="@Model.LeagueId" />
                     <div class="row">
-                        <div class="col-md-2 form-group">
+                        <div class="col-md-1 form-group">
                             <label>@LocString[nameof(LocalizationKey.Ranking)]</label>
-                            <input type="text" class="form-control" name="Ranking" placeholder="e.g., 1D, 2K?" required pattern="^\d{1,2}[DKP]\??$" />
+                            <input type="text" class="form-control" name="Ranking" placeholder="1D" required pattern="^\d{1,2}[DKP]\??$" />
                         </div>
                         <div class="col-md-2 form-group">
                             <label>@LocString[nameof(LocalizationKey.Organization)]</label>
@@ -47,14 +47,20 @@
                             <label>@LocString[nameof(LocalizationKey.Date)]</label>
                             <input type="date" class="form-control" name="RankingDate" />
                         </div>
-                        <div class="col-md-3 form-group">
+                        <div class="col-md-4 form-group">
                             <label>@LocString[nameof(LocalizationKey.Tournament)]</label>
                             <select class="form-control" name="TournamentId" id="tournamentSelect">
                                 <option value="">-- None --</option>
                                 @foreach (var t in Model.TournamentOptions)
                                 {
-                                    var isSelected = Model.PreselectedTournamentId.HasValue && t.Id == Model.PreselectedTournamentId.Value;
-                                    <option value="@t.Id" selected="@isSelected">@t.Name</option>
+                                    if (Model.PreselectedTournamentId.HasValue && t.Id == Model.PreselectedTournamentId.Value)
+                                    {
+                                        <option value="@t.Id" selected>@t.Name</option>
+                                    }
+                                    else
+                                    {
+                                        <option value="@t.Id">@t.Name</option>
+                                    }
                                 }
                             </select>
                         </div>
@@ -127,7 +133,7 @@
                                             <input type="hidden" name="LeagueId" value="@Model.LeagueId" />
                                             <input type="hidden" name="ReturnToEditPage" value="true" />
                                             <div class="row">
-                                                <div class="col-md-2 form-group">
+                                                <div class="col-md-1 form-group">
                                                     <label>@LocString[nameof(LocalizationKey.Ranking)]</label>
                                                     <input type="text" class="form-control input-sm" name="Ranking" value="@ranking.Ranking" required pattern="^\d{1,2}[DKP]\??$" />
                                                 </div>
@@ -138,7 +144,14 @@
                                                         {
                                                             var isSelected = ranking.Organization == org || 
                                                                 (string.IsNullOrEmpty(ranking.Organization) && org == "Other");
-                                                            <option value="@org" selected="@isSelected">@org</option>
+                                                            if (isSelected)
+                                                            {
+                                                                <option value="@org" selected>@org</option>
+                                                            }
+                                                            else
+                                                            {
+                                                                <option value="@org">@org</option>
+                                                            }
                                                         }
                                                     </select>
                                                 </div>
@@ -146,14 +159,24 @@
                                                     <label>@LocString[nameof(LocalizationKey.Date)]</label>
                                                     <input type="date" class="form-control input-sm" name="RankingDate" value="@(ranking.RankingDate?.ToString("yyyy-MM-dd"))" />
                                                 </div>
-                                                <div class="col-md-3 form-group">
+                                                <div class="col-md-4 form-group">
                                                     <label>@LocString[nameof(LocalizationKey.Tournament)]</label>
                                                     <select class="form-control input-sm" name="TournamentId">
                                                         <option value="">-- None --</option>
                                                         @foreach (var t in Model.TournamentOptions)
                                                         {
-                                                            var isSelected = ranking.TournamentId == t.Id;
-                                                            <option value="@t.Id" selected="@isSelected">@t.Name</option>
+                                                            // Select if: 1) ranking already has this tournament, OR
+                                                            // 2) ranking has no tournament and this matches preselected
+                                                            var isSelected = ranking.TournamentId == t.Id ||
+                                                                (!ranking.TournamentId.HasValue && Model.PreselectedTournamentId.HasValue && t.Id == Model.PreselectedTournamentId.Value);
+                                                            if (isSelected)
+                                                            {
+                                                                <option value="@t.Id" selected>@t.Name</option>
+                                                            }
+                                                            else
+                                                            {
+                                                                <option value="@t.Id">@t.Name</option>
+                                                            }
                                                         }
                                                     </select>
                                                 </div>

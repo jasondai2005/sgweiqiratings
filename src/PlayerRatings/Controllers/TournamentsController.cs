@@ -827,6 +827,20 @@ namespace PlayerRatings.Controllers
                 .OrderByDescending(m => m)
                 .ToList();
             
+            // Default to current month if not specified (for current year) or latest month with tournaments
+            if (!month.HasValue && availableMonths.Any())
+            {
+                // If viewing current year, default to current month if it has tournaments, otherwise latest month
+                if (currentYear == DateTime.Now.Year && availableMonths.Contains(DateTime.Now.Month))
+                {
+                    month = DateTime.Now.Month;
+                }
+                else
+                {
+                    month = availableMonths.First(); // Latest month with tournaments
+                }
+            }
+            
             // Apply month filter if specified
             if (month.HasValue && month.Value >= 1 && month.Value <= 12)
             {
