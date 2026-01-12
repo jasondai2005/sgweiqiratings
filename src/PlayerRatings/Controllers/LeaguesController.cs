@@ -906,14 +906,18 @@ namespace PlayerRatings.Controllers
                 var matchMonth = GetEndOfMonth(match.Date.DateTime);
 
                 // Track all players for position calculation (skip NULL players for bye matches)
-                if (!string.IsNullOrEmpty(match.FirstPlayerId) && !allPlayersInMatches.ContainsKey(match.FirstPlayerId))
-                    allPlayersInMatches[match.FirstPlayerId] = match.FirstPlayer;
-                if (!string.IsNullOrEmpty(match.SecondPlayerId) && !allPlayersInMatches.ContainsKey(match.SecondPlayerId))
-                    allPlayersInMatches[match.SecondPlayerId] = match.SecondPlayer;
-                if (!string.IsNullOrEmpty(match.FirstPlayerId))
-                    playerLastMatchDates[match.FirstPlayerId] = match.Date;
-                if (!string.IsNullOrEmpty(match.SecondPlayerId))
-                    playerLastMatchDates[match.SecondPlayerId] = match.Date;
+                // Only track rated matches (Factor != 0) to avoid unrated matches affecting activity status
+                if (match.Factor != 0)
+                {
+                    if (!string.IsNullOrEmpty(match.FirstPlayerId) && !allPlayersInMatches.ContainsKey(match.FirstPlayerId))
+                        allPlayersInMatches[match.FirstPlayerId] = match.FirstPlayer;
+                    if (!string.IsNullOrEmpty(match.SecondPlayerId) && !allPlayersInMatches.ContainsKey(match.SecondPlayerId))
+                        allPlayersInMatches[match.SecondPlayerId] = match.SecondPlayer;
+                    if (!string.IsNullOrEmpty(match.FirstPlayerId))
+                        playerLastMatchDates[match.FirstPlayerId] = match.Date;
+                    if (!string.IsNullOrEmpty(match.SecondPlayerId))
+                        playerLastMatchDates[match.SecondPlayerId] = match.Date;
+                }
 
                 // When month changes, capture snapshot of previous month
                 if (matchMonth > currentProcessingMonth && currentProcessingMonth.Year > 1900)
