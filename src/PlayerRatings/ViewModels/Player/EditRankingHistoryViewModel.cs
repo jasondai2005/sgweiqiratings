@@ -24,6 +24,16 @@ namespace PlayerRatings.ViewModels.Player
         /// Optional: Pre-select a tournament when opening from Tournament Details page.
         /// </summary>
         public Guid? PreselectedTournamentId { get; set; }
+        
+        /// <summary>
+        /// Optional: Pre-populate organization when opening from Tournament Details page.
+        /// </summary>
+        public string PreselectedOrganization { get; set; }
+        
+        /// <summary>
+        /// Optional: Pre-populate ranking date when opening from Tournament Details page.
+        /// </summary>
+        public DateTime? PreselectedRankingDate { get; set; }
     }
 }
 

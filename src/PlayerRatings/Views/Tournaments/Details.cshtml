@@ -386,7 +386,7 @@
                                     }
                                     else if (Model.IsAdmin)
                                     {
-                                        <a href="@Url.Action("EditRankingHistory", "Leagues", new { id = Model.LeagueId, playerId = p.PlayerId, tournamentId = Model.Id })" 
+                                        <a href="@Url.Action("EditRankingHistory", "Leagues", new { id = Model.LeagueId, playerId = p.PlayerId, tournamentId = Model.Id, organization = Model.Organizer, rankingDate = Model.EndDate?.ToString("yyyy-MM-dd") })" 
                                            target="_blank" class="btn btn-xs btn-default" title="@LocString[nameof(LocalizationKey.AddPromotion)]">+</a>
                                     }
                                 </td>

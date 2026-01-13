@@ -294,15 +294,17 @@
             <div class="panel panel-default">
                 <div class="panel-heading">@LocString[nameof(LocalizationKey.AddPlayer)]</div>
                 <div class="panel-body">
-                    <form asp-action="AddPlayer" method="post" class="form-inline">
+                    <form asp-action="AddPlayer" method="post">
                         <input type="hidden" name="tournamentId" value="@Model.Id" />
-                        <select name="playerId" class="form-control input-sm" style="width: 180px;">
-                            @foreach (var p in Model.LeaguePlayers)
-                            {
-                                <option value="@p.PlayerId">@p.PlayerName</option>
-                            }
-                        </select>
-                        <button type="submit" class="btn btn-sm btn-default">@LocString[nameof(LocalizationKey.Add)]</button>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <select name="playerId" class="form-control input-sm" style="flex: 1; min-width: 0;">
+                                @foreach (var p in Model.LeaguePlayers)
+                                {
+                                    <option value="@p.PlayerId">@p.PlayerName</option>
+                                }
+                            </select>
+                            <button type="submit" class="btn btn-sm btn-default" style="white-space: nowrap;">@LocString[nameof(LocalizationKey.Add)]</button>
+                        </div>
                     </form>
                 </div>
             </div>

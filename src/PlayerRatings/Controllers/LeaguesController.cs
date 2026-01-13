@@ -877,8 +877,8 @@ namespace PlayerRatings.Controllers
             if (player.FirstMatch == DateTimeOffset.MinValue)
                 player.FirstMatch = firstMatchDate;
 
-            // For new players with foreign/unknown ranking, start from when rating is corrected (after 12 games)
-            bool isNewForeignPlayer = player.IsUnknownRankedPlayer;
+            // For new players with foreign ranking, start from when rating is corrected (after 12 games)
+            bool isNewForeignPlayer = player.IsUnknownRankedPlayer && !player.IsUnknownPlayer;
             
             DateTimeOffset startDate = firstMatchDate;
             if (isNewForeignPlayer && playerMatches.Count >= 12)
@@ -1433,7 +1433,7 @@ namespace PlayerRatings.Controllers
         }
 
         // GET: Leagues/EditRankingHistory - Separate page for editing player ranking history
-        public async Task<IActionResult> EditRankingHistory(Guid id, string playerId, Guid? tournamentId = null)
+        public async Task<IActionResult> EditRankingHistory(Guid id, string playerId, Guid? tournamentId = null, string organization = null, DateTime? rankingDate = null)
         {
             if (string.IsNullOrEmpty(playerId))
             {
@@ -1480,7 +1480,9 @@ namespace PlayerRatings.Controllers
                 LeagueName = league.Name,
                 Rankings = rankings,
                 TournamentOptions = tournamentOptions,
-                PreselectedTournamentId = tournamentId
+                PreselectedTournamentId = tournamentId,
+                PreselectedOrganization = organization,
+                PreselectedRankingDate = rankingDate
             });
         }
 

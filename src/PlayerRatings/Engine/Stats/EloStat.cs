@@ -157,7 +157,7 @@ namespace PlayerRatings.Engine.Stats
             }
 
             // Now check if current ranking differs from what we last knew
-            if (previousRanking != null && !IsSameRanking(previousRanking, currentRanking))
+            if (!IsSameRanking(previousRanking, currentRanking))
             {
                 // Only promotions from trusted organizations can trigger promotion bonus
                 if (!currentRanking.IsTrustedOrganization)
@@ -189,7 +189,7 @@ namespace PlayerRatings.Engine.Stats
             PlayerRanking currentRanking, int currentRankingRating, DateTimeOffset date, bool isSgLeague)
         {
             double ratingFloor;
-            bool wasKyuPlayer = previousRanking.Ranking?.Contains('K', StringComparison.OrdinalIgnoreCase) ?? true;
+            bool wasKyuPlayer = previousRanking?.Ranking?.Contains('K', StringComparison.OrdinalIgnoreCase) ?? true;
 
             // Pro players and foreign players directly use their new ranking rating
             if (player.IsProPlayer || (!player.IsLocalPlayerAt(date) && !currentRanking.IsLocalRanking))
@@ -234,7 +234,7 @@ namespace PlayerRatings.Engine.Stats
                     bonusList = new List<(DateTimeOffset, string, string, string, string, double)>();
                     _promotionBonuses[player.Id] = bonusList;
                 }
-                bonusList.Add((promotionDate, previousRanking.Ranking, previousRanking.Organization, 
+                bonusList.Add((promotionDate, previousRanking?.Ranking ?? string.Empty, previousRanking?.Organization ?? string.Empty, 
                     currentRanking.Ranking, currentRanking.Organization, bonusAmount));
                 
                 // Only stop performance estimation for kyu players

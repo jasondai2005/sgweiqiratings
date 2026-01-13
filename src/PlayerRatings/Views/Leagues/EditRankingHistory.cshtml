@@ -39,13 +39,21 @@
                             <select class="form-control" name="Organization" required>
                                 @foreach (var org in EditRankingViewModel.CommonOrganizations)
                                 {
-                                    <option value="@org">@org</option>
+                                    var isSelected = !string.IsNullOrEmpty(Model.PreselectedOrganization) && org == Model.PreselectedOrganization;
+                                    if (isSelected)
+                                    {
+                                        <option value="@org" selected>@org</option>
+                                    }
+                                    else
+                                    {
+                                        <option value="@org">@org</option>
+                                    }
                                 }
                             </select>
                         </div>
                         <div class="col-md-2 form-group">
                             <label>@LocString[nameof(LocalizationKey.Date)]</label>
-                            <input type="date" class="form-control" name="RankingDate" />
+                            <input type="date" class="form-control" name="RankingDate" value="@(Model.PreselectedRankingDate?.ToString("yyyy-MM-dd"))" />
                         </div>
                         <div class="col-md-4 form-group">
                             <label>@LocString[nameof(LocalizationKey.Tournament)]</label>
