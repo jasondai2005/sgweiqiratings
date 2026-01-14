@@ -132,7 +132,7 @@ namespace PlayerRatings.Services
                 Ranking = ranking,
                 Organization = organization == "Other" ? null : organization,
                 RankingDate = rankingDate,
-                RankingNote = "Initial ranking"
+                RankingNote = String.Empty
             };
         }
     }
