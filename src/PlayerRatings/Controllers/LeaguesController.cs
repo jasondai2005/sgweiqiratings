@@ -881,9 +881,9 @@ namespace PlayerRatings.Controllers
             bool isNewForeignPlayer = player.IsUnknownRankedPlayer && !player.IsUnknownPlayer;
             
             DateTimeOffset startDate = firstMatchDate;
-            if (isNewForeignPlayer && playerMatches.Count >= 12)
+            if (isNewForeignPlayer && playerMatches.Count > 12)
             {
-                startDate = playerMatches[11].Date; // 12th game (0-indexed)
+                startDate = playerMatches[12].Date; // 12th game (0-indexed)
             }
             
             // ===== Use shared calculation with monthly snapshot callback =====
@@ -979,7 +979,7 @@ namespace PlayerRatings.Controllers
                 if (monthToCapture < startMonth || currentEloStat == null)
                     return;
                     
-                bool hasEnoughGames = !isNewForeignPlayer || playerMatchCount >= 12;
+                bool hasEnoughGames = !isNewForeignPlayer || playerMatchCount > 12;
                 if (playerMatchCount > 0 && hasEnoughGames)
                 {
                     // Order tournaments by start date descending (latest at top)
