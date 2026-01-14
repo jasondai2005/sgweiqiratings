@@ -136,7 +136,8 @@ namespace PlayerRatings.Engine.Rating
             bool swaOnly,
             bool isSgLeague,
             HashSet<string> allowedUserIds = null,
-            Action<Match, EloStat> onMatchProcessed = null)
+            Action<Match, EloStat> onMatchProcessed = null,
+            DateTimeOffset? startDate = null)
         {
             // Reset player transient state at the start
             ResetPlayerState(allMatches);
@@ -148,8 +149,16 @@ namespace PlayerRatings.Engine.Rating
             var eloStat = new EloStat();
 
             var matches = FilterMatches(allMatches, cutoffDate, swaOnly, isSgLeague);
+            bool promotionBeforeStartDateChecked = false;
             foreach (var match in matches)
             {
+                if (!promotionBeforeStartDateChecked && startDate.HasValue && match.Date > startDate)
+                {
+                    // Apply promotions up to start date before processing matches
+                    eloStat.ApplyPromotionsUpToDate(activeUsers, startDate.Value, isSgLeague);
+                    promotionBeforeStartDateChecked = true;
+                }
+
                 if (match.Factor != 0)
                 {
                     // Normal rated match
@@ -169,22 +178,12 @@ namespace PlayerRatings.Engine.Rating
                 {
                     continue; // Bye match, skip
                 }
-                else if (match.FirstPlayer?.MatchCount > 0 && match.SecondPlayer?.MatchCount > 0)
-                {
-                    // Add a record so promotion bonus could be applied
-                    // for new players, avoid them entering the rating system too early
-                    // so they can enter with the latest ranking when first rated match happens
-                    eloStat.AddMatch(match);
-                }
 
                 onMatchProcessed?.Invoke(match, eloStat);
             }
 
             // Check promotions for all active users
-            foreach (var user in activeUsers)
-            {
-                eloStat.CheckPlayerPromotion(user, cutoffDate, isSgLeague);
-            }
+            eloStat.ApplyPromotionsUpToDate(activeUsers, cutoffDate, isSgLeague);
 
             return (eloStat, activeUsers);
         }
@@ -316,7 +315,7 @@ namespace PlayerRatings.Engine.Rating
             var results = new Dictionary<string, double>();
             
             // Calculate ratings up to end date to capture all promotions
-            var (eloStat, _) = CalculateRatings(allMatches, endDate, swaOnly, isSgLeague);
+            var (eloStat, _) = CalculateRatings(allMatches, endDate, swaOnly, isSgLeague, startDate: startDate);
             
             // Get promotion bonuses for each player that occurred between start and end dates
             foreach (var playerId in playerIds)
