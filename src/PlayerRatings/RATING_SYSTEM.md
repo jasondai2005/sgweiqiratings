@@ -148,15 +148,25 @@ Performance estimation is used for:
 
 During the estimation period:
 
-1. **Dynamic K-Factor:** New players use an elevated K-factor that decreases over 12 games:
+1. **Dynamic K-Factor:** 
    
-   ```
-   K multiplier = 1 + max(0, (12 - gamesPlayed) / 6)
-   ```
+   - **New unknown players** (foreign dan/kyu, unknown ranking): Elevated K-factor that decreases over 12 games:
    
-   - 0 games: K multiplier = 3.0×
-   - 6 games: K multiplier = 2.0×
-   - 12 games: K multiplier = 1.0× (normal)
+     ```
+     K multiplier = 1 + max(0, (12 - gamesPlayed) / 6)
+     ```
+     
+     - 0 games: K multiplier = 3.0×
+     - 6 games: K multiplier = 2.0×
+     - 12 games: K multiplier = 1.0× (normal)
+   
+   - **New local dan players and returning inactive players**: Fixed K-factor for first 6 games only:
+   
+     ```
+     K multiplier = 2.0
+     ```
+     
+     These players have reliable local ranking history (SWA/TGA), so they don't need the full dynamic range.
 
 2. **Opponent Protection:** When an uncertain player faces an established player, the established player uses a reduced K-factor (0.5×) to limit rating impact from potentially misrated opponents. Pro players are exempt from this reduction.
 

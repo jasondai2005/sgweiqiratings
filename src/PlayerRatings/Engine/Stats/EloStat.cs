@@ -62,7 +62,7 @@ namespace PlayerRatings.Engine.Stats
                 // This is symmetric - applies to both wins and losses
                 if (player1NeedsDynamic)
                 {
-                    factor1 = CalculateUncertaintyFactor(match.FirstPlayer.MatchCount);
+                    factor1 = CalculateUncertaintyFactor(match.FirstPlayer);
                     
                     // Reduce impact on established players when playing against uncertain players
                     // Exception: Pro players always use their own K factor
@@ -74,7 +74,7 @@ namespace PlayerRatings.Engine.Stats
 
                 if (player2NeedsDynamic)
                 {
-                    factor2 = CalculateUncertaintyFactor(match.SecondPlayer.MatchCount);
+                    factor2 = CalculateUncertaintyFactor(match.SecondPlayer);
                     
                     // Reduce impact on established players when playing against uncertain players
                     if (!player1NeedsDynamic && !match.FirstPlayer.IsProPlayer)
@@ -433,13 +433,20 @@ namespace PlayerRatings.Engine.Stats
         /// </summary>
         /// <param name="gamesPlayed">Number of games the player has played</param>
         /// <returns>K-factor multiplier (1.0 to 3.0)</returns>
-        private static double CalculateUncertaintyFactor(int gamesPlayed)
+        private static double CalculateUncertaintyFactor(ApplicationUser player)
         {
-            // Linear decrease from 3.0 at 0 games to 1.0 at 12 games
+            // New local dan players and returning inactive players: fixed at 2.0 for first 6 games
+            // They have reliable local ranking history, so they don't need the full 3.0→2.0 range
+            if (player.IsNewLocalDanPlayer || player.IsReturningInactivePlayer)
+            {
+                return 2.0;
+            }
+            
+            // New unknown players: linear decrease from 3.0 at 0 games to 1.0 at 12 games
             // 0 games: 1 + 12/6 = 3.0
             // 6 games: 1 + 6/6 = 2.0
             // 12 games: 1 + 0/6 = 1.0
-            return 1 + Math.Max(0, (GAMES_FOR_ESTIMATION - gamesPlayed) / 6.0);
+            return 1 + Math.Max(0, (GAMES_FOR_ESTIMATION - player.MatchCount) / 6.0);
         }
 
         public virtual string GetResult(ApplicationUser user)

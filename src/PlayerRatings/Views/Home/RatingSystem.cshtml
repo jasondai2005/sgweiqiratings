@@ -186,12 +186,21 @@
     <h3>工作原理</h3>
     <p>在评估期间：</p>
 
-    <p><strong>1. 动态K系数：</strong>新棋手使用较高的K系数，在12局内逐渐降低：</p>
-    <pre><code>K系数倍数 = 1 + max(0, (12 - 已对局数) / 6)</code></pre>
+    <p><strong>1. 动态K系数：</strong></p>
+    
     <ul>
-        <li>0局：K系数倍数 = 3.0×</li>
-        <li>6局：K系数倍数 = 2.0×</li>
-        <li>12局：K系数倍数 = 1.0×（正常）</li>
+        <li><strong>新的未知段级位棋手</strong>（外国段位/级位，未知段级位）：K系数在12局内逐渐降低：
+            <pre><code>K系数倍数 = 1 + max(0, (12 - 已对局数) / 6)</code></pre>
+            <ul>
+                <li>0局：K系数倍数 = 3.0×</li>
+                <li>6局：K系数倍数 = 2.0×</li>
+                <li>12局：K系数倍数 = 1.0×（正常）</li>
+            </ul>
+        </li>
+        <li><strong>新加入的本地段位棋手和回归的非活跃棋手：</strong>前6局固定K系数：
+            <pre><code>K系数倍数 = 2.0</code></pre>
+            <p>这些棋手有可靠的本地段级位历史记录（SWA/TGA），因此不需要完整的动态范围。</p>
+        </li>
     </ul>
 
     <p><strong>2. 对手保护：</strong>当实力不确定的棋手对阵已确立等级分的棋手时，已确立等级分的棋手使用较低的K系数（0.5×），以限制可能被误判等级分的对手的影响。职业棋手不受此调整影响。</p>
@@ -450,12 +459,21 @@ else
     <h3>How It Works</h3>
     <p>During the estimation period:</p>
 
-    <p><strong>1. Dynamic K-Factor:</strong> New players use an elevated K-factor that decreases over 12 games:</p>
-    <pre><code>K multiplier = 1 + max(0, (12 - gamesPlayed) / 6)</code></pre>
+    <p><strong>1. Dynamic K-Factor:</strong></p>
+    
     <ul>
-        <li>0 games: K multiplier = 3.0×</li>
-        <li>6 games: K multiplier = 2.0×</li>
-        <li>12 games: K multiplier = 1.0× (normal)</li>
+        <li><strong>New unknown players</strong> (foreign dan/kyu, unknown ranking): Elevated K-factor that decreases over 12 games:
+            <pre><code>K multiplier = 1 + max(0, (12 - gamesPlayed) / 6)</code></pre>
+            <ul>
+                <li>0 games: K multiplier = 3.0×</li>
+                <li>6 games: K multiplier = 2.0×</li>
+                <li>12 games: K multiplier = 1.0× (normal)</li>
+            </ul>
+        </li>
+        <li><strong>New local dan players and returning inactive players:</strong> Fixed K-factor for first 6 games only:
+            <pre><code>K multiplier = 2.0</code></pre>
+            <p>These players have reliable local ranking history (SWA/TGA), so they don't need the full dynamic range.</p>
+        </li>
     </ul>
 
     <p><strong>2. Opponent Protection:</strong> When an uncertain player faces an established player, the established player uses a reduced K-factor (0.5×) to limit rating impact from potentially misrated opponents. Pro players are exempt from this reduction.</p>
