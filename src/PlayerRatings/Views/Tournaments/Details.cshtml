@@ -30,7 +30,7 @@
             @if (!string.IsNullOrEmpty(Model.Photo))
             {
                 <div class="col-md-3">
-                    <img src="@Model.Photo" alt="@Model.FullName" style="max-width: 100%; max-height: 200px; border-radius: 4px;" />
+                    <img src="@Model.Photo" alt="@Model.FullName" style="max-width: 100%; max-height: 200px; border-radius: 4px; cursor: pointer;" onclick="showPhotoModal(this.src)" title="@LocString[nameof(LocalizationKey.ClickToEnlarge)]" />
                 </div>
             }
             <div class="@(string.IsNullOrEmpty(Model.Photo) ? "col-md-6" : "col-md-4")">

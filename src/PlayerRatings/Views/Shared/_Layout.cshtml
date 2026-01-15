@@ -353,8 +353,45 @@
                     icon.textContent = originalIcon;
                 }
             }
+            
+            // Global photo modal functionality
+            function showPhotoModal(src) {
+                var modal = document.getElementById('photoModal');
+                var modalImg = document.getElementById('photoModalImg');
+                modal.style.display = 'flex';
+                modalImg.src = src;
+            }
+            
+            function closePhotoModal() {
+                document.getElementById('photoModal').style.display = 'none';
+            }
+            
+            // Close modal when clicking outside the image
+            document.addEventListener('DOMContentLoaded', function() {
+                var modal = document.getElementById('photoModal');
+                if (modal) {
+                    modal.addEventListener('click', function(e) {
+                        if (e.target === modal) {
+                            closePhotoModal();
+                        }
+                    });
+                }
+            });
+            
+            // Close modal with Escape key
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    closePhotoModal();
+                }
+            });
         </script>
 
         @RenderSection("scripts", required: false)
+    
+    <!-- Global Photo Modal -->
+    <div id="photoModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.85); z-index: 9999; justify-content: center; align-items: center; cursor: pointer;">
+        <span style="position: absolute; top: 20px; right: 30px; color: #fff; font-size: 35px; font-weight: bold; cursor: pointer;" onclick="closePhotoModal()">&times;</span>
+        <img id="photoModalImg" src="" alt="Photo" style="max-width: 90%; max-height: 90%; border-radius: 8px; box-shadow: 0 0 20px rgba(0,0,0,0.5);" />
+    </div>
 </body>
 </html>
