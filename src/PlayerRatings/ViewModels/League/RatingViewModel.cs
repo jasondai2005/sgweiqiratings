@@ -14,7 +14,8 @@ namespace PlayerRatings.ViewModels.League
             IEnumerable<ApplicationUser> inactiveUsers = null,
             Dictionary<string, double> previousRatings = null,
             Dictionary<string, int> previousPositions = null,
-            DateTimeOffset? comparisonDate = null)
+            DateTimeOffset? comparisonDate = null,
+            Dictionary<string, double> currentRatings = null)
         {
             Stats = stats;
             Users = users;
@@ -29,6 +30,7 @@ namespace PlayerRatings.ViewModels.League
             PreviousRatings = previousRatings ?? new Dictionary<string, double>();
             PreviousPositions = previousPositions ?? new Dictionary<string, int>();
             ComparisonDate = comparisonDate;
+            CurrentRatings = currentRatings ?? new Dictionary<string, double>();
         }
 
         public IEnumerable<IStat> Stats { get; private set; }
@@ -60,6 +62,11 @@ namespace PlayerRatings.ViewModels.League
         /// Previous positions by user ID (at comparison date, 1-based).
         /// </summary>
         public Dictionary<string, int> PreviousPositions { get; private set; }
+        
+        /// <summary>
+        /// Current ratings by user ID.
+        /// </summary>
+        public Dictionary<string, double> CurrentRatings { get; private set; }
         
         /// <summary>
         /// The date used for comparison (first day of current/previous month).

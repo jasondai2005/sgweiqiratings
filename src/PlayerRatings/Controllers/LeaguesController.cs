@@ -455,7 +455,7 @@ namespace PlayerRatings.Controllers
                 inactiveUsers.AddRange(alwaysShownUsers);
             }
             
-            inactiveUsers.Sort(CompareByRatingAndName);
+            inactiveUsers.Sort(GetRatingComparison(elo, date));
             users = users.Where(x => x.Active || x.IsProPlayer).ToList();
             
             // For Singapore Weiqi league, separate local and non-local players based on cutoff date
@@ -463,11 +463,11 @@ namespace PlayerRatings.Controllers
             if (isSgLeague)
             {
                 nonLocalUsers = users.Where(x => !x.IsLocalPlayerAt(date)).ToList();
-                nonLocalUsers.Sort(CompareByRatingAndName);
+                nonLocalUsers.Sort(GetRatingComparison(elo, date));
                 users = users.Where(x => x.IsLocalPlayerAt(date)).ToList();
             }
             
-            users.Sort(CompareByRatingAndName);
+            users.Sort(GetRatingComparison(elo, date));
 
             var promotedPlayers = activeUsers
                 .Where(x => x.Promotion.Contains('→'))
@@ -508,32 +508,23 @@ namespace PlayerRatings.Controllers
                 prevUsers = prevUsers.Where(x => x.IsLocalPlayerAt(comparisonDate.Value)).ToList();
             }
             
-            // Sort by rating descending
-            prevUsers.Sort((x, y) =>
-            {
-                double ratingX = prevEloStat[x];
-                double ratingY = prevEloStat[y];
-                int result = ratingY.CompareTo(ratingX);
-                if (result == 0)
-                {
-                    var ranking1 = x.GetCombinedRankingBeforeDate(comparisonDate.Value);
-                    var ranking2 = y.GetCombinedRankingBeforeDate(comparisonDate.Value);
-                    if (ranking1 != ranking2)
-                        return string.Compare(ranking1, ranking2, StringComparison.OrdinalIgnoreCase);
-                    return string.Compare(x.DisplayName, y.DisplayName, StringComparison.OrdinalIgnoreCase);
-                }
-                return result;
-            });
+            // Sort by rating descending, then ranking, then name
+            prevUsers.Sort(GetRatingComparison(prevEloStat, comparisonDate.Value));
             
-            for (int i = 0; i < prevUsers.Count; i++)
+            // Calculate positions with tie handling
+            previousPositions = CalculatePositions(prevUsers, prevEloStat);
+
+            // Build current ratings dictionary
+            var currentRatings = new Dictionary<string, double>();
+            foreach (var user in users)
             {
-                previousPositions[prevUsers[i].Id] = i + 1;
+                currentRatings[user.Id] = elo[user];
             }
 
             // Restore cutoff date for view rendering (Promotion property uses League.CutoffDate)
             League.CutoffDate = date;
 
-            return View(new RatingViewModel(stats, users, promotedPlayers, recentMatches, id.Value, byDate, swaOnly, isSgLeague, nonLocalUsers, inactiveUsers, previousRatings, previousPositions, comparisonDate));
+            return View(new RatingViewModel(stats, users, promotedPlayers, recentMatches, id.Value, byDate, swaOnly, isSgLeague, nonLocalUsers, inactiveUsers, previousRatings, previousPositions, comparisonDate, currentRatings));
         }
 
 
@@ -584,16 +575,63 @@ namespace PlayerRatings.Controllers
             return (eloStat, activeUsers, isSgLeague);
         }
 
-        private int CompareByRatingAndName(ApplicationUser x, ApplicationUser y)
+        /// <summary>
+        /// Creates a comparison function for sorting users by rating (desc) → name.
+        /// </summary>
+        /// <param name="eloStat">EloStat to get ratings from</param>
+        /// <param name="date">Date parameter (unused, kept for consistency)</param>
+        /// <returns>Comparison function</returns>
+        private Comparison<ApplicationUser> GetRatingComparison(EloStat eloStat, DateTimeOffset date)
         {
-            if (!x.Active && y.Active)
-                return 1;
-            if (x.Active && !y.Active)
-                return -1;
+            return (x, y) =>
+            {
+                double ratingX = eloStat[x];
+                double ratingY = eloStat[y];
+                int result = ratingY.CompareTo(ratingX);  // Descending (higher rating first)
+                if (result == 0)
+                {
+                    return string.Compare(x.DisplayName, y.DisplayName, StringComparison.OrdinalIgnoreCase);
+                }
+                return result;
+            };
+        }
 
-            var ranking1 = x.GetCombinedRankingBeforeDate(League.CutoffDate);
-            var ranking2 = y.GetCombinedRankingBeforeDate(League.CutoffDate);
-            return CompareRatings(x, y, ranking1, ranking2);
+        /// <summary>
+        /// Calculates positions for a sorted list of users with tie handling.
+        /// Players with the same rating get the same position.
+        /// </summary>
+        /// <param name="sortedUsers">List of users already sorted by rating (desc) → name</param>
+        /// <param name="eloStat">EloStat to get ratings from</param>
+        /// <returns>Dictionary mapping userId to position</returns>
+        private Dictionary<string, int> CalculatePositions(List<ApplicationUser> sortedUsers, EloStat eloStat)
+        {
+            var positions = new Dictionary<string, int>();
+            int displayPosition = 0;
+            
+            for (int i = 0; i < sortedUsers.Count; i++)
+            {
+                if (i == 0)
+                {
+                    // First player starts at position 1
+                    displayPosition = 1;
+                }
+                else
+                {
+                    double prevRating = eloStat[sortedUsers[i - 1]];
+                    double currentRating = eloStat[sortedUsers[i]];
+                    
+                    // If rating is different, update display position to current index + 1
+                    if (currentRating != prevRating)
+                    {
+                        displayPosition = i + 1;  // Next position accounts for all previous players
+                    }
+                    // If same rating, keep same display position (tie)
+                }
+                
+                positions[sortedUsers[i].Id] = displayPosition;
+            }
+            
+            return positions;
         }
 
         private int CompareByRankingRatingAndName(ApplicationUser x, ApplicationUser y)
@@ -955,6 +993,41 @@ namespace PlayerRatings.Controllers
                 bool hasEnoughGames = !isNewForeignPlayer || playerMatchCount > 12;
                 if (playerMatchCount > 0 && hasEnoughGames)
                 {
+                    // Check if THIS player should be hidden at this point in time
+                    // Hidden if: new kyu player OR unknown ranked player with <= 12 matches
+                    bool isHiddenAtThisMonth = false;
+                    if (isSgLeague)
+                    {
+                        // Check if player is new kyu (any rank without 'D' in initial ranking)
+                        var ranking = player.InitRanking ?? string.Empty;
+                        bool isInitialKyu = !ranking.Contains('D', StringComparison.OrdinalIgnoreCase);
+                        
+                        // Check if unknown ranked player
+                        bool isUnknownRanked = player.IsUnknownRankedPlayer;
+                        
+                        // Hidden if new kyu OR unknown ranked, both with <= 12 matches at this time
+                        if ((isInitialKyu || isUnknownRanked) && playerMatchCount <= 12)
+                        {
+                            isHiddenAtThisMonth = true;
+                        }
+                    }
+                    
+                    // If player was hidden at this month, don't assign position
+                    if (isHiddenAtThisMonth)
+                    {
+                        monthlyRatings.Add(new MonthlyRating
+                        {
+                            Month = monthToCapture,
+                            Rating = currentEloStat[player],
+                            MatchesInMonth = matchesInCurrentMonth,
+                            Matches = new List<MatchInfo>(), // Don't show tournaments while hidden
+                            Position = 0, // No position while hidden
+                            TotalPlayers = 0,
+                            PromotionBonuses = new List<(string, string, string, string, double, DateTimeOffset?)>()
+                        });
+                        return;
+                    }
+                    
                     // Order tournaments by start date descending (latest at top)
                     var orderedMatches = matchInfosInCurrentMonth
                         .OrderByDescending(m => m.TournamentStartDate ?? DateTimeOffset.MinValue)
@@ -984,24 +1057,12 @@ namespace PlayerRatings.Controllers
                             && (!isSgLeague || u.IsLocalPlayerAt(effectiveDate)))
                         .ToList();
                     
-                    // Sort by rating (descending), then ranking, then name
-                    rankableAtMonth.Sort((x, y) =>
-                    {
-                        double ratingX = currentEloStat[x];
-                        double ratingY = currentEloStat[y];
-                        int result = ratingY.CompareTo(ratingX);
-                        if (result == 0)
-                        {
-                            var ranking1 = x.GetCombinedRankingBeforeDate(effectiveDate);
-                            var ranking2 = y.GetCombinedRankingBeforeDate(effectiveDate);
-                            if (ranking1 != ranking2)
-                                return string.Compare(ranking1, ranking2, StringComparison.OrdinalIgnoreCase);
-                            return string.Compare(x.DisplayName, y.DisplayName, StringComparison.OrdinalIgnoreCase);
-                        }
-                        return result;
-                    });
+                    // Sort by rating (descending), then name
+                    rankableAtMonth.Sort(GetRatingComparison(currentEloStat, effectiveDate));
                     
-                    int monthPosition = rankableAtMonth.FindIndex(u => u.Id == playerId) + 1;
+                    // Calculate positions with tie handling
+                    var monthPositions = CalculatePositions(rankableAtMonth, currentEloStat);
+                    int monthPosition = monthPositions.TryGetValue(playerId, out var pos) ? pos : 0;
                     int monthTotalPlayers = rankableAtMonth.Count;
                     
                     // Get any promotion bonuses applied this month for this player
@@ -1065,21 +1126,7 @@ namespace PlayerRatings.Controllers
                     && (!isSgLeague || u.IsLocalPlayerAt(now)))
                 .ToList();
             
-            rankedPlayersForNav.Sort((x, y) =>
-            {
-                double ratingX = eloStat[x];
-                double ratingY = eloStat[y];
-                int result = ratingY.CompareTo(ratingX);
-                if (result == 0)
-                {
-                    var ranking1 = x.GetCombinedRankingBeforeDate(now);
-                    var ranking2 = y.GetCombinedRankingBeforeDate(now);
-                    if (ranking1 != ranking2)
-                        return string.Compare(ranking1, ranking2, StringComparison.OrdinalIgnoreCase);
-                    return string.Compare(x.DisplayName, y.DisplayName, StringComparison.OrdinalIgnoreCase);
-                }
-                return result;
-            });
+            rankedPlayersForNav.Sort(GetRatingComparison(eloStat, now));
             
             foreach (var u in rankedPlayersForNav)
                 rankedPlayerIds.Add(u.Id);
@@ -1091,9 +1138,9 @@ namespace PlayerRatings.Controllers
                     && !u.IsProPlayer
                     && (!isSgLeague || !u.IsHiddenPlayer)
                     && (hiddenUserIds == null || !hiddenUserIds.Contains(u.Id)))
-                .OrderByDescending(u => eloStat[u]) // Sort by rating descending
-                .ThenBy(u => u.DisplayName)
                 .ToList();
+            
+            unrankedPlayersForNav.Sort(GetRatingComparison(eloStat, now));
             
             var unrankedPlayerIds = new HashSet<string>(unrankedPlayersForNav.Select(u => u.Id));
             
@@ -1104,9 +1151,9 @@ namespace PlayerRatings.Controllers
                     && !unrankedPlayerIds.Contains(u.Id)
                     && !u.IsProPlayer
                     && (u.IsHiddenPlayer || (hiddenUserIds != null && hiddenUserIds.Contains(u.Id))))
-                .OrderByDescending(u => eloStat[u]) // Sort by rating descending
-                .ThenBy(u => u.DisplayName)
                 .ToList();
+            
+            hiddenPlayersForNav.Sort(GetRatingComparison(eloStat, now));
             
             // Combine: ranked players first, then unranked, then hidden
             var allPlayersForNav = rankedPlayersForNav.Concat(unrankedPlayersForNav).Concat(hiddenPlayersForNav).ToList();

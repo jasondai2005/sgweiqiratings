@@ -229,18 +229,23 @@
                 }
             </tr>
 
-            @{ var currentPosition = 0; }
+            @{ 
+                var actualPosition = 0;  // Actual count of non-pro players
+                var displayPosition = 0; // Display position (handles ties)
+                double? previousRating = null;
+            }
             @foreach (var item in Model.Users)
             {
                 var isFemale = item.DisplayName?.Contains("♀") ?? false;
                 var prevRating = Model.PreviousRatings.TryGetValue(item.Id, out var pr) ? (double?)pr : null;
                 var prevPosition = Model.PreviousPositions.TryGetValue(item.Id, out var pp) ? (int?)pp : null;
-                var currentRating = double.TryParse(Model.Stats.First().GetResult(item), out var cr) ? cr : 0;
+                var currentRating = Model.CurrentRatings.TryGetValue(item.Id, out var cr) ? cr : 0;
                 // Player is "returning" only if they were previously ranked (had a position) but dropped off
                 // Players completing performance estimation have ratings but no previous position - they're NEW
                 var wasRankedBefore = prevPosition.HasValue;
                 var isProPlayer = item.IsProPlayer;
-                // Pro players show "Pro", others get sequential position numbers
+                
+                // Pro players show "Pro", non-pro players get position numbers with tie handling
                 string positionDisplay;
                 if (isProPlayer)
                 {
@@ -248,8 +253,19 @@
                 }
                 else
                 {
-                    currentPosition++;
-                    positionDisplay = currentPosition.ToString();
+                    // Increment actual position counter for non-pro players only
+                    actualPosition++;
+                    
+                    // Check if this player has same rating as previous player (tie)
+                    // First player or different rating: update display position
+                    if (!previousRating.HasValue || currentRating != previousRating.Value)
+                    {
+                        displayPosition = actualPosition;
+                    }
+                    // Same rating: keep same display position (tie)
+                    
+                    positionDisplay = displayPosition.ToString();
+                    previousRating = currentRating;
                 }
                 <tr>
                     <td style="@(hasComparison ? "padding-right: 2px;" : "")">
@@ -260,7 +276,7 @@
                         <td style="text-align: center; white-space: nowrap; font-size: 0.9em; padding-left: 2px;">
                             @if (!isProPlayer)
                             {
-                                @Html.Raw(FormatPositionChange(currentPosition, prevPosition, wasRankedBefore))
+                                @Html.Raw(FormatPositionChange(displayPosition, prevPosition, wasRankedBefore))
                             }
                         </td>
                     }

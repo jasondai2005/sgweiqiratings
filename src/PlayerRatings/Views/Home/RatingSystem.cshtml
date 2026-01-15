@@ -178,7 +178,7 @@
         <li><strong>所有外国段位棋手</strong>（无论段级位组织）</li>
         <li><strong>外国级位棋手</strong>（来自无可比段级位标准的组织）</li>
         <li><strong>未知棋手</strong>（无可验证段级位）</li>
-        <li><strong>新本地段位棋手</strong>（2025年起首次加入，仅前6局）</li>
+        <li><strong>所有本地段位棋手</strong>（SWA/TGA，前6局）</li>
         <li><strong>回归不活跃棋手</strong>（中断2年以上后，仅前6局）</li>
     </ol>
     <p class="note"><strong>注意：</strong>第4和第5项（本地段位棋手和回归棋手）仅在6局内使用动态K系数调整，<strong>不</strong>经过12局等级分修正，因为其本地段级位历史已提供足够准确的基准。</p>
@@ -275,8 +275,8 @@
             <tr><th>棋手类型</th><th>初始等级分</th><th>K系数</th><th>评估期</th></tr>
         </thead>
         <tbody>
-            <tr><td>本地级位（认可）</td><td>基于段级位</td><td>正常</td><td>隐藏12局</td></tr>
-            <tr><td>本地段位（2025年起新加入）</td><td>基于段级位</td><td>动态6局</td><td>可见</td></tr>
+            <tr><td>本地级位</td><td>基于段级位</td><td>正常</td><td>隐藏12局</td></tr>
+            <tr><td>本地段位</td><td>基于段级位</td><td>动态6局</td><td>可见</td></tr>
             <tr><td>外国级位（认可）</td><td>基于段级位</td><td>正常</td><td>隐藏12局</td></tr>
             <tr><td>外国级位（非认可）</td><td>基于段级位</td><td>动态12局</td><td>隐藏12局</td></tr>
             <tr><td>外国段位</td><td>基于段级位*</td><td>动态12局</td><td>隐藏12局</td></tr>
@@ -442,7 +442,7 @@ else
         <li><strong>All foreign dan players</strong> (regardless of ranking organization)</li>
         <li><strong>Foreign kyu players</strong> from organizations without comparable ranking standards</li>
         <li><strong>Unknown players</strong> with no verifiable ranking</li>
-        <li><strong>New local dan players</strong> (first joined from 2025, first 6 games only)</li>
+        <li><strong>All local dan players</strong> (SWA/TGA, first 6 games)</li>
         <li><strong>Returning inactive players</strong> (after 2+ year break, first 6 games)</li>
     </ol>
     <p class="note"><strong>Note:</strong> Items 4 and 5 (local dan players and returning players) only receive dynamic K-factor adjustment for 6 games. They do <strong>not</strong> undergo the 12-game rating correction, as their local ranking history provides sufficient baseline accuracy.</p>
@@ -539,8 +539,8 @@ Corrected Rating = Current Rating + (Correction × 0.5)</code></pre>
             <tr><th>Player Type</th><th>Initial Rating</th><th>K-Factor</th><th>Estimation Period</th></tr>
         </thead>
         <tbody>
-            <tr><td>Local kyu (recognized)</td><td>Ranking-based</td><td>Normal</td><td>Hidden 12 games</td></tr>
-            <tr><td>Local dan (new 2025+)</td><td>Ranking-based</td><td>Dynamic 6 games</td><td>Visible</td></tr>
+            <tr><td>Local kyu</td><td>Ranking-based</td><td>Normal</td><td>Hidden 12 games</td></tr>
+            <tr><td>Local dan</td><td>Ranking-based</td><td>Dynamic 6 games</td><td>Visible</td></tr>
             <tr><td>Foreign kyu (recognized)</td><td>Ranking-based</td><td>Normal</td><td>Hidden 12 games</td></tr>
             <tr><td>Foreign kyu (not recognized)</td><td>Ranking-based</td><td>Dynamic 12 games</td><td>Hidden 12 games</td></tr>
             <tr><td>Foreign dan</td><td>Ranking-based*</td><td>Dynamic 12 games</td><td>Hidden 12 games</td></tr>

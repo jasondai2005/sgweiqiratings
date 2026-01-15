@@ -465,12 +465,8 @@ namespace PlayerRatings.Engine.Stats
             {
                 if (_dict.TryGetValue(user.Id, out var rating))
                     return rating;
-                
-                // If user has no matches yet, use their latest ranking-based rating
-                if (user.FirstMatch == DateTimeOffset.MinValue)
-                    return user.GetRatingByRanking(user.LatestRanking);
-                
-                return user.GetRatingBeforeDate(user.FirstMatch.Date);
+
+                return user.GetRatingByRanking(user.LatestRanking);
             }
             set => _dict[user.Id] = value;
         }
