@@ -993,41 +993,6 @@ namespace PlayerRatings.Controllers
                 bool hasEnoughGames = !isNewForeignPlayer || playerMatchCount > 12;
                 if (playerMatchCount > 0 && hasEnoughGames)
                 {
-                    // Check if THIS player should be hidden at this point in time
-                    // Hidden if: new kyu player OR unknown ranked player with <= 12 matches
-                    bool isHiddenAtThisMonth = false;
-                    if (isSgLeague)
-                    {
-                        // Check if player is new kyu (any rank without 'D' in initial ranking)
-                        var ranking = player.InitRanking ?? string.Empty;
-                        bool isInitialKyu = !ranking.Contains('D', StringComparison.OrdinalIgnoreCase);
-                        
-                        // Check if unknown ranked player
-                        bool isUnknownRanked = player.IsUnknownRankedPlayer;
-                        
-                        // Hidden if new kyu OR unknown ranked, both with <= 12 matches at this time
-                        if ((isInitialKyu || isUnknownRanked) && playerMatchCount <= 12)
-                        {
-                            isHiddenAtThisMonth = true;
-                        }
-                    }
-                    
-                    // If player was hidden at this month, don't assign position
-                    if (isHiddenAtThisMonth)
-                    {
-                        monthlyRatings.Add(new MonthlyRating
-                        {
-                            Month = monthToCapture,
-                            Rating = currentEloStat[player],
-                            MatchesInMonth = matchesInCurrentMonth,
-                            Matches = new List<MatchInfo>(), // Don't show tournaments while hidden
-                            Position = 0, // No position while hidden
-                            TotalPlayers = 0,
-                            PromotionBonuses = new List<(string, string, string, string, double, DateTimeOffset?)>()
-                        });
-                        return;
-                    }
-                    
                     // Order tournaments by start date descending (latest at top)
                     var orderedMatches = matchInfosInCurrentMonth
                         .OrderByDescending(m => m.TournamentStartDate ?? DateTimeOffset.MinValue)
