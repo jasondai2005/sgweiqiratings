@@ -315,8 +315,9 @@ namespace PlayerRatings.Models
         }
 
         /// <summary>
-        /// New local dan player who started playing from 2025.
+        /// New local dan player who started playing from 2025, OR player with initial rating >= 2400 (SWA 4D+/TGA 5D+).
         /// These players have a local dan ranking (SWA like "2D" or TGA like "(2D)") but are new to the league.
+        /// High-dan players (rating >= 2400) get the same benefit regardless of when they started.
         /// Foreign dan players with square brackets "[2D]" are handled separately by IsUnknownRankedPlayer.
         /// Only monitored for 6 games since their local ranking is more reliable.
         /// </summary>
@@ -327,17 +328,25 @@ namespace PlayerRatings.Models
                 if (MatchCount > LOCAL_PLAYER_GAMES_THRESHOLD || IsProPlayer)
                     return false;
                 
-                // Must have first match in 2025 or later
-                if (FirstMatch == DateTimeOffset.MinValue || FirstMatch.Year < 2025)
-                    return false;
-                
                 GetCombinedRankingBeforeDate(FirstMatch, out PlayerRanking initialRanking);
                 if (initialRanking == null)
                     return false;
 
                 bool isDan = initialRanking.Ranking?.Contains('D', StringComparison.OrdinalIgnoreCase) ?? false;
+                if (!isDan || !IsLocalRanking(initialRanking))
+                    return false;
+
+                // High-dan players (rating >= 2400, which covers SWA 4D+ and TGA 5D+)
+                // get dynamic K-factor regardless of when they started since they have fewer tournaments
+                int initialRating = GetRatingByRanking(initialRanking);
+                if (initialRating >= 2400)
+                    return true;
                 
-                return isDan && IsLocalRanking(initialRanking);
+                // For other local dan players, must have first match in 2025 or later
+                if (FirstMatch == DateTimeOffset.MinValue || FirstMatch.Year < 2025)
+                    return false;
+                
+                return true;
             }
         }
 

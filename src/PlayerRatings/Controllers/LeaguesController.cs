@@ -41,9 +41,6 @@ namespace PlayerRatings.Controllers
 
         // Cache duration for league data (5 minutes)
         private static readonly TimeSpan LeagueCacheDuration = TimeSpan.FromMinutes(5);
-        
-        // Cache duration for rating calculations (2 minutes - shorter since ratings change)
-        private static readonly TimeSpan RatingsCacheDuration = TimeSpan.FromMinutes(2);
 
         public LeaguesController(ApplicationDbContext context, UserManager<ApplicationUser> userManager,
             ILeaguesRepository leaguesRepository, IWebHostEnvironment env, IMemoryCache cache)
@@ -487,8 +484,9 @@ namespace PlayerRatings.Controllers
             var firstDayOfCurrentMonth = new DateTimeOffset(date.Year, date.Month, 1, 0, 0, 0, date.Offset);
             comparisonDate = firstDayOfCurrentMonth.AddSeconds(-1); // Last second of previous month
             
-            // Run calculation for comparison date (use cached version since no callback needed)
-            var (prevEloStat, prevActiveUsers, _) = CalculateRatingsCached(
+            // Run calculation for comparison date (don't use cache to avoid stale user state)
+            // The cache can return user objects with MatchCount/IsHiddenPlayer state from different calculations
+            var (prevEloStat, prevActiveUsers, _) = CalculateRatings(
                 league, comparisonDate.Value, swaOnly,
                 allowedUserIds: notBlockedUserIds);
             
@@ -584,31 +582,6 @@ namespace PlayerRatings.Controllers
                 onMatchProcessed);
 
             return (eloStat, activeUsers, isSgLeague);
-        }
-        
-        /// <summary>
-        /// Cached version of rating calculation. Use when no match callback is needed.
-        /// Caches results for 2 minutes to avoid redundant calculations.
-        /// </summary>
-        private (EloStat eloStat, HashSet<ApplicationUser> activeUsers, bool isSgLeague) 
-            CalculateRatingsCached(
-                League league, 
-                DateTimeOffset cutoffDate, 
-                bool swaOnly,
-                HashSet<string> allowedUserIds = null)
-        {
-            // Create cache key from parameters (use end of month for cutoff to maximize cache hits)
-            var endOfMonth = GetEndOfMonth(cutoffDate);
-            string cacheKey = $"Ratings_{league.Id}_{endOfMonth:yyyyMMdd}_{swaOnly}";
-            
-            if (_cache.TryGetValue(cacheKey, out (EloStat eloStat, HashSet<ApplicationUser> activeUsers, bool isSgLeague) cached))
-            {
-                return cached;
-            }
-            
-            var result = CalculateRatings(league, cutoffDate, swaOnly, allowedUserIds);
-            _cache.Set(cacheKey, result, RatingsCacheDuration);
-            return result;
         }
 
         private int CompareByRatingAndName(ApplicationUser x, ApplicationUser y)
