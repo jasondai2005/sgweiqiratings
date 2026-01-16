@@ -487,8 +487,13 @@
                                     <td rowspan="@playerCount" style="text-align: center; vertical-align: middle;">@(team.Position?.ToString() ?? "-")</td>
                                     @if (Model.SupportsPersonalAward)
                                     {
+                                        // Count players marked as counting for team award (top 3)
+                                        var countingPlayers = team.Players.Count(p => p.CountsForTeamAward);
+                                        // Display sum without penalty (subtract 10000 for 2-player teams)
+                                        var displaySum = countingPlayers == 2 ? team.SumOfPlayerPositions - 10000 : team.SumOfPlayerPositions;
+                                        
                                         <td rowspan="@playerCount" style="white-space: nowrap; vertical-align: middle;" class="team-name">@team.TeamName</td>
-                                        <td rowspan="@playerCount" style="text-align: center; font-weight: bold; vertical-align: middle;">@team.SumOfPlayerPositions</td>
+                                        <td rowspan="@playerCount" style="text-align: center; font-weight: bold; vertical-align: middle;">@displaySum</td>
                                     }
                                 }
                                 @if (Model.SupportsPersonalAward)

@@ -251,9 +251,10 @@ namespace PlayerRatings.Controllers
                     int sumOfPositions = 0;
                     double totalWins = 0;
                     
-                    // If team has fewer than 3 players, add penalty (number of all players)
-                    int playerPenalty = countingPlayers.Count < 3 
-                        ? (3 - countingPlayers.Count) * tournament.TournamentPlayers.Count 
+                    // Teams with 2 players always rank lower than teams with 3+ players
+                    // Add a large penalty to ensure 2-player teams come after all 3-player teams
+                    int playerPenalty = countingPlayers.Count == 2 
+                        ? 10000  // Large penalty ensures 2-player teams always rank after 3-player teams
                         : 0;
                     
                     var teamPlayers = new List<TeamPlayerViewModel>();
@@ -2049,9 +2050,10 @@ namespace PlayerRatings.Controllers
                             var countingPlayers = players.Take(3).ToList();
                             int sumOfPositions = countingPlayers.Sum(tp => tp.Position ?? positions.GetValueOrDefault(tp.PlayerId, 0));
 
-                            // Penalty for teams with only 2 players
-                            if (countingPlayers.Count < 3)
-                                sumOfPositions += (3 - countingPlayers.Count) * tournament.TournamentPlayers.Count;
+                            // Teams with 2 players always rank lower than teams with 3+ players
+                            // Add a large penalty to ensure 2-player teams come after all 3-player teams
+                            if (countingPlayers.Count == 2)
+                                sumOfPositions += 10000;  // Same penalty as in CalculateTeamStandings
 
                             double totalWins = countingPlayers.Sum(tp =>
                                 swissStats.PlayerStats.TryGetValue(tp.PlayerId, out var s) ? s.Wins : 0);
