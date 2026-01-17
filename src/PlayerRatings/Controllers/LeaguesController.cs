@@ -552,7 +552,8 @@ namespace PlayerRatings.Controllers
         /// <param name="cutoffDate">Date to calculate ratings up to</param>
         /// <param name="swaOnly">Filter for SWA tournaments only</param>
         /// <param name="allowedUserIds">Optional filter - only include these user IDs (null = include all)</param>
-        /// <param name="onMatchProcessed">Optional callback for each match with EloStat (for monthly snapshots)</param>
+        /// <param name="onMatchProcessed">Optional callback for each match AFTER it's processed with EloStat</param>
+        /// <param name="onBeforeMatchProcessed">Optional callback for each match BEFORE it's processed with EloStat</param>
         /// <returns>Tuple of (EloStat, activeUsers, isSgLeague)</returns>
         private static (EloStat eloStat, HashSet<ApplicationUser> activeUsers, bool isSgLeague) 
             CalculateRatings(
@@ -560,7 +561,8 @@ namespace PlayerRatings.Controllers
                 DateTimeOffset cutoffDate, 
                 bool swaOnly,
                 HashSet<string> allowedUserIds = null,
-                Action<Match, EloStat> onMatchProcessed = null)
+                Action<Match, EloStat> onMatchProcessed = null,
+                Action<Match, EloStat> onBeforeMatchProcessed = null)
         {
             bool isSgLeague = league.Name?.Contains("Singapore Weiqi") ?? false;
             
@@ -570,7 +572,8 @@ namespace PlayerRatings.Controllers
                 swaOnly,
                 isSgLeague,
                 allowedUserIds,
-                onMatchProcessed);
+                onMatchProcessed,
+                onBeforeMatchProcessed);
 
             return (eloStat, activeUsers, isSgLeague);
         }
@@ -910,27 +913,13 @@ namespace PlayerRatings.Controllers
             var playerLastMatchDates = new Dictionary<string, DateTimeOffset>();
             var allPlayersInMatches = new Dictionary<string, ApplicationUser>();
             
-            // Callback to capture monthly snapshots during processing
-            void OnMatchProcessed(Match match, EloStat elo)
+            // Callback to capture monthly snapshots BEFORE processing each match
+            void OnBeforeMatchProcessed(Match match, EloStat elo)
             {
                 currentEloStat = elo;
                 var matchMonth = GetEndOfMonth(match.Date.DateTime);
 
-                // Track all players for position calculation (skip NULL players for bye matches)
-                // Only track rated matches (Factor != 0) to avoid unrated matches affecting activity status
-                if (match.Factor != 0)
-                {
-                    if (!string.IsNullOrEmpty(match.FirstPlayerId) && !allPlayersInMatches.ContainsKey(match.FirstPlayerId))
-                        allPlayersInMatches[match.FirstPlayerId] = match.FirstPlayer;
-                    if (!string.IsNullOrEmpty(match.SecondPlayerId) && !allPlayersInMatches.ContainsKey(match.SecondPlayerId))
-                        allPlayersInMatches[match.SecondPlayerId] = match.SecondPlayer;
-                    if (!string.IsNullOrEmpty(match.FirstPlayerId))
-                        playerLastMatchDates[match.FirstPlayerId] = match.Date;
-                    if (!string.IsNullOrEmpty(match.SecondPlayerId))
-                        playerLastMatchDates[match.SecondPlayerId] = match.Date;
-                }
-
-                // When month changes, capture snapshot of previous month
+                // When month changes, capture snapshot of previous month BEFORE processing this match
                 if (matchMonth > currentProcessingMonth && currentProcessingMonth.Year > 1900)
                 {
                     CaptureSnapshot(currentProcessingMonth);
@@ -949,6 +938,24 @@ namespace PlayerRatings.Controllers
                     }
                 }
                 currentProcessingMonth = matchMonth;
+            }
+            
+            // Callback to track player stats and tournament info AFTER processing each match
+            void OnMatchProcessed(Match match, EloStat elo)
+            {
+                // Track all players for position calculation (skip NULL players for bye matches)
+                // Only track rated matches (Factor != 0) to avoid unrated matches affecting activity status
+                if (match.Factor != 0)
+                {
+                    if (!string.IsNullOrEmpty(match.FirstPlayerId) && !allPlayersInMatches.ContainsKey(match.FirstPlayerId))
+                        allPlayersInMatches[match.FirstPlayerId] = match.FirstPlayer;
+                    if (!string.IsNullOrEmpty(match.SecondPlayerId) && !allPlayersInMatches.ContainsKey(match.SecondPlayerId))
+                        allPlayersInMatches[match.SecondPlayerId] = match.SecondPlayer;
+                    if (!string.IsNullOrEmpty(match.FirstPlayerId))
+                        playerLastMatchDates[match.FirstPlayerId] = match.Date;
+                    if (!string.IsNullOrEmpty(match.SecondPlayerId))
+                        playerLastMatchDates[match.SecondPlayerId] = match.Date;
+                }
 
                 // Track this player's monthly stats (only for rated matches)
                 // Unrated matches (Factor=0 like handicap games) don't count toward rating
@@ -1052,7 +1059,8 @@ namespace PlayerRatings.Controllers
                 DateTimeOffset.UtcNow, 
                 swaOnly,
                 allowedUserIds: notBlockedUserIds,
-                onMatchProcessed: OnMatchProcessed);
+                onMatchProcessed: OnMatchProcessed,
+                onBeforeMatchProcessed: OnBeforeMatchProcessed);
             currentEloStat = eloStat;
             
             // Capture final month and fill remaining months

@@ -128,7 +128,8 @@ namespace PlayerRatings.Engine.Rating
         /// <param name="swaOnly">Filter for SWA tournaments only</param>
         /// <param name="isSgLeague">Whether this is the Singapore Weiqi league</param>
         /// <param name="allowedUserIds">Optional filter - only include these user IDs (null = include all)</param>
-        /// <param name="onMatchProcessed">Optional callback for each match with EloStat (for monthly snapshots)</param>
+        /// <param name="onMatchProcessed">Optional callback for each match AFTER it's processed with EloStat</param>
+        /// <param name="onBeforeMatchProcessed">Optional callback for each match BEFORE it's processed with EloStat</param>
         /// <returns>Tuple of (EloStat with calculated ratings, activeUsers set)</returns>
         public static (EloStat eloStat, HashSet<ApplicationUser> activeUsers) CalculateRatings(
             IEnumerable<Match> allMatches,
@@ -137,6 +138,7 @@ namespace PlayerRatings.Engine.Rating
             bool isSgLeague,
             HashSet<string> allowedUserIds = null,
             Action<Match, EloStat> onMatchProcessed = null,
+            Action<Match, EloStat> onBeforeMatchProcessed = null,
             DateTimeOffset? startDate = null)
         {
             // Reset player transient state at the start
@@ -152,6 +154,9 @@ namespace PlayerRatings.Engine.Rating
             bool promotionBeforeStartDateChecked = false;
             foreach (var match in matches)
             {
+                // Call before callback BEFORE processing the match
+                onBeforeMatchProcessed?.Invoke(match, eloStat);
+
                 if (!promotionBeforeStartDateChecked && startDate.HasValue && match.Date > startDate)
                 {
                     // Apply promotions up to start date before processing matches
@@ -179,6 +184,7 @@ namespace PlayerRatings.Engine.Rating
                     continue; // Bye match, skip
                 }
 
+                // Call after callback AFTER processing the match
                 onMatchProcessed?.Invoke(match, eloStat);
             }
 
