@@ -59,15 +59,82 @@
     
     // Helper to calculate promotion hint based on player rating and ranking
     // Shows the highest rank a player qualifies for based on their current rating
+    // For unknown players, suggests an appropriate ranking based on their rating
     (string tooltip, string style) GetPromotionHint(ApplicationUser player, double currentRating)
     {
-        // Skip Pro players and players with unknown ranking
-        if (player.IsProPlayer || string.IsNullOrEmpty(player.RankingBeforeCutoffDate))
+        // Skip Pro players
+        if (player.IsProPlayer)
             return (null, null);
         
-        var currentRankingStr = player.RankingBeforeCutoffDate;
+        // Get the ranking object (not just the string) to check the actual organization
+        var currentRankingStr = player.GetCombinedRankingBeforeDate(League.CutoffDate, out PlayerRanking effectiveRanking);
         
-        // Parse current ranking
+        // Handle unknown players - suggest a ranking based on their rating
+        // This includes: empty rankings, guessed rankings (with "?"), and foreign-only rankings
+        // TGA is a local ranking and should use promotion hints, not suggestions
+        bool isUnknownRanking = string.IsNullOrEmpty(currentRankingStr) || 
+                                currentRankingStr.Contains("?") ||
+                                (effectiveRanking != null && effectiveRanking.Organization != "SWA" && effectiveRanking.Organization != "TGA");
+        
+        if (isUnknownRanking)
+        {
+            string suggestedRank = GetSuggestedRankFromRating(currentRating);
+            if (!string.IsNullOrEmpty(suggestedRank))
+            {
+                int suggestedRating = RatingCalculator.CalculateRating(suggestedRank, "SWA", !Model.IsSgLeague);
+                
+                // Check if we should add "+" (rating is at least 50% of the way to next rank)
+                const double PLUS_FLOOR_PERCENTAGE = 0.5;
+                string displayRank = suggestedRank;
+                var suggestedMatch = System.Text.RegularExpressions.Regex.Match(suggestedRank.ToUpper(), @"(\d+)([KD])");
+                if (suggestedMatch.Success)
+                {
+                    int suggestedRankNum = int.Parse(suggestedMatch.Groups[1].Value);
+                    char suggestedRankType = suggestedMatch.Groups[2].Value[0];
+                    
+                    // Check if rating is at least 50% of the way to the next higher rank
+                    // Exclude 6D and 7D from getting "+"
+                    if (suggestedRankType == 'D' && suggestedRankNum < 5)
+                    {
+                        int currentFloor = RatingCalculator.GetDanRating(suggestedRankNum);
+                        int nextDanFloor = RatingCalculator.GetDanRating(suggestedRankNum + 1);
+                        int distance = nextDanFloor - currentFloor;
+                        if (currentRating >= currentFloor + distance * PLUS_FLOOR_PERCENTAGE)
+                            displayRank += "+";
+                    }
+                    else if (suggestedRankType == 'K')
+                    {
+                        int currentFloor = RatingCalculator.GetKyuRating(suggestedRankNum);
+                        if (suggestedRankNum == 1)
+                        {
+                            // 1K -> check 50% to 1D
+                            int oneDFloor = RatingCalculator.GetDanRating(1);
+                            int distance = oneDFloor - currentFloor;
+                            if (currentRating >= currentFloor + distance * PLUS_FLOOR_PERCENTAGE)
+                                displayRank += "+";
+                        }
+                        else
+                        {
+                            // Check 50% to next kyu
+                            int nextKyuFloor = RatingCalculator.GetKyuRating(suggestedRankNum - 1);
+                            int distance = nextKyuFloor - currentFloor;
+                            if (currentRating >= currentFloor + distance * PLUS_FLOOR_PERCENTAGE)
+                                displayRank += "+";
+                        }
+                    }
+                }
+                
+                // Blue style for ranking suggestions (informational)
+                var suggestRankingText = LocString[nameof(LocalizationKey.SuggestRanking)].Value;
+                var targetText = LocString[nameof(LocalizationKey.TargetAverage)].Value;
+                var currentText = LocString[nameof(LocalizationKey.Current)].Value;
+                return ($"{suggestRankingText}: {displayRank} ({targetText}: {suggestedRating}, {currentText}: {currentRating:F1})", 
+                        "font-weight: bold; color: #17a2b8;");
+            }
+            return (null, null);
+        }
+        
+        // Parse current ranking for promotion hints
         var (currentGrade, currentOrg) = RatingCalculator.ParseRankingString(currentRankingStr);
         if (string.IsNullOrEmpty(currentGrade))
             return (null, null);
@@ -108,14 +175,15 @@
                 checkRankType = 'D';
                 checkRankNum = 1;
             }
-            else if (checkRankType == 'D' && checkRankNum < 7)
+            else if (checkRankType == 'D' && checkRankNum < 5)
             {
+                // Only promote up to 5D, exclude 6D and 7D
                 nextRankGrade = $"{checkRankNum + 1}D";
                 checkRankNum++;
             }
             else
             {
-                // Reached 7D or Pro - no more promotions
+                // Reached 5D or higher - no more promotions
                 break;
             }
             
@@ -138,11 +206,74 @@
         // If player qualifies for at least one promotion, show hint
         if (!string.IsNullOrEmpty(highestQualifiedRank))
         {
-            return ($"Hint for Promotion to {highestQualifiedRank} (Target: {highestQualifiedRating}, Current: {currentRating:F1})", 
+            // Orange style for promotion hints (actionable opportunity)
+            var hintPromotionText = LocString[nameof(LocalizationKey.HintForPromotionTo)].Value;
+            var targetText = LocString[nameof(LocalizationKey.TargetAverage)].Value;
+            var currentText = LocString[nameof(LocalizationKey.Current)].Value;
+            return ($"{hintPromotionText} {highestQualifiedRank} ({targetText}: {highestQualifiedRating}, {currentText}: {currentRating:F1})", 
                     "font-weight: bold; color: #fd7e14;");
         }
         
         return (null, null);
+    }
+    
+    // Helper to suggest a ranking based on rating for unknown players
+    string GetSuggestedRankFromRating(double rating)
+    {
+        // Don't suggest rankings for players qualifying for 6D or above
+        int sixDFloor = RatingCalculator.GetDanRating(6);
+        if (rating >= sixDFloor)
+            return string.Empty;
+        
+        // Round up if within 25% away from next rank (75% of the way there)
+        const double ROUND_UP_PERCENTAGE = 0.75;
+        
+        // Check dan ranks from 5D down to 1D (exclude 6D and 7D)
+        for (int dan = 5; dan >= 1; dan--)
+        {
+            int danRating = RatingCalculator.GetDanRating(dan);
+            if (rating >= danRating)
+            {
+                // Check if close to next rank (round up at 75% threshold)
+                if (dan < 5)
+                {
+                    int nextDanRating = RatingCalculator.GetDanRating(dan + 1);
+                    int distance = nextDanRating - danRating;
+                    if (rating >= danRating + distance * ROUND_UP_PERCENTAGE)
+                        return $"{dan + 1}D"; // Round up to next rank
+                }
+                return $"{dan}D";
+            }
+        }
+        
+        // Check kyu ranks from 1K to 30K
+        for (int kyu = 1; kyu <= 30; kyu++)
+        {
+            int kyuRating = RatingCalculator.GetKyuRating(kyu);
+            if (rating >= kyuRating)
+            {
+                // Check if close to next rank (round up at 75% threshold)
+                // Next rank for kyu: 1K -> 1D, otherwise kyu-1
+                if (kyu == 1)
+                {
+                    int nextRating = RatingCalculator.GetDanRating(1);
+                    int distance = nextRating - kyuRating;
+                    if (rating >= kyuRating + distance * ROUND_UP_PERCENTAGE)
+                        return "1D"; // Round up to 1D
+                }
+                else if (kyu > 1)
+                {
+                    int nextKyuRating = RatingCalculator.GetKyuRating(kyu - 1);
+                    int distance = nextKyuRating - kyuRating;
+                    if (rating >= kyuRating + distance * ROUND_UP_PERCENTAGE)
+                        return $"{kyu - 1}K"; // Round up to next kyu
+                }
+                return $"{kyu}K";
+            }
+        }
+        
+        // If rating is below 30K, suggest 30K as minimum
+        return "30K";
     }
 }
 

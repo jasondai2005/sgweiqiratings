@@ -469,6 +469,9 @@ namespace PlayerRatings.Localization
         public static readonly LocalizationKey CreateNewTournament = new LocalizationKey("Create New Tournament", "创建新赛事");
         public static readonly LocalizationKey DeleteThisRanking = new LocalizationKey("Delete this ranking?", "删除此段位？");
         public static readonly LocalizationKey ConfirmDeleteAction = new LocalizationKey("This action cannot be undone. Are you absolutely sure?", "此操作无法撤销。确定要继续吗？");
+        public static readonly LocalizationKey HintForPromotionTo = new LocalizationKey("Hint for Promotion to", "建议升段至");
+        public static readonly LocalizationKey SuggestRanking = new LocalizationKey("Suggest Ranking", "建议定段");
+        public static readonly LocalizationKey TargetAverage = new LocalizationKey("Target Average", "目标平均");
 
         private const string En = "en";
         private const string Cn = "cn";
