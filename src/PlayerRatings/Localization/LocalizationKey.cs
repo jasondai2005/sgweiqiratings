@@ -326,7 +326,7 @@ namespace PlayerRatings.Localization
         public static readonly LocalizationKey Overall = new LocalizationKey("Overall", "总计");
         public static readonly LocalizationKey ThisYear = new LocalizationKey("This Year", "今年");
         public static readonly LocalizationKey LastYear = new LocalizationKey("Last Year", "去年");
-        public static readonly LocalizationKey Games = new LocalizationKey("Games", "对局");
+        public static readonly LocalizationKey Games = new LocalizationKey("Rated Games", "等级分对局");
         public static readonly LocalizationKey Wins = new LocalizationKey("Wins", "胜");
         public static readonly LocalizationKey Losses = new LocalizationKey("Losses", "负");
         public static readonly LocalizationKey New = new LocalizationKey("NEW", "进榜");

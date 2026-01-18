@@ -140,7 +140,7 @@
                             @foreach (var title in Model.ActiveTitles)
                             {
                                 <span style="color: #8b0000; font-weight: bold;">@title.GetLocalizedTitle(LanguageData.CurrentLanguage)</span>
-                                <span style="color: #666; font-size: 0.85em;">(@title.WonDate.ToString("yyyy"))</span>
+                                <span style="color: #666; font-size: 0.85em;">(@title.EffectiveYear)</span>
                             }
                         </p>
                         }
@@ -150,14 +150,14 @@
                             @foreach (var title in Model.FormerTitles)
                             {
                                 <span style="color: #666;">@title.GetLocalizedTitle(LanguageData.CurrentLanguage)</span>
-                                <span style="font-size: 0.85em;">(@title.WonDate.ToString("yyyy"))</span>
+                                <span style="font-size: 0.85em;">(@title.EffectiveYear)</span>
                             }
                         </p>
                         }
                     </div>
                 </div>
                 
-                @if (Model.TotalGames > 0 || Model.TotalTournaments > 0)
+                @if (Model.TotalGames > 0 || Model.TotalTournaments > 0 || Model.ChampionshipCount > 0 || Model.TeamChampionshipCount > 0 || Model.FemaleChampionshipCount > 0 || Model.IntlSelectionCount > 0)
                 {
                 <!-- Statistics Section -->
                 <hr style="margin: 10px 0;" />

@@ -355,6 +355,7 @@ namespace PlayerRatings.ViewModels.Player
         public string TitleEn { get; set; }
         public string TitleCn { get; set; }
         public DateTimeOffset WonDate { get; set; }
+        public string EffectiveYear => (WonDate.Month == 12 ? WonDate.AddYears(1) : WonDate).ToString("yyyy");
         public string TournamentName { get; set; }
         
         /// <summary>
