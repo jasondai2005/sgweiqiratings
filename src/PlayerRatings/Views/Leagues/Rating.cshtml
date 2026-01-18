@@ -1,4 +1,5 @@
 ﻿@using PlayerRatings.Localization
+@using PlayerRatings.Engine.Rating
 @model PlayerRatings.ViewModels.League.RatingViewModel
 
 @{
@@ -54,6 +55,94 @@
         if (Math.Abs(diff) < 0.1) return ""; // No significant change - show empty
         if (diff > 0) return $"<span style=\"color: #28a745;\">+{diff:F1}</span>";
         return $"<span style=\"color: #dc3545;\">{diff:F1}</span>";
+    }
+    
+    // Helper to calculate promotion hint based on player rating and ranking
+    // Shows the highest rank a player qualifies for based on their current rating
+    (string tooltip, string style) GetPromotionHint(ApplicationUser player, double currentRating)
+    {
+        // Skip Pro players and players with unknown ranking
+        if (player.IsProPlayer || string.IsNullOrEmpty(player.RankingBeforeCutoffDate))
+            return (null, null);
+        
+        var currentRankingStr = player.RankingBeforeCutoffDate;
+        
+        // Parse current ranking
+        var (currentGrade, currentOrg) = RatingCalculator.ParseRankingString(currentRankingStr);
+        if (string.IsNullOrEmpty(currentGrade))
+            return (null, null);
+        
+        currentGrade = currentGrade.ToUpper();
+        
+        // Extract rank number and type
+        if (!System.Text.RegularExpressions.Regex.IsMatch(currentGrade, @"\d+[KDP]"))
+            return (null, null);
+        
+        var match = System.Text.RegularExpressions.Regex.Match(currentGrade, @"(\d+)([KDP])");
+        if (!match.Success)
+            return (null, null);
+        
+        int rankNum = int.Parse(match.Groups[1].Value);
+        char rankType = match.Groups[2].Value[0];
+        
+        // Find the highest rank the player qualifies for
+        string highestQualifiedRank = null;
+        int highestQualifiedRating = 0;
+        
+        // Check successive ranks until we find one they don't qualify for
+        int checkRankNum = rankNum;
+        char checkRankType = rankType;
+        
+        while (true)
+        {
+            // Calculate next rank
+            string nextRankGrade = null;
+            if (checkRankType == 'K' && checkRankNum > 1)
+            {
+                nextRankGrade = $"{checkRankNum - 1}K";
+                checkRankNum--;
+            }
+            else if (checkRankType == 'K' && checkRankNum == 1)
+            {
+                nextRankGrade = "1D";
+                checkRankType = 'D';
+                checkRankNum = 1;
+            }
+            else if (checkRankType == 'D' && checkRankNum < 7)
+            {
+                nextRankGrade = $"{checkRankNum + 1}D";
+                checkRankNum++;
+            }
+            else
+            {
+                // Reached 7D or Pro - no more promotions
+                break;
+            }
+            
+            // Calculate next rank's rating (use SWA for consistency)
+            int nextRankRating = RatingCalculator.CalculateRating(nextRankGrade, "SWA", !Model.IsSgLeague);
+            
+            // Check if player qualifies for this rank
+            if (currentRating >= nextRankRating)
+            {
+                highestQualifiedRank = nextRankGrade;
+                highestQualifiedRating = nextRankRating;
+            }
+            else
+            {
+                // Player doesn't qualify for this rank, stop checking
+                break;
+            }
+        }
+        
+        // If player qualifies for at least one promotion, show hint
+        if (!string.IsNullOrEmpty(highestQualifiedRank))
+        {
+            return ($"Hint for Promotion to {highestQualifiedRank} (Target: {highestQualifiedRating}, Current: {currentRating:F1})", 
+                    "font-weight: bold; color: #fd7e14;");
+        }
+        
+        return (null, null);
     }
 }
 
@@ -289,10 +378,19 @@
                     <td>
                         @item.RankingBeforeCutoffDate.ToUpper()
                     </td>
-                    @{ var userStatIndex = 0; }
+                    @{ 
+                        var userStatIndex = 0;
+                        var (promotionTooltip, promotionStyle) = GetPromotionHint(item, currentRating);
+                    }
                     @foreach (var res in Model.Stats)
                     {
-                        <td style="@(hasComparison && userStatIndex == 0 ? "padding-right: 2px;" : "")" class="@(userStatIndex > 0 ? "hide-mobile" : "")">
+                        var cellStyle = (hasComparison && userStatIndex == 0 ? "padding-right: 2px;" : "");
+                        if (userStatIndex == 0 && !string.IsNullOrEmpty(promotionStyle))
+                        {
+                            cellStyle += " " + promotionStyle;
+                        }
+                        <td style="@cellStyle" class="@(userStatIndex > 0 ? "hide-mobile" : "")" 
+                            @if (userStatIndex == 0 && !string.IsNullOrEmpty(promotionTooltip)) { <text>title="@promotionTooltip"</text> }>
                             @res.GetResult(item)
                         </td>
                         @if (hasComparison && userStatIndex == 0)
@@ -341,10 +439,21 @@
                         </td>
                         <td class="hide-mobile">@item.BirthYearU18</td>
                         <td>@item.RankingBeforeCutoffDate.ToUpper()</td>
-                        @{ var nlStatIndex = 0; }
+                        @{ 
+                            var nlStatIndex = 0;
+                            var (nlPromotionTooltip, nlPromotionStyle) = GetPromotionHint(item, currentRating);
+                        }
                         @foreach (var res in Model.Stats)
                         {
-                            <td style="@(hasComparison && nlStatIndex == 0 ? "padding-right: 2px;" : "")" class="@(nlStatIndex > 0 ? "hide-mobile" : "")">@res.GetResult(item)</td>
+                            var nlCellStyle = (hasComparison && nlStatIndex == 0 ? "padding-right: 2px;" : "");
+                            if (nlStatIndex == 0 && !string.IsNullOrEmpty(nlPromotionStyle))
+                            {
+                                nlCellStyle += " " + nlPromotionStyle;
+                            }
+                            <td style="@nlCellStyle" class="@(nlStatIndex > 0 ? "hide-mobile" : "")"
+                                @if (nlStatIndex == 0 && !string.IsNullOrEmpty(nlPromotionTooltip)) { <text>title="@nlPromotionTooltip"</text> }>
+                                @res.GetResult(item)
+                            </td>
                             @if (hasComparison && nlStatIndex == 0)
                             {
                                 <td style="text-align: center; white-space: nowrap; font-size: 0.9em; padding-left: 2px;">
@@ -389,10 +498,21 @@
                         </td>
                         <td class="hide-mobile">@item.BirthYearU18</td>
                         <td>@item.RankingBeforeCutoffDate.ToUpper()</td>
-                        @{ var inStatIndex = 0; }
+                        @{ 
+                            var inStatIndex = 0;
+                            var (inPromotionTooltip, inPromotionStyle) = GetPromotionHint(item, currentRating);
+                        }
                         @foreach (var res in Model.Stats)
                         {
-                            <td style="color: #999; @(hasComparison && inStatIndex == 0 ? "padding-right: 2px;" : "")" class="@(inStatIndex > 0 ? "hide-mobile" : "")">@res.GetResult(item)</td>
+                            var inCellStyle = "color: #999; " + (hasComparison && inStatIndex == 0 ? "padding-right: 2px;" : "");
+                            if (inStatIndex == 0 && !string.IsNullOrEmpty(inPromotionStyle))
+                            {
+                                inCellStyle += " " + inPromotionStyle;
+                            }
+                            <td style="@inCellStyle" class="@(inStatIndex > 0 ? "hide-mobile" : "")"
+                                @if (inStatIndex == 0 && !string.IsNullOrEmpty(inPromotionTooltip)) { <text>title="@inPromotionTooltip"</text> }>
+                                @res.GetResult(item)
+                            </td>
                             @if (hasComparison && inStatIndex == 0)
                             {
                                 <td style="text-align: center; white-space: nowrap; font-size: 0.9em; padding-left: 2px;">
